@@ -1,5 +1,13 @@
 """Core building blocks for the trading-focused OurAI project."""
 
+from .baseline import (
+    BaselineConfig,
+    BaselineFeatureSchema,
+    BaselineFitSummary,
+    UnifiedLinearBaseline,
+    fit_unified_linear_baseline,
+    forecast_samples,
+)
 from .context import (
     ContextJoinResult,
     ContextObservation,
@@ -52,6 +60,12 @@ from .validation import (
 )
 
 __all__ = [
+    "BaselineConfig",
+    "BaselineFeatureSchema",
+    "BaselineFitSummary",
+    "UnifiedLinearBaseline",
+    "fit_unified_linear_baseline",
+    "forecast_samples",
     "ContextJoinResult",
     "ContextObservation",
     "ContextSourcePolicy",
