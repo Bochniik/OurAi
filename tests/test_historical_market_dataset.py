@@ -164,7 +164,7 @@ class HistoricalMarketDatasetTests(unittest.TestCase):
             self.assertEqual(len(manifest["source_cache"]["sha256"]), 64)
             self.assertEqual(len(manifest["dataset_id"]), 20)
             self.assertEqual(manifest["dataset"]["market_date_count"], 4)
-            self.assertEqual(manifest["dataset"]["symbols"].keys(), {"AAPL"}.keys())
+            self.assertEqual(set(manifest["dataset"]["symbols"]), {"AAPL"})
             split_dates = manifest["dataset"]["splits"]
             self.assertEqual(len(split_dates["train"]["market_dates"]), 2)
             self.assertEqual(len(split_dates["validation"]["market_dates"]), 1)
