@@ -2,7 +2,7 @@
 __pycache__/
 *.py[cod]
 
-# Virtual environment
+# Virtual environments
 .venv/
 venv/
 
@@ -18,14 +18,18 @@ checkpoints/
 *.pth
 *.ckpt
 
-# Large/generated datasets
+# Generated / large datasets
 data/corpus/
 data/processed/
+data/splits/
 *.bin
 
-# Logs
+# Logs and caches
 logs/
 *.log
-
-# Cache
 .cache/
+.pytest_cache/
+
+# Local experiment outputs
+runs/
+artifacts/
