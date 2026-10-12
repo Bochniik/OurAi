@@ -1,5 +1,11 @@
 """Core building blocks for the trading-focused OurAI project."""
 
+from .context import (
+    ContextJoinResult,
+    ContextObservation,
+    ContextSourcePolicy,
+    join_point_in_time_context,
+)
 from .dataset import (
     DEFAULT_HORIZONS_MINUTES,
     MarketBar,
@@ -17,6 +23,10 @@ from .ingestion import (
 )
 
 __all__ = [
+    "ContextJoinResult",
+    "ContextObservation",
+    "ContextSourcePolicy",
+    "join_point_in_time_context",
     "DEFAULT_HORIZONS_MINUTES",
     "MarketBar",
     "TradingSample",
