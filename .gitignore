@@ -1,0 +1,35 @@
+# Python
+__pycache__/
+*.py[cod]
+
+# Virtual environments
+.venv/
+venv/
+
+# IDE / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Model checkpoints
+checkpoints/
+*.pt
+*.pth
+*.ckpt
+
+# Generated / large datasets
+data/corpus/
+data/processed/
+data/splits/
+*.bin
+
+# Logs and caches
+logs/
+*.log
+.cache/
+.pytest_cache/
+
+# Local experiment outputs
+runs/
+artifacts/
