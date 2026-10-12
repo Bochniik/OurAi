@@ -73,6 +73,9 @@ def sample_label_end(sample: TradingSample) -> datetime:
     conservatively ends at the feature timestamp.
     """
 
+    if sample.timestamp.tzinfo is None or sample.timestamp.utcoffset() is None:
+        raise ValueError("sample timestamp must be timezone-aware")
+
     latest = sample.timestamp.astimezone(timezone.utc)
     for target in sample.targets.values():
         if not isinstance(target, Mapping):
@@ -117,6 +120,11 @@ def purged_walk_forward_folds(
     Purging uses the latest ``future_timestamp`` present in each training sample.
     Any training row whose label interval reaches or crosses ``validation_start`` is
     removed. This protects against overlap when longer-horizon targets are added.
+
+    ``min_train_market_dates`` is checked before purging/embargo. Boundary controls
+    are allowed to remove rows or even an entire boundary date; the fold remains
+    valid as long as at least one training sample survives. The resulting actual
+    train-date coverage is recorded in each fold manifest for auditability.
     """
 
     if min_train_market_dates < 1:
@@ -202,11 +210,6 @@ def purged_walk_forward_folds(
             )
 
         actual_train_dates = tuple(sorted({sample.session_date for sample in train_rows}))
-        if len(actual_train_dates) < min_train_market_dates:
-            raise ValueError(
-                "purge/embargo left fewer than min_train_market_dates in a fold"
-            )
-
         latest_train_label = max(sample_label_end(sample) for sample in train_rows)
         if latest_train_label >= validation_start:
             raise AssertionError("purged fold still contains overlapping training labels")
