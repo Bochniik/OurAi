@@ -27,6 +27,12 @@ from .ingestion import (
     sha256_file,
     write_samples_jsonl,
 )
+from .orion_adapter import (
+    OrionAdapterConfig,
+    OrionAdapterResult,
+    normalize_orion_rows,
+    orion_row_to_market_bar,
+)
 from .validation import (
     WalkForwardFold,
     purged_walk_forward_folds,
@@ -54,6 +60,10 @@ __all__ = [
     "prepare_trading_dataset",
     "sha256_file",
     "write_samples_jsonl",
+    "OrionAdapterConfig",
+    "OrionAdapterResult",
+    "normalize_orion_rows",
+    "orion_row_to_market_bar",
     "WalkForwardFold",
     "purged_walk_forward_folds",
     "sample_label_end",
