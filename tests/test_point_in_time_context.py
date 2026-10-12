@@ -62,6 +62,24 @@ class PointInTimeContextTests(unittest.TestCase):
         self.assertEqual(enriched.features["ctx__news__sentiment"], 0.4)
         self.assertEqual(enriched.features["ctx__news__age_minutes"], 2.0)
 
+    def test_scheduled_future_event_can_be_known_in_advance(self) -> None:
+        sample = self._sample(minute=10)
+        observations = [
+            ContextObservation(
+                source="earnings_calendar",
+                event_time=sample.timestamp + timedelta(days=2),
+                available_at=sample.timestamp - timedelta(hours=1),
+                scope="symbol",
+                entity="NVDA",
+                features={"days_to_event": 2.0},
+                observation_id="scheduled-earnings",
+            )
+        ]
+        result = join_point_in_time_context([sample], observations)
+        enriched = result.samples[0]
+        self.assertEqual(enriched.features["ctx__earnings_calendar__available"], 1.0)
+        self.assertEqual(enriched.features["ctx__earnings_calendar__days_to_event"], 2.0)
+
     def test_symbol_scope_overrides_global_feature_from_same_source(self) -> None:
         sample = self._sample()
         observations = [
@@ -88,7 +106,7 @@ class PointInTimeContextTests(unittest.TestCase):
         self.assertEqual(enriched.features["ctx__regime__volatility"], 0.7)
         self.assertEqual(len(result.audit[0]["sources"]["regime"]), 2)
 
-    def test_sector_context_requires_explicit_point_in_time_symbol_mapping(self) -> None:
+    def test_sector_context_requires_explicit_symbol_mapping(self) -> None:
         sample = self._sample(symbol="NVDA")
         observations = [
             ContextObservation(
@@ -202,16 +220,6 @@ class PointInTimeContextTests(unittest.TestCase):
         self.assertEqual(one.targets, first.targets)
         self.assertEqual(two.targets, second.targets)
         self.assertGreater(two.features["context_missing_fraction"], 0.0)
-
-    def test_invalid_temporal_order_is_rejected(self) -> None:
-        timestamp = datetime(2026, 1, 5, 15, 10, tzinfo=timezone.utc)
-        with self.assertRaises(ValueError):
-            ContextObservation(
-                source="news",
-                event_time=timestamp + timedelta(minutes=1),
-                available_at=timestamp,
-                features={"sentiment": 0.1},
-            )
 
 
 if __name__ == "__main__":
