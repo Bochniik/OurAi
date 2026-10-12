@@ -19,6 +19,7 @@ checkpoints/
 *.ckpt
 
 # Generated / large datasets
+data/raw/
 data/corpus/
 data/processed/
 data/splits/
