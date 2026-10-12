@@ -58,7 +58,7 @@ def _code_revision(explicit: str | None) -> str:
 def _dataset_provenance(
     train: Path,
     validation: Path,
-    test: Path,
+    test: Path | None,
     manifest: Path | None,
 ) -> dict[str, Any]:
     if manifest is not None:
@@ -66,14 +66,17 @@ def _dataset_provenance(
         if not isinstance(payload, dict):
             raise ValueError("dataset manifest must be a JSON object")
         return payload
+
+    splits: dict[str, Any] = {
+        "train": {"path": train.name, "sha256": sha256_file(train)},
+        "validation": {"path": validation.name, "sha256": sha256_file(validation)},
+    }
+    if test is not None:
+        splits["test"] = {"path": test.name, "sha256": sha256_file(test)}
     return {
         "schema_version": 1,
         "source": "prepared_jsonl_splits",
-        "splits": {
-            "train": {"path": train.name, "sha256": sha256_file(train)},
-            "validation": {"path": validation.name, "sha256": sha256_file(validation)},
-            "test": {"path": test.name, "sha256": sha256_file(test)},
-        },
+        "splits": splits,
     }
 
 
@@ -83,7 +86,16 @@ def main() -> None:
     )
     parser.add_argument("--train", type=Path, required=True)
     parser.add_argument("--validation", type=Path, required=True)
-    parser.add_argument("--test", type=Path, required=True)
+    parser.add_argument(
+        "--test",
+        type=Path,
+        help="Optional untouched test lockbox. It is read only with --evaluate-test.",
+    )
+    parser.add_argument(
+        "--evaluate-test",
+        action="store_true",
+        help="Explicitly unlock and evaluate the test split. Do this only after model/policy choices are frozen.",
+    )
     parser.add_argument("--manifest", type=Path)
     parser.add_argument("--output-dir", type=Path, required=True)
     parser.add_argument("--horizon", type=int, default=15, choices=(5, 15, 30, 60))
@@ -100,9 +112,12 @@ def main() -> None:
     parser.add_argument("--fallback-spread-bps", type=float, default=5.0)
     args = parser.parse_args()
 
+    if args.evaluate_test and args.test is None:
+        parser.error("--evaluate-test requires --test")
+
     training_rows = _load_jsonl(args.train)
     validation_rows = _load_jsonl(args.validation)
-    test_rows = _load_jsonl(args.test)
+    test_rows = _load_jsonl(args.test) if args.evaluate_test else None
 
     model_config = BaselineConfig(
         horizon_minutes=args.horizon,
@@ -124,23 +139,25 @@ def main() -> None:
         config=model_config,
     )
     validation_forecasts = forecast_samples(model, validation_rows)
-    test_forecasts = forecast_samples(model, test_rows)
-
     validation_report = evaluate_forecasts(
         validation_forecasts,
         policy=policy,
         neutral_threshold_bps=args.neutral_threshold_bps,
     )
-    test_report = evaluate_forecasts(
-        test_forecasts,
-        policy=policy,
-        neutral_threshold_bps=args.neutral_threshold_bps,
-    )
+
+    test_report = None
+    if test_rows is not None:
+        test_forecasts = forecast_samples(model, test_rows)
+        test_report = evaluate_forecasts(
+            test_forecasts,
+            policy=policy,
+            neutral_threshold_bps=args.neutral_threshold_bps,
+        )
 
     dataset_provenance = _dataset_provenance(
         args.train,
         args.validation,
-        args.test,
+        args.test if args.evaluate_test else None,
         args.manifest,
     )
     experiment_config = {
@@ -151,6 +168,7 @@ def main() -> None:
         "probability_epochs": args.probability_epochs,
         "regression_l2": args.regression_l2,
         "neutral_threshold_bps": args.neutral_threshold_bps,
+        "test_lockbox_evaluated": bool(args.evaluate_test),
         "decision_policy": {
             "min_direction_probability": policy.min_direction_probability,
             "minimum_edge_bps": policy.minimum_edge_bps,
@@ -166,7 +184,7 @@ def main() -> None:
             "policy": "chronological_train_validation_test_holdout",
             "training_split": "train_only",
             "threshold_selection_split": "validation_only",
-            "final_report_split": "test",
+            "final_report_split": "test" if args.evaluate_test else "untouched_test_lockbox",
         },
         experiment_config=experiment_config,
         code_revision=_code_revision(args.code_revision),
@@ -186,8 +204,10 @@ def main() -> None:
         "fit": fit_summary.to_dict(),
         "validation": validation_report,
         "test": test_report,
+        "test_lockbox_evaluated": bool(args.evaluate_test),
         "notes": [
             "This is a shared linear scientific baseline, not a claim of predictive edge.",
+            "The test split is not read unless --evaluate-test is supplied explicitly.",
             "Test metrics must not be used to tune model or decision thresholds.",
             "A boosted-tree model should only replace this baseline after matched held-out comparison.",
         ],
@@ -200,18 +220,13 @@ def main() -> None:
     print(f"Experiment: {identity.experiment_id}")
     print(f"Model:      {output_dir / 'model.json'}")
     print(f"Report:     {output_dir / 'report.json'}")
-    print(
-        "Validation Brier:",
-        validation_report["probability"]["brier_score"],
-        "| Test Brier:",
-        test_report["probability"]["brier_score"],
-    )
-    print(
-        "Validation coverage:",
-        validation_report["decision_policy"]["coverage"],
-        "| Test coverage:",
-        test_report["decision_policy"]["coverage"],
-    )
+    print("Validation Brier:", validation_report["probability"]["brier_score"])
+    print("Validation coverage:", validation_report["decision_policy"]["coverage"])
+    if test_report is None:
+        print("Test lockbox: UNTOUCHED")
+    else:
+        print("Test Brier:", test_report["probability"]["brier_score"])
+        print("Test coverage:", test_report["decision_policy"]["coverage"])
 
 
 if __name__ == "__main__":
