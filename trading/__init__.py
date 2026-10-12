@@ -21,6 +21,12 @@ from .ingestion import (
     sha256_file,
     write_samples_jsonl,
 )
+from .validation import (
+    WalkForwardFold,
+    purged_walk_forward_folds,
+    sample_label_end,
+    walk_forward_manifest,
+)
 
 __all__ = [
     "ContextJoinResult",
@@ -38,4 +44,8 @@ __all__ = [
     "prepare_trading_dataset",
     "sha256_file",
     "write_samples_jsonl",
+    "WalkForwardFold",
+    "purged_walk_forward_folds",
+    "sample_label_end",
+    "walk_forward_manifest",
 ]
