@@ -39,6 +39,15 @@ from .experiment import (
     canonical_json,
     sha256_metadata,
 )
+from .historical_market import (
+    AlpacaCredentials,
+    HistoricalFetchResult,
+    HistoricalMarketConfig,
+    build_historical_market_dataset,
+    fetch_alpaca_historical_bars,
+    fetch_and_build_alpaca_dataset,
+    write_canonical_bars_csv,
+)
 from .ingestion import (
     CSVIngestionConfig,
     load_market_bars_csv,
@@ -89,6 +98,13 @@ __all__ = [
     "build_experiment_identity",
     "canonical_json",
     "sha256_metadata",
+    "AlpacaCredentials",
+    "HistoricalFetchResult",
+    "HistoricalMarketConfig",
+    "build_historical_market_dataset",
+    "fetch_alpaca_historical_bars",
+    "fetch_and_build_alpaca_dataset",
+    "write_canonical_bars_csv",
     "CSVIngestionConfig",
     "load_market_bars_csv",
     "prepare_trading_dataset",
