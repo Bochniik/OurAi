@@ -7,7 +7,9 @@ it was actually available at or before that sample timestamp.
 
 Event time and availability time are deliberately separate. A news event may have
 happened at 10:00 but only become available to the system at 10:03; a 10:01 sample
-must not receive it.
+must not receive it. Conversely, a scheduled event such as earnings may have an
+``event_time`` in the future while its schedule was already known earlier. Causality
+therefore depends on ``available_at``, not on the ordering of those two timestamps.
 """
 
 from __future__ import annotations
@@ -23,7 +25,6 @@ from .dataset import TradingSample
 
 _VALID_SCOPE = {"global", "sector", "symbol"}
 _NAME_RE = re.compile(r"^[a-z0-9][a-z0-9_]*$")
-_SCOPE_PRIORITY = {"global": 0, "sector": 1, "symbol": 2}
 
 
 def _aware_utc(value: datetime, name: str) -> datetime:
@@ -45,8 +46,10 @@ def _clean_name(value: str, name: str) -> str:
 class ContextObservation:
     """One versioned piece of context known to the system at ``available_at``.
 
-    ``event_time`` describes when the underlying event/state occurred.
-    ``available_at`` is the causality boundary used for joins.
+    ``event_time`` describes when the underlying event/state occurred or is
+    scheduled to occur. It may be before or after ``available_at``. The only
+    timestamp that decides whether a sample may use the observation is
+    ``available_at``.
 
     Scope semantics:
     - ``global``: applies to every symbol (for example SPY/market regime)
@@ -78,8 +81,6 @@ class ContextObservation:
         event_time = self.event_time
         if event_time is not None:
             event_time = _aware_utc(event_time, "event_time")
-            if event_time > available_at:
-                raise ValueError("event_time cannot be later than available_at")
             object.__setattr__(self, "event_time", event_time)
 
         valid_until = self.valid_until
