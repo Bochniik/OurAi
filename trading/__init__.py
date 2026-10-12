@@ -14,6 +14,17 @@ from .dataset import (
     chronological_session_split,
     dataset_manifest,
 )
+from .evaluation import (
+    LONG,
+    NO_TRADE,
+    SHORT,
+    DecisionPolicyConfig,
+    ForecastPrediction,
+    TradeDecision,
+    calibration_table,
+    decide_forecast,
+    evaluate_forecasts,
+)
 from .experiment import (
     ExperimentIdentity,
     build_experiment_identity,
@@ -51,6 +62,15 @@ __all__ = [
     "build_causal_samples",
     "chronological_session_split",
     "dataset_manifest",
+    "LONG",
+    "NO_TRADE",
+    "SHORT",
+    "DecisionPolicyConfig",
+    "ForecastPrediction",
+    "TradeDecision",
+    "calibration_table",
+    "decide_forecast",
+    "evaluate_forecasts",
     "ExperimentIdentity",
     "build_experiment_identity",
     "canonical_json",
