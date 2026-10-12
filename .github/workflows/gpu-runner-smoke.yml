@@ -1,0 +1,64 @@
+name: GPU runner smoke test
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  gpu-smoke:
+    # Intentionally restricted to a dedicated label and manual dispatch.
+    # Do NOT add pull_request here: this repository is public and arbitrary
+    # PR code must never execute on the owner's personal self-hosted machine.
+    runs-on: [self-hosted, Windows, X64, ourai-gpu]
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: NVIDIA driver diagnostics
+        shell: powershell
+        run: nvidia-smi
+
+      - name: Resolve OurAI Python
+        id: python
+        shell: powershell
+        run: |
+          $candidates = @()
+
+          if ($env:OURAI_PYTHON) {
+            $candidates += $env:OURAI_PYTHON
+          }
+
+          $candidates += "$env:USERPROFILE\Desktop\OurAI\.venv\Scripts\python.exe"
+          $candidates += "$env:USERPROFILE\Desktop\OurAi\.venv\Scripts\python.exe"
+
+          $python = $null
+          foreach ($candidate in $candidates) {
+            if ($candidate -and (Test-Path $candidate)) {
+              $python = $candidate
+              break
+            }
+          }
+
+          if (-not $python) {
+            $cmd = Get-Command python -ErrorAction SilentlyContinue
+            if ($cmd) {
+              $python = $cmd.Source
+            }
+          }
+
+          if (-not $python) {
+            throw "Could not find Python. Set the OURAI_PYTHON environment variable to the CUDA-enabled OurAI venv python.exe."
+          }
+
+          Write-Host "Using Python: $python"
+          & $python --version
+          "python=$python" >> $env:GITHUB_OUTPUT
+
+      - name: Verify PyTorch CUDA workload
+        shell: powershell
+        run: |
+          & "${{ steps.python.outputs.python }}" scripts\runner_smoke.py
