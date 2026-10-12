@@ -14,6 +14,12 @@ from .dataset import (
     chronological_session_split,
     dataset_manifest,
 )
+from .experiment import (
+    ExperimentIdentity,
+    build_experiment_identity,
+    canonical_json,
+    sha256_metadata,
+)
 from .ingestion import (
     CSVIngestionConfig,
     load_market_bars_csv,
@@ -39,6 +45,10 @@ __all__ = [
     "build_causal_samples",
     "chronological_session_split",
     "dataset_manifest",
+    "ExperimentIdentity",
+    "build_experiment_identity",
+    "canonical_json",
+    "sha256_metadata",
     "CSVIngestionConfig",
     "load_market_bars_csv",
     "prepare_trading_dataset",
