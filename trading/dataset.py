@@ -182,6 +182,7 @@ def _build_features(
     *,
     by_timestamp: Mapping[datetime, MarketBar],
     session_bars_to_now: Sequence[MarketBar],
+    availability_timestamp: datetime,
 ) -> dict[str, Optional[float]]:
     features: dict[str, Optional[float]] = {
         "price": bar.close,
@@ -195,7 +196,7 @@ def _build_features(
             value = _return(bar.close, previous.close)
         features[f"return_{minutes}m"] = value
 
-    # Session VWAP uses only bars at or before this sample timestamp.
+    # Session VWAP uses only bars whose values are available by this sample.
     total_volume = sum(item.volume for item in session_bars_to_now)
     if total_volume > 0:
         total_value = sum(
@@ -245,8 +246,8 @@ def _build_features(
 
     session = bar.session or infer_session(bar.timestamp)
     features["spread_bps"] = _spread_bps(bar)
-    features["session_progress"] = _session_progress(bar.timestamp, session)
-    local = bar.timestamp.astimezone(NEW_YORK)
+    features["session_progress"] = _session_progress(availability_timestamp, session)
+    local = availability_timestamp.astimezone(NEW_YORK)
     features["minute_of_day_scaled"] = (local.hour * 60 + local.minute) / 1440.0
 
     missing = sum(value is None for value in features.values())
@@ -261,8 +262,15 @@ def build_causal_samples(
     minimum_absolute_return_bps: float = 3.0,
     spread_multiplier: float = 1.5,
     allow_session_transition: bool = False,
+    bar_availability_delay_minutes: float = 0.0,
 ) -> list[TradingSample]:
     """Create feature/target rows without using future data in features.
+
+    ``MarketBar.timestamp`` remains the provider/bar timestamp used to locate exact
+    lookbacks and future bars. ``bar_availability_delay_minutes`` moves the emitted
+    sample timestamp to the time when the current bar is actually observable. The
+    same delay is applied to target ``future_timestamp`` values, preserving the
+    requested close-to-close horizon while making execution timing explicit.
 
     Future targets require an exact timestamp match. Missing bars therefore do not
     turn a 7-minute gap into a nominal 5-minute target. By default targets also stay
@@ -275,6 +283,13 @@ def build_causal_samples(
         raise ValueError("horizons_minutes must contain positive integers")
     if minimum_absolute_return_bps < 0 or spread_multiplier < 0:
         raise ValueError("threshold configuration must be non-negative")
+    try:
+        delay_minutes = float(bar_availability_delay_minutes)
+    except (TypeError, ValueError) as exc:
+        raise ValueError("bar_availability_delay_minutes must be finite and non-negative") from exc
+    if not isfinite(delay_minutes) or delay_minutes < 0:
+        raise ValueError("bar_availability_delay_minutes must be finite and non-negative")
+    availability_delay = timedelta(minutes=delay_minutes)
 
     normalized = [
         item if isinstance(item, MarketBar) else MarketBar.from_mapping(item)
@@ -296,6 +311,7 @@ def build_causal_samples(
         for bar in symbol_bars:
             session = bar.session or infer_session(bar.timestamp)
             session_date = bar.timestamp.astimezone(NEW_YORK).date().isoformat()
+            availability_timestamp = bar.timestamp + availability_delay
             key = (session_date, session)
             history = session_history.setdefault(key, [])
             history.append(bar)
@@ -304,6 +320,7 @@ def build_causal_samples(
                 bar,
                 by_timestamp=by_timestamp,
                 session_bars_to_now=history,
+                availability_timestamp=availability_timestamp,
             )
 
             spread = _spread_bps(bar)
@@ -331,7 +348,7 @@ def build_causal_samples(
                     else "NEUTRAL"
                 )
                 targets[f"{horizon}m"] = {
-                    "future_timestamp": future.timestamp.isoformat(),
+                    "future_timestamp": (future.timestamp + availability_delay).isoformat(),
                     "future_return": future_return,
                     "future_return_pct": future_return * 100.0,
                     "direction": direction,
@@ -342,7 +359,7 @@ def build_causal_samples(
                 samples.append(
                     TradingSample(
                         symbol=symbol,
-                        timestamp=bar.timestamp,
+                        timestamp=availability_timestamp,
                         session_date=session_date,
                         session=session,
                         features=features,

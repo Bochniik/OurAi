@@ -40,7 +40,8 @@ DEFAULT_SYMBOLS = ("NVDA", "AAPL", "TSLA", "JPM", "AMD", "META", "MSFT")
 SUPPORTED_FEEDS = {"iex", "sip", "boats", "otc"}
 SUPPORTED_ADJUSTMENTS = {"raw", "split", "dividend", "all"}
 SUPPORTED_SESSIONS = {"premarket", "regular", "afterhours"}
-BUILDER_ID = "ourai-historical-market-v1"
+BUILDER_ID = "ourai-historical-market-v2"
+BAR_AVAILABILITY_DELAY_MINUTES = 1.0
 
 RequestJSON = Callable[[str, Mapping[str, str]], Mapping[str, Any]]
 
@@ -108,7 +109,7 @@ class HistoricalMarketConfig:
             raise ValueError("end must be after start")
 
         if self.timeframe != "1Min":
-            raise ValueError("historical builder v1 supports timeframe=1Min only")
+            raise ValueError("historical builder v2 supports timeframe=1Min only")
         if self.feed not in SUPPORTED_FEEDS:
             raise ValueError(f"unsupported Alpaca feed: {self.feed}")
         if self.adjustment not in SUPPORTED_ADJUSTMENTS:
@@ -302,6 +303,8 @@ def fetch_alpaca_historical_bars(
         "symbols_with_rows": sorted({bar.symbol for bar in bars}),
         "first_timestamp": bars[0].timestamp.isoformat(),
         "last_timestamp": max(bar.timestamp for bar in bars).isoformat(),
+        "bar_timestamp_semantics": "left_edge",
+        "bar_availability_delay_minutes": BAR_AVAILABILITY_DELAY_MINUTES,
         "duplicates_skipped": duplicates_skipped,
         "partial": partial,
         "batches": batch_records,
@@ -383,6 +386,7 @@ def build_historical_market_dataset(
         horizons_minutes=tuple(int(value) for value in horizons_minutes),
         minimum_absolute_return_bps=minimum_absolute_return_bps,
         spread_multiplier=spread_multiplier,
+        bar_availability_delay_minutes=BAR_AVAILABILITY_DELAY_MINUTES,
     )
     if not samples:
         raise ValueError("no resolved samples could be built from historical bars")
@@ -402,6 +406,8 @@ def build_historical_market_dataset(
         "validation_fraction": validation_fraction,
         "minimum_absolute_return_bps": minimum_absolute_return_bps,
         "spread_multiplier": spread_multiplier,
+        "bar_timestamp_semantics": "left_edge",
+        "bar_availability_delay_minutes": BAR_AVAILABILITY_DELAY_MINUTES,
     }
     lineage_payload = {
         "builder": BUILDER_ID,

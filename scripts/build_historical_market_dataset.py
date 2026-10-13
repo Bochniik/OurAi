@@ -42,8 +42,9 @@ def parser() -> argparse.ArgumentParser:
     result = argparse.ArgumentParser(
         description=(
             "Fetch Alpaca 1-minute OHLCV, cache a canonical local source file and "
-            "build leakage-safe train/validation/test JSONL splits. Credentials are "
-            "read only from local ALPACA_API_KEY_ID / ALPACA_API_SECRET_KEY environment variables."
+            "build leakage-safe train/validation/test JSONL splits with explicit "
+            "bar-availability timestamps. Credentials are read only from local "
+            "ALPACA_API_KEY_ID / ALPACA_API_SECRET_KEY environment variables."
         )
     )
     result.add_argument("--start", required=True, type=_parse_datetime)
@@ -72,7 +73,7 @@ def parser() -> argparse.ArgumentParser:
     result.add_argument("--allow-partial", action="store_true")
     result.add_argument(
         "--output-dir",
-        default="data/processed/market/ourai-historical-v1",
+        default="data/processed/market/ourai-historical-v2",
         help="Local output directory. data/processed is gitignored by default.",
     )
     return result
@@ -101,6 +102,7 @@ def main() -> int:
         spread_multiplier=args.spread_multiplier,
     )
     summary = {
+        "builder": manifest["builder"],
         "dataset_id": manifest["dataset_id"],
         "output_dir": str(Path(args.output_dir).resolve()),
         "source_rows": manifest["source_cache"]["row_count"],
@@ -109,6 +111,9 @@ def main() -> int:
         "symbols": manifest["dataset"]["symbols"],
         "splits": manifest["dataset"].get("splits"),
         "source_partial": manifest["source"].get("partial"),
+        "bar_availability_delay_minutes": manifest["configuration"].get(
+            "bar_availability_delay_minutes"
+        ),
         "manifest_sha256": manifest["manifest_sha256"],
     }
     print(json.dumps(summary, indent=2, sort_keys=True))

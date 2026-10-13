@@ -71,6 +71,37 @@ class TradingDatasetTests(unittest.TestCase):
             mutated.targets["5m"]["future_return"],
         )
 
+    def test_bar_availability_delay_moves_sample_and_target_timestamps(self) -> None:
+        bars = self._bars(count=20)
+        start = bars[0].timestamp
+        samples = build_causal_samples(
+            bars,
+            horizons_minutes=(5,),
+            bar_availability_delay_minutes=1.0,
+        )
+        sample = samples[0]
+
+        self.assertEqual(sample.timestamp, start + timedelta(minutes=1))
+        self.assertEqual(
+            sample.targets["5m"]["future_timestamp"],
+            (start + timedelta(minutes=6)).isoformat(),
+        )
+        self.assertEqual(sample.session, "regular")
+        self.assertEqual(sample.session_date, "2026-01-05")
+        self.assertAlmostEqual(sample.features["session_progress"], 1.0 / 390.0)
+        self.assertAlmostEqual(
+            sample.features["minute_of_day_scaled"],
+            (9 * 60 + 31) / 1440.0,
+        )
+
+    def test_bar_availability_delay_must_be_non_negative(self) -> None:
+        with self.assertRaisesRegex(ValueError, "bar_availability_delay_minutes"):
+            build_causal_samples(
+                self._bars(count=20),
+                horizons_minutes=(5,),
+                bar_availability_delay_minutes=-1.0,
+            )
+
     def test_missing_exact_future_bar_does_not_create_fake_horizon(self) -> None:
         bars = self._bars(count=70)
         timestamp = bars[20].timestamp

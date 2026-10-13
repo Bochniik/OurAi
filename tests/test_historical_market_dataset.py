@@ -59,6 +59,8 @@ class HistoricalMarketDatasetTests(unittest.TestCase):
         self.assertEqual(len(result.bars), 3)
         self.assertEqual(result.manifest["provider"], "alpaca")
         self.assertEqual(result.manifest["feed"], "iex")
+        self.assertEqual(result.manifest["bar_timestamp_semantics"], "left_edge")
+        self.assertEqual(result.manifest["bar_availability_delay_minutes"], 1.0)
         self.assertFalse(result.manifest["partial"])
         self.assertFalse(result.manifest["credentials_persisted"])
         serialized = json.dumps(result.manifest, sort_keys=True)
@@ -160,6 +162,9 @@ class HistoricalMarketDatasetTests(unittest.TestCase):
             self.assertTrue((root / "validation.jsonl").is_file())
             self.assertTrue((root / "test.jsonl").is_file())
             self.assertTrue((root / "manifest.json").is_file())
+            self.assertEqual(manifest["builder"], "ourai-historical-market-v2")
+            self.assertEqual(manifest["configuration"]["bar_timestamp_semantics"], "left_edge")
+            self.assertEqual(manifest["configuration"]["bar_availability_delay_minutes"], 1.0)
             self.assertEqual(manifest["source_cache"]["row_count"], len(bars))
             self.assertEqual(len(manifest["source_cache"]["sha256"]), 64)
             self.assertEqual(len(manifest["dataset_id"]), 20)
@@ -171,7 +176,18 @@ class HistoricalMarketDatasetTests(unittest.TestCase):
             self.assertEqual(len(split_dates["test"]["market_dates"]), 1)
             self.assertEqual(len(manifest["manifest_sha256"]), 64)
 
-    def test_v1_rejects_coarser_timeframes(self):
+            first_train = json.loads(
+                (root / "train.jsonl").read_text(encoding="utf-8").splitlines()[0]
+            )
+            self.assertEqual(first_train["timestamp"], "2026-07-06T13:31:00+00:00")
+            self.assertEqual(
+                first_train["targets"]["5m"]["future_timestamp"],
+                "2026-07-06T13:36:00+00:00",
+            )
+            self.assertEqual(first_train["session"], "regular")
+            self.assertEqual(first_train["session_date"], "2026-07-06")
+
+    def test_v2_rejects_coarser_timeframes(self):
         with self.assertRaisesRegex(ValueError, "1Min only"):
             HistoricalMarketConfig(
                 symbols=("AAPL",),
