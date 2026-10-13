@@ -25,7 +25,7 @@ class MagnitudeExperimentTests(unittest.TestCase):
 
         rows = []
         base_date = datetime(2026, 1, 5, 14, 31, tzinfo=timezone.utc)
-        for day in range(22):
+        for day in range(34):
             day_start = base_date + timedelta(days=day)
             for index in range(4):
                 timestamp = day_start + timedelta(minutes=index * 30)
@@ -80,13 +80,14 @@ class MagnitudeExperimentTests(unittest.TestCase):
             self.assertFalse(payload["original_validation_used"])
             self.assertFalse(payload["test_lockbox_accessed"])
             self.assertEqual(payload["promotion_rule"]["minimum_fold_wins"], 3)
+            self.assertEqual(payload["promotion_rule"]["required_fold_count"], 4)
             self.assertTrue(payload["promotion_rule"]["require_lower_mean_mae"])
             self.assertFalse(payload["promotion_rule"]["pnl_used"])
             self.assertEqual(
                 payload["null"]["family"],
                 "training_fold_median_absolute_return",
             )
-            self.assertEqual(payload["summary"]["fold_count"], 1)
+            self.assertEqual(payload["summary"]["fold_count"], 4)
 
     def test_rejects_non_v2_builder(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
