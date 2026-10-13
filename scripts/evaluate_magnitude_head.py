@@ -5,6 +5,7 @@ This script is intentionally narrow and preregistered for the current research s
 * input is one historical-v2 dataset directory;
 * only ``manifest.json`` and ``train.jsonl`` are read;
 * 15-minute expanding purged walk-forward folds are fixed at 18/4/4 market dates;
+* the current experiment requires exactly four development folds;
 * ridge regression predicts ``|future_return|``;
 * the null predicts the training-fold median absolute return, which is the proper
   constant comparator for MAE;
@@ -38,6 +39,7 @@ MIN_TRAIN_MARKET_DATES = 18
 VALIDATION_MARKET_DATES = 4
 STEP_MARKET_DATES = 4
 EMBARGO_MINUTES = 60.0
+EXPECTED_FOLD_COUNT = 4
 PROMOTION_MIN_FOLD_WINS = 3
 EXPECTED_BUILDER = "ourai-historical-market-v2"
 EXPECTED_AVAILABILITY_DELAY_MINUTES = 1.0
@@ -130,6 +132,11 @@ def run_experiment(dataset_dir: str | Path, output_path: str | Path) -> dict[str
         embargo_minutes=EMBARGO_MINUTES,
         max_train_market_dates=None,
     )
+    if len(folds) != EXPECTED_FOLD_COUNT:
+        raise ValueError(
+            "preregistered magnitude experiment requires exactly "
+            f"{EXPECTED_FOLD_COUNT} folds, got {len(folds)}"
+        )
 
     fold_results: list[dict[str, Any]] = []
     for fold in folds:
@@ -196,11 +203,13 @@ def run_experiment(dataset_dir: str | Path, output_path: str | Path) -> dict[str
             "validation_market_dates": VALIDATION_MARKET_DATES,
             "step_market_dates": STEP_MARKET_DATES,
             "embargo_minutes": EMBARGO_MINUTES,
+            "expected_fold_count": EXPECTED_FOLD_COUNT,
             "manifest": walk_forward_manifest(folds),
         },
         "promotion_rule": {
             "metric": "mae_bps",
             "minimum_fold_wins": PROMOTION_MIN_FOLD_WINS,
+            "required_fold_count": EXPECTED_FOLD_COUNT,
             "require_lower_mean_mae": True,
             "pnl_used": False,
         },
