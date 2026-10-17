@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from math import isfinite
-from typing import Iterable, Sequence
+from typing import Iterable, Mapping, Sequence
 
 import numpy as np
 
@@ -65,7 +65,7 @@ class GRUDirectionModel:
 
 def _label_for_ref(ref: SequenceRef, horizon_minutes: int) -> int | None:
     target = ref.sample.targets.get(f"{int(horizon_minutes)}m")
-    if not isinstance(target, dict):
+    if not isinstance(target, Mapping):
         return None
     direction = str(target.get("direction") or "").strip().upper()
     if direction == "UP":
@@ -94,6 +94,7 @@ def fit_gru_direction(
     scaler: SequenceScaler,
     config: GRUDirectionConfig | None = None,
     device: str | None = None,
+    progress_prefix: str | None = None,
 ) -> tuple[GRUDirectionModel, GRUDirectionFitSummary]:
     config = config or GRUDirectionConfig()
     usable = [(ref, _label_for_ref(ref, config.horizon_minutes)) for ref in refs]
@@ -159,7 +160,7 @@ def fit_gru_direction(
 
     epoch_losses: list[float] = []
     model.train()
-    for _ in range(config.epochs):
+    for epoch_index in range(config.epochs):
         total_loss = 0.0
         total_count = 0
         for x, y in loader:
@@ -178,6 +179,11 @@ def fit_gru_direction(
         if not isfinite(epoch_loss):
             raise ValueError("non-finite GRU training loss")
         epoch_losses.append(epoch_loss)
+        if progress_prefix:
+            print(
+                f"{progress_prefix} epoch {epoch_index + 1}/{config.epochs} "
+                f"loss={epoch_loss:.6f}"
+            )
 
     wrapped = GRUDirectionModel(
         config=config,
@@ -203,24 +209,32 @@ def forecast_gru_directions(
     include_actual: bool = True,
 ) -> list[DirectionPrediction]:
     torch, _, _, _ = _torch()
+    usable: list[tuple[SequenceRef, int | None]] = []
+    for ref in refs:
+        actual = _label_for_ref(ref, model.config.horizon_minutes)
+        if include_actual and actual is None:
+            continue
+        usable.append((ref, actual))
+
     model.torch_model.eval()
     predictions: list[DirectionPrediction] = []
+    batch_size = max(1, model.config.batch_size * 2)
     with torch.no_grad():
-        for ref in refs:
-            actual = _label_for_ref(ref, model.config.horizon_minutes)
-            if include_actual and actual is None:
-                continue
-            matrix = model.corpus.transform_window(ref, model.scaler)
-            x = torch.from_numpy(matrix).unsqueeze(0).to(model.device)
-            logit = model.torch_model(x)[0]
-            p_up = float(torch.sigmoid(logit).detach().cpu())
-            predictions.append(
-                DirectionPrediction(
-                    symbol=ref.sample.symbol,
-                    timestamp=ref.sample.timestamp,
-                    horizon_minutes=model.config.horizon_minutes,
-                    p_up=p_up,
-                    actual_direction=actual if include_actual else None,
-                )
+        for start in range(0, len(usable), batch_size):
+            chunk = usable[start : start + batch_size]
+            matrix = np.stack(
+                [model.corpus.transform_window(ref, model.scaler) for ref, _ in chunk]
             )
+            x = torch.from_numpy(matrix).to(model.device)
+            probabilities = torch.sigmoid(model.torch_model(x)).detach().cpu().numpy()
+            for (ref, actual), p_up in zip(chunk, probabilities):
+                predictions.append(
+                    DirectionPrediction(
+                        symbol=ref.sample.symbol,
+                        timestamp=ref.sample.timestamp,
+                        horizon_minutes=model.config.horizon_minutes,
+                        p_up=float(p_up),
+                        actual_direction=actual if include_actual else None,
+                    )
+                )
     return predictions
