@@ -1,0 +1,77 @@
+{
+  "schema_version": 1,
+  "protocol_name": "ourai-v3-15m-magnitude-future-forward-v2",
+  "frozen_before_forward_start": true,
+  "forward_start_utc": "2026-10-19T13:30:00Z",
+  "universe": [
+    "NVDA",
+    "AAPL",
+    "TSLA",
+    "JPM",
+    "AMD",
+    "META",
+    "MSFT"
+  ],
+  "session": "regular",
+  "bar_timeframe": "1Min",
+  "bar_availability_delay_minutes": 1,
+  "horizon_minutes": 15,
+  "champion": {
+    "family": "HistGradientBoostingRegressor",
+    "loss": "absolute_error",
+    "learning_rate": 0.05,
+    "max_iter": 150,
+    "max_leaf_nodes": 31,
+    "min_samples_leaf": 100,
+    "l2_regularization": 1,
+    "max_bins": 255,
+    "early_stopping": false,
+    "random_state": 42,
+    "training_source": "v3_train_plus_validation_only",
+    "historical_test_in_training": false,
+    "updates_during_forward_period": false
+  },
+  "evaluation": {
+    "minimum_complete_market_dates_before_decision": 20,
+    "target_complete_market_dates": 40,
+    "primary_metric": "mae_bps",
+    "comparators": [
+      "frozen_linear_magnitude_incumbent",
+      "frozen_train_plus_validation_median_absolute_return_null"
+    ],
+    "acceptance_rule": {
+      "overall_nonlinear_mae_must_beat_linear": true,
+      "overall_nonlinear_mae_must_beat_null": true,
+      "require_strict_majority_market_date_wins_vs_linear": true,
+      "require_strict_majority_market_date_wins_vs_null": true
+    },
+    "pnl_used_for_acceptance": false,
+    "post_outcome_tuning_on_same_forward_window": false
+  },
+  "prediction_logging": {
+    "prediction_must_be_written_before_target_resolution": true,
+    "append_only": true,
+    "required_fields": [
+      "symbol",
+      "sample_timestamp",
+      "predicted_at",
+      "target_due_at",
+      "expected_magnitude_bps",
+      "model_sha256"
+    ],
+    "resolved_fields_added_later": [
+      "actual_magnitude_bps",
+      "absolute_error_bps",
+      "resolved_at"
+    ],
+    "never_backfill_before_forward_start": true
+  },
+  "research_safety": {
+    "retrospective_v3_test_may_be_used_for_further_tuning": false,
+    "model_or_threshold_updates_during_forward_window": false,
+    "production_promotion_before_forward_gate": false,
+    "orion_live_trading_before_forward_gate": false
+  },
+  "supersedes_protocol_name": "ourai-v3-15m-magnitude-future-forward-v1",
+  "revision_reason": "Original 2026-10-15 start elapsed without contemporaneously recorded forward predictions. Restart only for strictly future observations; backfilling is forbidden."
+}
