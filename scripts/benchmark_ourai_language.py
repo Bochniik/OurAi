@@ -72,6 +72,7 @@ def main() -> int:
     parser.add_argument("--model")
     parser.add_argument("--device", choices=("auto", "cpu", "cuda"), default="auto")
     parser.add_argument("--max-new-tokens", type=int, default=384)
+    parser.add_argument("--timeout-seconds", type=int, default=180, help="Local Ollama HTTP wait limit")
     parser.add_argument(
         "--output", default="runs/language/ollama_qwen3_1_7b_benchmark_v1.json",
     )
@@ -79,7 +80,10 @@ def main() -> int:
     model = args.model or (DEFAULT_OLLAMA_MODEL if args.backend == "ollama" else DEFAULT_MODEL_ID)
     print(f"OurAI language benchmark v1 | {args.backend} | {model}")
     if args.backend == "ollama":
-        runtime = LocalOllamaChatRuntime(model_id=model, max_new_tokens=args.max_new_tokens)
+        runtime = LocalOllamaChatRuntime(
+            model_id=model, max_new_tokens=args.max_new_tokens,
+            timeout_seconds=args.timeout_seconds,
+        )
     else:
         runtime = OurAIChatRuntime(
             model_id=model, device=args.device, max_new_tokens=args.max_new_tokens,

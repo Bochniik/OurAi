@@ -57,8 +57,9 @@ in `:cloud`.
 ## Troubleshooting
 
 - `ollama` not recognized: reopen PowerShell after installing Ollama.
-- Ollama server unavailable: start Ollama for Windows. If necessary, run
-  `ollama serve` in a separate terminal *only if Ollama is not already running*.
+- Verify local server quickly: `Invoke-RestMethod http://127.0.0.1:11434/api/tags -TimeoutSec 10`. If it fails to connect, start Ollama for Windows. Only use `ollama serve` when no Ollama server is already running.
+- If the first question runs for **180 seconds** before a timeout, that suggests a slow model load/generation rather than proof the server is absent. Check `ollama ps` for CPU/GPU execution; if Ollama runs on CPU, responses may be slow. Try `--max-new-tokens 128 --timeout-seconds 600` on the benchmark/chat command. Check server reachability separately via `/api/tags`.
+- Model responses may require longer on the first run; give the warm-up time, but do not interpret a timed-out run as a valid benchmark.
 - Model missing: `ollama pull qwen3:1.7b`.
 - Model spills into CPU RAM or is slow: use `ollama ps`; close other GPU tasks.
 - If 1.7B remains too weak, try `ollama pull qwen3:4b-instruct` (about

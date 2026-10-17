@@ -24,6 +24,7 @@ def parser() -> argparse.ArgumentParser:
     result.add_argument("--model", help="Hugging Face model ID or locally pulled Ollama model tag")
     result.add_argument("--device", choices=("auto", "cuda", "cpu"), default="auto")
     result.add_argument("--max-new-tokens", type=int, default=384)
+    result.add_argument("--timeout-seconds", type=int, default=180, help="Local Ollama HTTP wait limit")
     result.add_argument(
         "--analysis-json",
         help="Optional canonical Orion analysis snapshot used to ground analysis answers.",
@@ -48,6 +49,7 @@ def main() -> int:
         print("Connecting to local Ollama at 127.0.0.1:11434 (no cloud API)...")
         runtime = LocalOllamaChatRuntime(
             model_id=model_id, max_new_tokens=args.max_new_tokens,
+            timeout_seconds=args.timeout_seconds,
         )
     else:
         print("Loading model (the first run may download model weights)...")
