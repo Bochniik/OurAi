@@ -40,7 +40,19 @@ def _text_tuple(value: Any) -> tuple[str, ...]:
         return (text,) if text else ()
     if not isinstance(value, (list, tuple)):
         raise ValueError("reasons must be a string, list, tuple, or null")
-    return tuple(text for item in value if (text := str(item).strip()))
+
+    result: list[str] = []
+    seen: set[str] = set()
+    for item in value:
+        text = str(item).strip()
+        if not text:
+            continue
+        key = text.casefold()
+        if key in seen:
+            continue
+        seen.add(key)
+        result.append(text)
+    return tuple(result)
 
 
 @dataclass(frozen=True)
@@ -60,6 +72,7 @@ class AnalysisSnapshot:
     uncertainty: str
     decision: str
     confidence: float | None = None
+    company_name: str | None = None
     market_regime: str | None = None
     relative_strength: str | None = None
     volume_state: str | None = None
@@ -114,6 +127,7 @@ class AnalysisSnapshot:
         object.__setattr__(self, "decision", decision)
 
         for name in (
+            "company_name",
             "market_regime",
             "relative_strength",
             "volume_state",
@@ -138,6 +152,7 @@ class AnalysisSnapshot:
             uncertainty=payload.get("uncertainty", "unavailable"),
             decision=payload.get("decision", "UNAVAILABLE"),
             confidence=payload.get("confidence"),
+            company_name=payload.get("company_name"),
             market_regime=payload.get("market_regime"),
             relative_strength=payload.get("relative_strength"),
             volume_state=payload.get("volume_state"),

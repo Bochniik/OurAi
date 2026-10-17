@@ -1,5 +1,6 @@
 {
   "ticker": "NVDA",
+  "company_name": "NVIDIA Corporation",
   "horizon_minutes": 15,
   "p_up": 0.68,
   "p_down": 0.32,
@@ -17,7 +18,7 @@
     "elevated volume"
   ],
   "reasons_against": [
-    "medium uncertainty"
+    "no strong news catalyst supplied"
   ],
   "model_version": "development",
   "as_of": "example-only"

@@ -24,7 +24,7 @@ def parser() -> argparse.ArgumentParser:
     result.add_argument("--max-new-tokens", type=int, default=256)
     result.add_argument(
         "--analysis-json",
-        help="Optional canonical Orion analysis snapshot used to ground answers.",
+        help="Optional canonical Orion analysis snapshot used to ground analysis answers.",
     )
     return result
 
@@ -77,12 +77,12 @@ def main() -> int:
 
         history.extend(
             [
-                {"role": "user", "content": user_message},
-                {"role": "assistant", "content": result.text},
+                {"role": "user", "content": user_message, "mode": result.mode},
+                {"role": "assistant", "content": result.text, "mode": result.mode},
             ]
         )
-        # Bound conversational history so a long terminal session cannot grow without
-        # limit. The canonical analysis snapshot is re-injected on every turn.
+        # Bound conversational history. Mode tags prevent an analysis answer from
+        # contaminating later ordinary chat (and vice versa).
         history = history[-12:]
 
     return 0
