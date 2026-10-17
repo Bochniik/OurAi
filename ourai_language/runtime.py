@@ -4,6 +4,7 @@ import re
 from dataclasses import dataclass
 from typing import Iterable, Mapping
 
+from .analysis_answers import deterministic_analysis_answer
 from .contracts import AnalysisSnapshot
 from .grounding import find_unsupported_percentages, grounded_fallback
 from .prompting import ANALYSIS_QA, build_messages, select_conversation_mode
@@ -28,6 +29,10 @@ class OurAIChatRuntime:
     do not need to install a language-model stack. The default 0.6B model is small
     enough for local inference while still starting from a real multilingual instruct
     model rather than the historical scratch-trained OurAI prototype.
+
+    Common snapshot questions are answered by a deterministic grounded explainer
+    before generation. Open-ended analysis and ordinary conversation still fall
+    through to the local language model.
     """
 
     def __init__(
@@ -92,8 +97,6 @@ class OurAIChatRuntime:
                 **kwargs,
             )
         except (TypeError, ValueError):
-            # Keep the runtime usable with compatible future chat templates that do
-            # not expose Qwen's enable_thinking template option.
             return self.tokenizer.apply_chat_template(messages, **kwargs)
 
     def respond(
@@ -109,6 +112,19 @@ class OurAIChatRuntime:
             analysis=analysis,
             history=history_rows,
         )
+
+        # Core Orion analysis questions should be maximally reliable. If the answer
+        # can be constructed directly from the canonical snapshot, do that instead of
+        # asking a tiny language model to paraphrase facts it may distort.
+        if analysis is not None and mode == ANALYSIS_QA:
+            deterministic = deterministic_analysis_answer(user_message, analysis)
+            if deterministic is not None:
+                return ChatResult(
+                    text=deterministic,
+                    used_grounding_fallback=False,
+                    mode=mode,
+                )
+
         messages = build_messages(
             user_message,
             analysis=analysis,
