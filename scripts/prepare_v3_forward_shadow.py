@@ -23,7 +23,9 @@ from trading.magnitude import fit_unified_linear_magnitude_baseline
 from trading.nonlinear import UnifiedHistGradientMagnitude
 
 
-EXPECTED_PROTOCOL_NAME = "ourai-v3-15m-magnitude-future-forward-v1"
+EXPECTED_PROTOCOL_NAME = "ourai-v3-15m-magnitude-future-forward-v2"
+ORIGINAL_PROTOCOL_PATH = Path(__file__).resolve().parents[1] / "research" / "v3_15m_magnitude_forward_protocol.json"
+V2_FORWARD_START = "2026-10-19T13:30:00Z"
 
 
 def _mapping(value: object, name: str) -> Mapping[str, Any]:
@@ -63,6 +65,21 @@ def _validate_protocol(protocol: Mapping[str, Any]) -> None:
     if protocol.get("frozen_before_forward_start") is not True:
         raise ValueError("forward protocol must be frozen before start")
     _parse_aware(protocol.get("forward_start_utc"), "forward_start_utc")
+    if protocol.get("forward_start_utc") != V2_FORWARD_START:
+        raise ValueError("v2 requires a preregistered future-only shadow start")
+    if protocol.get("supersedes_protocol_name") != "ourai-v3-15m-magnitude-future-forward-v1":
+        raise ValueError("unexpected v2 parent protocol identity")
+    if protocol.get("prediction_logging", {}).get("never_backfill_before_forward_start") is not True:
+        raise ValueError("v2 forward shadow must never backfill")
+    original = json.loads(ORIGINAL_PROTOCOL_PATH.read_text(encoding="utf-8"))
+    allowed_changes = {"protocol_name", "forward_start_utc", "supersedes_protocol_name", "revision_reason"}
+    before = {key: value for key, value in original.items() if key not in allowed_changes}
+    after = {key: value for key, value in protocol.items() if key not in allowed_changes}
+    revised_logging = dict(after["prediction_logging"])
+    revised_logging.pop("never_backfill_before_forward_start", None)
+    after["prediction_logging"] = revised_logging
+    if before != after:
+        raise ValueError("v2 protocol must preserve all champion/evaluation/safety fields from v1")
     if str(protocol.get("session")) != "regular":
         raise ValueError("v3 forward protocol requires regular session")
     if str(protocol.get("bar_timeframe")) != "1Min":
@@ -204,7 +221,7 @@ def parser() -> argparse.ArgumentParser:
     result.add_argument("--dataset-dir", required=True)
     result.add_argument("--champion-manifest", default="runs/first-real-15m-v3/v3_15m_magnitude_champion.json")
     result.add_argument("--champion-model", default="runs/first-real-15m-v3/v3_15m_magnitude_champion.pkl")
-    result.add_argument("--protocol", default="research/v3_15m_magnitude_forward_protocol.json")
+    result.add_argument("--protocol", default="research/v3_15m_magnitude_forward_protocol_v2.json")
     result.add_argument("--linear-model-output", default="runs/first-real-15m-v3/v3_15m_forward_linear_incumbent.pkl")
     result.add_argument("--bundle-output", default="runs/first-real-15m-v3/v3_15m_forward_bundle.json")
     return result

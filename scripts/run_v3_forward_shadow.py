@@ -41,7 +41,7 @@ from trading.nonlinear import UnifiedHistGradientMagnitude
 
 
 DEFAULT_BUNDLE = "runs/first-real-15m-v3/v3_15m_forward_bundle.json"
-DEFAULT_JOURNAL = "runs/first-real-15m-v3/forward_shadow/events.jsonl"
+DEFAULT_JOURNAL = "runs/first-real-15m-v3/forward_shadow_v2/events.jsonl"
 
 
 def _parse_aware(value: object, name: str) -> datetime:
@@ -87,6 +87,10 @@ def _load_runtime(bundle_path: str | Path) -> tuple[dict[str, Any], UnifiedHistG
         raise ValueError("forward protocol SHA256 changed after bundle preparation")
     if protocol.get("protocol_name") != bundle.get("protocol_name"):
         raise ValueError("forward protocol identity mismatch")
+    if bundle.get("protocol_name") != "ourai-v3-15m-magnitude-future-forward-v2":
+        raise ValueError("this shadow runner requires the safe future-only v2 protocol")
+    if bundle.get("forward_start_utc") != "2026-10-19T13:30:00Z":
+        raise ValueError("forward start does not match preregistered v2 start")
 
     champion = _mapping(bundle.get("champion"), "bundle.champion")
     champion_path = Path(str(champion.get("model_path")))
@@ -346,6 +350,8 @@ def run_cycle(
 
     events = read_journal(journal_path)
     verify_journal(events)
+    if any(event.get("protocol_name") != bundle.get("protocol_name") for event in events):
+        raise ValueError("forward journal contains events from another protocol; use a fresh v2 journal")
     state = journal_state(events)
     resolved = _resolve_due(
         bundle=bundle,
