@@ -1,0 +1,61 @@
+{
+  "schema_version": 1,
+  "protocol_name": "ourai-v4-selective-direction-development-v1",
+  "dataset_id": "7d5f3b066a30ba878bba",
+  "horizon_minutes": 15,
+  "source": "v4_train_split_only",
+  "motivation": "The first all-sample nonlinear direction challenger and the causal cross-sectional exploration both lost 0/7 Brier folds against the linear incumbent and train-prior null. This protocol changes the task from forced every-minute direction prediction to selective prediction of materially larger moves.",
+  "feature_contract": {
+    "base_features": "canonical_v4_causal_features",
+    "cross_sectional_context": "peer_only_same_availability_timestamp",
+    "temporal_state": "same_symbol_same_session_current_and_past_only",
+    "future_or_target_values_in_features": false
+  },
+  "magnitude_gate": {
+    "model_family": "HistGradientBoostingRegressor",
+    "loss": "absolute_error",
+    "learning_rate": 0.05,
+    "max_iter": 150,
+    "max_leaf_nodes": 31,
+    "min_samples_leaf": 100,
+    "l2_regularization": 1.0,
+    "max_bins": 255,
+    "early_stopping": false,
+    "random_state": 42,
+    "training_prediction_quantile_for_gate": 0.70
+  },
+  "direction_candidate": {
+    "family": "shared_logistic_direction_head",
+    "training_rows": "directional_rows_with_train_only_actual_abs_15m_return_at_or_above_70th_percentile",
+    "tail_quantile": 0.70,
+    "probability_l2": 0.001,
+    "probability_learning_rate": 0.05,
+    "probability_epochs": 120,
+    "probability_batch_size": 4096,
+    "seed": 42
+  },
+  "walk_forward": {
+    "min_train_market_dates": 55,
+    "validation_market_dates": 15,
+    "step_market_dates": 15,
+    "embargo_minutes": 60.0,
+    "expected_fold_count": 7
+  },
+  "development_gate": {
+    "minimum_brier_fold_wins_vs_original_linear": 5,
+    "minimum_brier_fold_wins_vs_tail_null": 5,
+    "require_lower_mean_brier_than_original_linear": true,
+    "require_lower_mean_brier_than_tail_null": true,
+    "require_lower_mean_log_loss_than_original_linear": true,
+    "require_lower_mean_log_loss_than_tail_null": true,
+    "minimum_mean_selected_coverage": 0.10,
+    "pnl_used": false
+  },
+  "research_safety": {
+    "validation_split_accessed": false,
+    "test_split_accessed": false,
+    "validation_requires_separate_frozen_gate": true,
+    "test_requires_separate_frozen_gate": true,
+    "production_promotion_allowed_from_development": false
+  }
+}
