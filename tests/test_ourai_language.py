@@ -8,13 +8,19 @@ from ourai_language.grounding import (
     find_unsupported_percentages,
     grounded_fallback,
 )
-from ourai_language.prompting import build_messages
+from ourai_language.prompting import (
+    ANALYSIS_QA,
+    GENERAL_CHAT,
+    build_messages,
+    select_conversation_mode,
+)
 
 
 class OurAILanguageTests(unittest.TestCase):
     def snapshot(self) -> AnalysisSnapshot:
         return AnalysisSnapshot(
             ticker="nvda",
+            company_name="NVIDIA Corporation",
             horizon_minutes=15,
             p_up=0.68,
             p_down=0.32,
@@ -25,13 +31,14 @@ class OurAILanguageTests(unittest.TestCase):
             market_regime="bullish",
             relative_strength="positive vs QQQ",
             volume_state="elevated",
-            reasons_for=("positive momentum", "relative strength"),
-            reasons_against=("medium uncertainty",),
+            reasons_for=("positive momentum", "relative strength", "positive momentum"),
+            reasons_against=("no strong catalyst",),
         )
 
-    def test_snapshot_normalizes_and_validates(self) -> None:
+    def test_snapshot_normalizes_validates_and_dedupes(self) -> None:
         snapshot = self.snapshot()
         self.assertEqual(snapshot.ticker, "NVDA")
+        self.assertEqual(snapshot.company_name, "NVIDIA Corporation")
         self.assertEqual(snapshot.decision, "LONG_BIAS")
         self.assertAlmostEqual(snapshot.p_up + snapshot.p_down, 1.0)
         self.assertEqual(snapshot.reasons_for, ("positive momentum", "relative strength"))
@@ -48,15 +55,76 @@ class OurAILanguageTests(unittest.TestCase):
                 decision="LONG_BIAS",
             )
 
-    def test_prompt_contains_canonical_snapshot(self) -> None:
+    def test_analysis_prompt_contains_identity_fact_sheet_and_snapshot(self) -> None:
         messages = build_messages(
-            "Prečo si bullish?",
+            "Prečo si pri NVDA bullish?",
             analysis=self.snapshot(),
         )
         self.assertEqual(messages[0]["role"], "system")
+        self.assertIn("CANONICAL_ANALYSIS_FACTS", messages[0]["content"])
+        self.assertIn("company_name: NVIDIA Corporation", messages[0]["content"])
         self.assertIn("CANONICAL_ANALYSIS_JSON", messages[0]["content"])
         self.assertIn('"ticker":"NVDA"', messages[0]["content"])
-        self.assertEqual(messages[-1], {"role": "user", "content": "Prečo si bullish?"})
+        self.assertEqual(messages[-1], {"role": "user", "content": "Prečo si pri NVDA bullish?"})
+
+    def test_general_chat_does_not_receive_analysis_snapshot(self) -> None:
+        messages = build_messages(
+            "Ako sa máš?",
+            analysis=self.snapshot(),
+        )
+        self.assertNotIn("CANONICAL_ANALYSIS_JSON", messages[0]["content"])
+        self.assertNotIn("NVIDIA Corporation", messages[0]["content"])
+
+    def test_router_separates_social_and_analysis_turns(self) -> None:
+        snapshot = self.snapshot()
+        self.assertEqual(
+            select_conversation_mode("Prečo si pri NVDA bullish?", analysis=snapshot),
+            ANALYSIS_QA,
+        )
+        self.assertEqual(
+            select_conversation_mode("Aké sú riziká tejto predikcie?", analysis=snapshot),
+            ANALYSIS_QA,
+        )
+        self.assertEqual(
+            select_conversation_mode("Ako sa máš?", analysis=snapshot),
+            GENERAL_CHAT,
+        )
+        self.assertEqual(
+            select_conversation_mode("Aké je hlavné mesto Francúzska?", analysis=snapshot),
+            GENERAL_CHAT,
+        )
+
+    def test_short_followup_can_inherit_analysis_mode_but_social_overrides(self) -> None:
+        snapshot = self.snapshot()
+        history = [
+            {"role": "user", "content": "Prečo si bullish?", "mode": ANALYSIS_QA},
+            {"role": "assistant", "content": "Kvôli momentu.", "mode": ANALYSIS_QA},
+        ]
+        self.assertEqual(
+            select_conversation_mode("Prečo?", analysis=snapshot, history=history),
+            ANALYSIS_QA,
+        )
+        self.assertEqual(
+            select_conversation_mode("Ako sa máš?", analysis=snapshot, history=history),
+            GENERAL_CHAT,
+        )
+
+    def test_history_is_filtered_by_mode(self) -> None:
+        snapshot = self.snapshot()
+        history = [
+            {"role": "user", "content": "Prečo si bullish?", "mode": ANALYSIS_QA},
+            {"role": "assistant", "content": "Analysis answer", "mode": ANALYSIS_QA},
+            {"role": "user", "content": "Ahoj", "mode": GENERAL_CHAT},
+            {"role": "assistant", "content": "Ahoj!", "mode": GENERAL_CHAT},
+        ]
+        messages = build_messages(
+            "Ako sa máš?",
+            analysis=snapshot,
+            history=history,
+        )
+        contents = [item["content"] for item in messages]
+        self.assertIn("Ahoj!", contents)
+        self.assertNotIn("Analysis answer", contents)
 
     def test_grounding_guard_accepts_only_snapshot_percentages(self) -> None:
         snapshot = self.snapshot()
