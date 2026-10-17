@@ -56,7 +56,7 @@ def evaluate(runtime: Any, cases: tuple[tuple[str, str], ...] = CASES) -> list[d
             "error": error,
         }
         results.append(row)
-        print(f"\\n[{index}/{len(cases)}] {case_id} ({duration:.1f} s)")
+        print(f"\n[{index}/{len(cases)}] {case_id} ({duration:.1f} s)")
         print("Q:", prompt)
         print("A:", answer if answer else f"<ERROR: {error}>")
         if error:
@@ -99,8 +99,8 @@ def main() -> int:
     }
     output = Path(args.output)
     output.parent.mkdir(parents=True, exist_ok=True)
-    output.write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\\n", encoding="utf-8")
-    print("\\nReport:", output)
+    output.write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    print("\nReport:", output)
     print("IMPORTANT: No automated factual accuracy score is implied.")
     return 0
 
