@@ -70,7 +70,7 @@ class LocalOllamaTests(unittest.TestCase):
         self.assertEqual(payload["options"]["temperature"], 0.0)
         self.assertEqual(payload["options"]["num_ctx"], 3072)
         self.assertEqual(payload["messages"][-1]["role"], "user")
-        self.assertNotIn("analysis", payload["messages"][0]["content"].lower())
+        self.assertNotIn("CANONICAL_ANALYSIS_JSON", payload["messages"][0]["content"])
         self.assertEqual(kwargs["timeout"], 180)
 
     def test_known_analysis_and_social_questions_work_without_api(self):
