@@ -7,7 +7,13 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from scripts.build_v4_direction_dataset import preregistered_protocol
-from scripts.evaluate_v4_nonlinear_direction import run_experiment
+from scripts.evaluate_v4_nonlinear_direction import (
+    BASE_EXPECTED_FOLD_COUNT,
+    EXPECTED_DATASET_ID,
+    EXPECTED_FOLD_COUNT,
+    EXPECTED_TRAIN_MARKET_DATES,
+    run_experiment,
+)
 
 
 class V4DirectionExperimentTests(unittest.TestCase):
@@ -18,14 +24,14 @@ class V4DirectionExperimentTests(unittest.TestCase):
         )
         manifest = {
             "builder": "ourai-historical-market-v2",
-            "dataset_id": "synthetic-v4-direction",
+            "dataset_id": EXPECTED_DATASET_ID,
             "source": {"partial": False},
         }
         (root / "manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
         result = {
             "protocol_name": protocol["protocol_name"],
             "protocol_sha256": protocol["protocol_sha256"],
-            "dataset_id": "synthetic-v4-direction",
+            "dataset_id": EXPECTED_DATASET_ID,
             "validation_status": "UNTOUCHED",
             "test_status": "UNTOUCHED",
             "overlap_with_v3": False,
@@ -36,7 +42,7 @@ class V4DirectionExperimentTests(unittest.TestCase):
 
         start = datetime(2024, 10, 1, 14, 31, tzinfo=timezone.utc)
         with (root / "train.jsonl").open("w", encoding="utf-8") as handle:
-            for day in range(175):
+            for day in range(EXPECTED_TRAIN_MARKET_DATES):
                 day_start = start + timedelta(days=day)
                 for index in range(2):
                     timestamp = day_start + timedelta(minutes=index * 30)
@@ -76,10 +82,27 @@ class V4DirectionExperimentTests(unittest.TestCase):
             self.assertEqual(payload["source"], "train_split_only")
             self.assertFalse(payload["validation_used"])
             self.assertFalse(payload["test_lockbox_accessed"])
-            self.assertEqual(payload["summary"]["fold_count"], 8)
+            self.assertEqual(payload["summary"]["fold_count"], EXPECTED_FOLD_COUNT)
+            self.assertEqual(
+                payload["development_amendment"]["base_expected_fold_count"],
+                BASE_EXPECTED_FOLD_COUNT,
+            )
+            self.assertEqual(
+                payload["development_amendment"]["amended_expected_fold_count"],
+                EXPECTED_FOLD_COUNT,
+            )
+            self.assertTrue(
+                payload["development_amendment"]["created_before_model_outcomes"]
+            )
             self.assertEqual(payload["promotion_rule"]["minimum_brier_fold_wins_vs_linear"], 6)
             self.assertEqual(payload["promotion_rule"]["minimum_brier_fold_wins_vs_null"], 6)
             self.assertFalse(payload["promotion_rule"]["pnl_used"])
+
+    def test_base_protocol_remains_immutable_at_eight_folds(self) -> None:
+        protocol = preregistered_protocol()
+        self.assertEqual(protocol["development_gate"]["expected_fold_count"], 8)
+        self.assertEqual(BASE_EXPECTED_FOLD_COUNT, 8)
+        self.assertEqual(EXPECTED_FOLD_COUNT, 7)
 
 
 if __name__ == "__main__":
