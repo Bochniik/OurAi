@@ -129,9 +129,9 @@ def build_v5_market_context_dataset(
         "sample_count": dataset.get("sample_count"),
         "market_date_count": market_date_count,
         "split_market_date_counts": observed_counts,
-        "context_targets_used_by_direction_research": false,
-        "v4_validation_accessed": false,
-        "v4_test_accessed": false
+        "context_targets_used_by_direction_research": False,
+        "v4_validation_accessed": False,
+        "v4_test_accessed": False,
     }
     (destination / "v5_market_context_result.json").write_text(
         json.dumps(result, indent=2, sort_keys=True) + "\n",
