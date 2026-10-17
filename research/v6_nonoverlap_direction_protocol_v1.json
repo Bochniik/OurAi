@@ -1,0 +1,70 @@
+{
+  "schema_version": 1,
+  "protocol_name": "ourai-v6-nonoverlap-direction-train-only-v1",
+  "created_after": "V5 GRU train-only loss collapse, Brier 0.382721 vs null 0.250044, 0/7 Brier wins; audit: train-tail UP share 0.4982, nonoverlapping proxy 0.12963",
+  "hypothesis": "The v5 outcome-tail-conditioned GRU exploited overlapping adjacent labels and suffered train/evaluation selection shift. Replace outcome-tail training by deterministic outcome-independent time anchors and reduce model capacity, without using v4 validation or test.",
+  "datasets": {
+    "target_dataset_id": "7d5f3b066a30ba878bba",
+    "context_dataset_id": "3ce0425124fbda4e3fb3",
+    "source_target": "v4 train.jsonl only",
+    "source_context": "v5 market-context train.jsonl only",
+    "target_holdouts_accessed": false,
+    "context_holdouts_accessed": false,
+    "context_targets_used": false
+  },
+  "model": {
+    "family": "GRU",
+    "horizon_minutes": 15,
+    "sequence_length": 60,
+    "hidden_size": 32,
+    "num_layers": 1,
+    "dropout": 0,
+    "learning_rate": 0.0003,
+    "weight_decay": 0.001,
+    "epochs": 2,
+    "batch_size": 128,
+    "gradient_clip_norm": 1,
+    "seed": 42,
+    "loss": "BCEWithLogitsLoss",
+    "train_only_feature_normalization": true,
+    "missing_value_masks": true
+  },
+  "training": {
+    "training_selection": "all 60-observation-eligible rows anchored to UTC minute mod 15 == 0 independent of future outcomes; do not select using realized 15m absolute-return magnitude",
+    "anchor_modulus_minutes": 15,
+    "anchor_phase": 0,
+    "exclude_neutral_labels_only_at_loss_fit": true,
+    "do_not_apply_magnitude_gate_to_training": true,
+    "no_label_selection_prior_to_time_anchors": true
+  },
+  "evaluation": {
+    "folds": 7,
+    "train_market_dates_min": 55,
+    "validation_market_dates": 15,
+    "step_market_dates": 15,
+    "embargo_minutes": 60,
+    "selection": "frozen v5 magnitude model 70th percentile of in-fold training predictions; apply to fold-development validation predictions using only known features",
+    "evaluation_only_with_60_observation_sequences": true,
+    "null": "all-fold-training-directional UP rate",
+    "linear_comparator": "frozen all-sample original logistic baseline, same selected development rows",
+    "minimum_mean_coverage": 0.1,
+    "minimum_wins_over_linear": 5,
+    "minimum_wins_over_null": 5,
+    "lower_mean_brier_than_both": true,
+    "lower_mean_log_loss_than_both": true,
+    "pnl_used": false
+  },
+  "promotion": {
+    "development_only": true,
+    "validation_or_test_opened": false,
+    "separate_frozen_global_validation_gate_required": true,
+    "unavailable_for_production_until_future_forward": true,
+    "do_not_tune_on_this_single_run": true
+  },
+  "limitations": [
+    "No guarantee reducing label overlap improves forecast skill.",
+    "Training uses all directionally labelled anchors; evaluation uses predicted-magnitude-selected cases, so residual covariate shift remains.",
+    "UTC 15-minute anchor is deterministic and independent of labels; symbols within dates still share common factors.",
+    "The v4 train split has been consulted for several research hypotheses; fold scores are exploratory, not final confirmation."
+  ]
+}
