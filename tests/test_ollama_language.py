@@ -96,6 +96,18 @@ class LocalOllamaTests(unittest.TestCase):
         self.assertEqual(result.unsupported_percentages, (91.0,))
         self.assertIn("68.0%", result.text)
 
+    def test_timeout_explains_slow_generation_not_server_failure(self):
+        runtime = LocalOllamaChatRuntime(timeout_seconds=4)
+        with patch("ourai_language.ollama_runtime.urlopen", side_effect=TimeoutError("timed out")):
+            with self.assertRaisesRegex(RuntimeError, "timed out after 4 seconds"):
+                runtime.respond("Čo je likvidita akcie?")
+
+    def test_wrapped_url_error_timeout_is_diagnosed(self):
+        runtime = LocalOllamaChatRuntime(timeout_seconds=4)
+        with patch("ourai_language.ollama_runtime.urlopen", side_effect=URLError(TimeoutError("timed out"))):
+            with self.assertRaisesRegex(RuntimeError, "timed out after 4 seconds"):
+                runtime.respond("Čo je likvidita akcie?")
+
     def test_missing_server_reports_actionable_message(self):
         runtime = LocalOllamaChatRuntime()
         with patch("ourai_language.ollama_runtime.urlopen", side_effect=URLError("refused")):
