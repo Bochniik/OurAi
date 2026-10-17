@@ -1,0 +1,93 @@
+{
+  "schema_version": 1,
+  "protocol_name": "ourai-v5-temporal-market-context-direction-v1",
+  "created_after": [
+    "v4_hist_gradient_direction_15m_v1_amended_fold_count failed development",
+    "v4_cross_sectional_direction_train_only_exploration_v1 preferred null",
+    "v4_selective_temporal_direction_15m_v1 failed development"
+  ],
+  "base_target_dataset": {
+    "dataset_id": "7d5f3b066a30ba878bba",
+    "period_start": "2024-10-01T00:00:00Z",
+    "period_end": "2025-10-01T00:00:00Z",
+    "target_symbols": ["NVDA", "AAPL", "TSLA", "JPM", "AMD", "META", "MSFT"],
+    "validation_status_required": "UNTOUCHED",
+    "test_status_required": "UNTOUCHED"
+  },
+  "market_context": {
+    "provider": "alpaca",
+    "feed": "iex",
+    "timeframe": "1Min",
+    "adjustment": "raw",
+    "sessions": ["regular"],
+    "symbols": ["SPY", "QQQ", "XLK", "XLC", "XLY", "XLF"],
+    "sector_map": {
+      "NVDA": "XLK",
+      "AAPL": "XLK",
+      "AMD": "XLK",
+      "MSFT": "XLK",
+      "META": "XLC",
+      "TSLA": "XLY",
+      "JPM": "XLF"
+    },
+    "targets_from_context_symbols_used": false,
+    "same_or_past_timestamp_only": true
+  },
+  "temporal_candidate": {
+    "family": "GRU",
+    "horizon_minutes": 15,
+    "sequence_length_observations": 60,
+    "hidden_size": 64,
+    "num_layers": 2,
+    "dropout": 0.1,
+    "optimizer": "AdamW",
+    "learning_rate": 0.001,
+    "weight_decay": 0.0001,
+    "epochs": 5,
+    "batch_size": 256,
+    "gradient_clip_norm": 1.0,
+    "seed": 42,
+    "input_contract": {
+      "target_features": [
+        "return_1m", "return_5m", "return_15m", "return_30m",
+        "distance_from_vwap", "relative_volume_20", "range_position_20",
+        "realized_volatility_20", "spread_bps", "session_progress"
+      ],
+      "context_roles": ["SPY", "QQQ", "SECTOR_ETF"],
+      "context_features_per_role": [
+        "return_1m", "return_5m", "return_15m", "return_30m",
+        "distance_from_vwap", "relative_volume_20", "realized_volatility_20"
+      ],
+      "missing_values_are_explicitly_masked": true,
+      "future_or_target_values_used_as_features": false
+    }
+  },
+  "selective_direction_contract": {
+    "train_direction_only_on_upper_magnitude_quantile": 0.7,
+    "evaluation_selection_uses_predicted_magnitude_only": true,
+    "predicted_magnitude_gate_quantile": 0.7,
+    "neutral_rows_excluded_from_direction_fit_and_metrics": true,
+    "no_trade_outside_gate": true
+  },
+  "development": {
+    "source": "v4 train split plus train-aligned market-context features only",
+    "walk_forward_min_train_market_dates": 55,
+    "walk_forward_validation_market_dates": 15,
+    "walk_forward_step_market_dates": 15,
+    "embargo_minutes": 60.0,
+    "expected_fold_count": 7,
+    "minimum_brier_fold_wins_vs_original_linear": 5,
+    "minimum_brier_fold_wins_vs_tail_null": 5,
+    "require_lower_mean_brier_than_both": true,
+    "require_lower_mean_log_loss_than_both": true,
+    "minimum_mean_selected_coverage": 0.1,
+    "pnl_used": false
+  },
+  "research_safety": {
+    "v4_validation_may_be_opened_during_development": false,
+    "v4_test_may_be_opened_during_development": false,
+    "separate_freeze_required_before_validation": true,
+    "separate_freeze_required_before_test": true,
+    "future_forward_required_before_production": true
+  }
+}
