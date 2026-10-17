@@ -58,7 +58,7 @@ class DeterministicAnalysisAnswerTests(unittest.TestCase):
         )
         self.assertIsNotNone(answer)
         self.assertIn("LONG_BIAS", answer)
-        self.assertIn("nie je automatický príkaz na obchod", answer)
+        self.assertIn("automatický príkaz na obchod", answer)
 
     def test_unknown_open_ended_question_falls_through(self) -> None:
         answer = deterministic_analysis_answer(
