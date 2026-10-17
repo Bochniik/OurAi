@@ -6,7 +6,7 @@ from typing import Iterable, Mapping
 
 from .contracts import AnalysisSnapshot
 from .grounding import find_unsupported_percentages, grounded_fallback
-from .prompting import build_messages
+from .prompting import ANALYSIS_QA, build_messages, select_conversation_mode
 
 
 DEFAULT_MODEL_ID = "Qwen/Qwen3-0.6B"
@@ -18,6 +18,7 @@ class ChatResult:
     text: str
     used_grounding_fallback: bool
     unsupported_percentages: tuple[float, ...] = ()
+    mode: str = "GENERAL_CHAT"
 
 
 class OurAIChatRuntime:
@@ -65,11 +66,19 @@ class OurAIChatRuntime:
         self.tokenizer = AutoTokenizer.from_pretrained(self.model_id)
         self.model = AutoModelForCausalLM.from_pretrained(
             self.model_id,
-            torch_dtype=dtype,
+            dtype=dtype,
             low_cpu_mem_usage=True,
         )
         self.model.to(self.device)
         self.model.eval()
+
+        # Qwen ships sampling defaults in generation_config. We intentionally use
+        # deterministic greedy decoding for grounded analysis, so clear incompatible
+        # sampling-only flags instead of letting transformers warn on every turn.
+        self.model.generation_config.do_sample = False
+        self.model.generation_config.temperature = None
+        self.model.generation_config.top_p = None
+        self.model.generation_config.top_k = None
 
     def _render_chat(self, messages: list[dict[str, str]]) -> str:
         kwargs = {
@@ -94,10 +103,17 @@ class OurAIChatRuntime:
         analysis: AnalysisSnapshot | None = None,
         history: Iterable[Mapping[str, str]] | None = None,
     ) -> ChatResult:
+        history_rows = list(history or ())
+        mode = select_conversation_mode(
+            user_message,
+            analysis=analysis,
+            history=history_rows,
+        )
         messages = build_messages(
             user_message,
             analysis=analysis,
-            history=history,
+            history=history_rows,
+            mode=mode,
         )
         prompt = self._render_chat(messages)
         encoded = self.tokenizer(prompt, return_tensors="pt")
@@ -113,6 +129,7 @@ class OurAIChatRuntime:
                 **encoded,
                 max_new_tokens=self.max_new_tokens,
                 do_sample=False,
+                repetition_penalty=1.05,
                 pad_token_id=pad_token_id,
                 eos_token_id=self.tokenizer.eos_token_id,
             )
@@ -123,16 +140,18 @@ class OurAIChatRuntime:
         if not reply:
             reply = "The language model returned an empty response."
 
-        if analysis is not None:
+        if analysis is not None and mode == ANALYSIS_QA:
             unsupported = find_unsupported_percentages(reply, analysis)
             if unsupported:
                 return ChatResult(
                     text=grounded_fallback(analysis),
                     used_grounding_fallback=True,
                     unsupported_percentages=unsupported,
+                    mode=mode,
                 )
 
         return ChatResult(
             text=reply,
             used_grounding_fallback=False,
+            mode=mode,
         )
