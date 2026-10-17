@@ -5,8 +5,6 @@ paraphrases known structured phrases without inventing additional market facts.
 """
 from __future__ import annotations
 
-import re
-
 from .contracts import AnalysisSnapshot
 
 
@@ -211,7 +209,7 @@ def deterministic_analysis_answer(user_message: str, snapshot: AnalysisSnapshot)
         if slovak:
             return (
                 f"Pri {subject} snapshot uvádza tieto riziká a obmedzenia: {_risks_sk(snapshot)}. "
-                f"Rozhodnutie {_decision_phrase_sk(snapshot.decision)} nie je zárukou budúceho vývoja ceny."
+                f"Signál {snapshot.decision} nie je zárukou budúceho vývoja ceny."
             )
         return (
             f"The main risks for {subject} are: {_risks_en(snapshot)}. "
