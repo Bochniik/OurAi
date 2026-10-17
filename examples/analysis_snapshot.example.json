@@ -1,0 +1,24 @@
+{
+  "ticker": "NVDA",
+  "horizon_minutes": 15,
+  "p_up": 0.68,
+  "p_down": 0.32,
+  "expected_move_pct": 0.41,
+  "confidence": 0.64,
+  "uncertainty": "medium",
+  "decision": "LONG_BIAS",
+  "market_regime": "bullish",
+  "relative_strength": "positive vs QQQ",
+  "volume_state": "elevated",
+  "news_context": "no strong catalyst supplied",
+  "reasons_for": [
+    "positive short-term momentum",
+    "relative strength versus QQQ",
+    "elevated volume"
+  ],
+  "reasons_against": [
+    "medium uncertainty"
+  ],
+  "model_version": "development",
+  "as_of": "example-only"
+}
