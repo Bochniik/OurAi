@@ -3,11 +3,19 @@
 Only ``train.jsonl`` is opened. The fresh v4 validation and test splits remain
 untouched until separate, later gates are committed. Promotion is based on proper
 probability scores only; PnL is deliberately excluded.
+
+The original v4 preregistration expected eight walk-forward folds. After the real
+dataset was built, the first development invocation deterministically produced seven
+folds and stopped on the fold-count assertion before the model-fit loop started. A
+committed amendment therefore changes only the expected fold count from eight to
+seven. Model configuration, metrics, thresholds, split boundaries and holdouts remain
+unchanged.
 """
 
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 from pathlib import Path
 from statistics import fmean
@@ -31,10 +39,18 @@ MIN_TRAIN_MARKET_DATES = 55
 VALIDATION_MARKET_DATES = 15
 STEP_MARKET_DATES = 15
 EMBARGO_MINUTES = 60.0
-EXPECTED_FOLD_COUNT = 8
+BASE_EXPECTED_FOLD_COUNT = 8
+EXPECTED_FOLD_COUNT = 7
+EXPECTED_TRAIN_MARKET_DATES = 174
 MINIMUM_BRIER_FOLD_WINS_VS_LINEAR = 6
 MINIMUM_BRIER_FOLD_WINS_VS_NULL = 6
 EXPECTED_BUILDER = "ourai-historical-market-v2"
+EXPECTED_DATASET_ID = "7d5f3b066a30ba878bba"
+AMENDMENT_PATH = (
+    Path(__file__).resolve().parents[1]
+    / "research"
+    / "v4_direction_development_amendment_v1.json"
+)
 
 NONLINEAR_CONFIG = HistGradientDirectionConfig(
     horizon_minutes=HORIZON_MINUTES,
@@ -65,6 +81,70 @@ def _mapping(value: object, name: str) -> Mapping[str, Any]:
     return value
 
 
+def _canonical_json_sha256(payload: Mapping[str, Any]) -> str:
+    encoded = json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    return hashlib.sha256(encoded).hexdigest()
+
+
+def _load_amendment() -> dict[str, Any]:
+    if not AMENDMENT_PATH.is_file():
+        raise FileNotFoundError(f"required v4 development amendment not found: {AMENDMENT_PATH}")
+    payload = json.loads(AMENDMENT_PATH.read_text(encoding="utf-8"))
+    amendment = _mapping(payload, "v4 direction development amendment")
+
+    expected_protocol = preregistered_protocol()
+    if amendment.get("amendment_name") != "ourai-v4-direction-development-fold-count-amendment-v1":
+        raise ValueError("unexpected v4 direction development amendment identity")
+    if amendment.get("base_protocol_name") != expected_protocol["protocol_name"]:
+        raise ValueError("v4 amendment base protocol name mismatch")
+    if amendment.get("base_protocol_sha256") != expected_protocol["protocol_sha256"]:
+        raise ValueError("v4 amendment base protocol SHA256 mismatch")
+    if amendment.get("applies_to_dataset_id") != EXPECTED_DATASET_ID:
+        raise ValueError("v4 amendment dataset identity mismatch")
+    if amendment.get("created_before_model_outcomes") is not True:
+        raise ValueError("v4 amendment must state it was frozen before model outcomes")
+
+    observed = _mapping(amendment.get("observed_before_amendment"), "observed_before_amendment")
+    if observed.get("train_market_date_count") != EXPECTED_TRAIN_MARKET_DATES:
+        raise ValueError("v4 amendment train market-date count mismatch")
+    if observed.get("computed_fold_count") != EXPECTED_FOLD_COUNT:
+        raise ValueError("v4 amendment computed fold count mismatch")
+    if observed.get("model_fit_loop_started") is not False:
+        raise ValueError("v4 amendment must precede the model-fit loop")
+    if observed.get("development_metrics_observed") is not False:
+        raise ValueError("v4 amendment must precede development metrics")
+    if observed.get("validation_split_accessed") is not False:
+        raise ValueError("v4 amendment must keep validation untouched")
+    if observed.get("test_split_accessed") is not False:
+        raise ValueError("v4 amendment must keep test untouched")
+
+    change = _mapping(amendment.get("change"), "change")
+    if dict(change) != {
+        "field": "development_gate.expected_fold_count",
+        "from": BASE_EXPECTED_FOLD_COUNT,
+        "to": EXPECTED_FOLD_COUNT,
+    }:
+        raise ValueError("v4 amendment changes more than the expected fold count")
+
+    unchanged = _mapping(amendment.get("unchanged_contract"), "unchanged_contract")
+    expected_unchanged = {
+        "source_interval": True,
+        "dataset_and_split_boundaries": True,
+        "direction_contract": True,
+        "nonlinear_model_family_and_hyperparameters": True,
+        "linear_incumbent": True,
+        "walk_forward_window_sizes_and_embargo": True,
+        "minimum_brier_fold_wins_vs_linear": MINIMUM_BRIER_FOLD_WINS_VS_LINEAR,
+        "minimum_brier_fold_wins_vs_null": MINIMUM_BRIER_FOLD_WINS_VS_NULL,
+        "mean_brier_requirements": True,
+        "mean_log_loss_requirements": True,
+        "pnl_used": False,
+    }
+    if dict(unchanged) != expected_unchanged:
+        raise ValueError("v4 amendment altered a frozen development requirement")
+    return dict(amendment)
+
+
 def _expected_nonlinear_protocol_config() -> dict[str, Any]:
     return {
         "family": "HistGradientBoostingClassifier",
@@ -80,7 +160,9 @@ def _expected_nonlinear_protocol_config() -> dict[str, Any]:
     }
 
 
-def _validate_v4_contract(root: Path) -> tuple[dict[str, Any], dict[str, Any]]:
+def _validate_v4_contract(
+    root: Path,
+) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any]]:
     manifest_path = root / "manifest.json"
     protocol_path = root / "v4_direction_preregistration.json"
     result_path = root / "v4_direction_protocol_result.json"
@@ -96,7 +178,7 @@ def _validate_v4_contract(root: Path) -> tuple[dict[str, Any], dict[str, Any]]:
 
     expected = preregistered_protocol()
     if protocol != expected:
-        raise ValueError("v4 direction preregistration does not match committed protocol")
+        raise ValueError("v4 direction preregistration does not match committed base protocol")
     if result.get("protocol_sha256") != expected["protocol_sha256"]:
         raise ValueError("v4 direction protocol result hash mismatch")
     if result.get("validation_status") != "UNTOUCHED":
@@ -109,6 +191,8 @@ def _validate_v4_contract(root: Path) -> tuple[dict[str, Any], dict[str, Any]]:
         raise ValueError("v4 direction experiment requires historical-v2 causal builder")
     if result.get("dataset_id") != manifest.get("dataset_id"):
         raise ValueError("v4 direction dataset_id mismatch")
+    if manifest.get("dataset_id") != EXPECTED_DATASET_ID:
+        raise ValueError("v4 direction amendment is frozen to the canonical dataset")
     source = _mapping(manifest.get("source"), "manifest.source")
     if bool(source.get("partial")):
         raise ValueError("partial source history is not allowed")
@@ -116,12 +200,12 @@ def _validate_v4_contract(root: Path) -> tuple[dict[str, Any], dict[str, Any]]:
         raise ValueError("committed nonlinear config drifted from v4 preregistration")
 
     gate = _mapping(expected.get("development_gate"), "development_gate")
-    expected_gate = {
+    base_expected_gate = {
         "walk_forward_min_train_market_dates": MIN_TRAIN_MARKET_DATES,
         "walk_forward_validation_market_dates": VALIDATION_MARKET_DATES,
         "walk_forward_step_market_dates": STEP_MARKET_DATES,
         "embargo_minutes": EMBARGO_MINUTES,
-        "expected_fold_count": EXPECTED_FOLD_COUNT,
+        "expected_fold_count": BASE_EXPECTED_FOLD_COUNT,
         "minimum_brier_fold_wins_vs_linear": MINIMUM_BRIER_FOLD_WINS_VS_LINEAR,
         "minimum_brier_fold_wins_vs_null": MINIMUM_BRIER_FOLD_WINS_VS_NULL,
         "require_lower_mean_brier_than_linear": True,
@@ -130,20 +214,29 @@ def _validate_v4_contract(root: Path) -> tuple[dict[str, Any], dict[str, Any]]:
         "require_lower_mean_log_loss_than_null": True,
         "pnl_used": False,
     }
-    if dict(gate) != expected_gate:
-        raise ValueError("v4 direction development gate drifted from preregistration")
-    return dict(manifest), dict(result)
+    if dict(gate) != base_expected_gate:
+        raise ValueError("v4 direction base development gate drifted from preregistration")
+
+    amendment = _load_amendment()
+    return dict(manifest), dict(result), amendment
 
 
 def run_experiment(dataset_dir: str | Path, output_path: str | Path) -> dict[str, Any]:
     root = Path(dataset_dir)
-    manifest, protocol_result = _validate_v4_contract(root)
+    manifest, protocol_result, amendment = _validate_v4_contract(root)
     train_path = root / "train.jsonl"
     if not train_path.is_file():
         raise FileNotFoundError(f"train split not found: {train_path}")
 
     # Fresh validation.jsonl and test.jsonl are intentionally never opened here.
     samples = _load_train(train_path)
+    train_market_dates = sorted({sample.session_date for sample in samples})
+    if len(train_market_dates) != EXPECTED_TRAIN_MARKET_DATES:
+        raise ValueError(
+            "v4 direction amendment requires exactly "
+            f"{EXPECTED_TRAIN_MARKET_DATES} train market dates, got {len(train_market_dates)}"
+        )
+
     folds = purged_walk_forward_folds(
         samples,
         min_train_market_dates=MIN_TRAIN_MARKET_DATES,
@@ -154,7 +247,7 @@ def run_experiment(dataset_dir: str | Path, output_path: str | Path) -> dict[str
     )
     if len(folds) != EXPECTED_FOLD_COUNT:
         raise ValueError(
-            f"preregistered v4 direction experiment requires exactly {EXPECTED_FOLD_COUNT} folds, got {len(folds)}"
+            f"amended v4 direction experiment requires exactly {EXPECTED_FOLD_COUNT} folds, got {len(folds)}"
         )
 
     fold_results: list[dict[str, Any]] = []
@@ -243,11 +336,19 @@ def run_experiment(dataset_dir: str | Path, output_path: str | Path) -> dict[str
 
     payload = {
         "schema_version": 1,
-        "experiment": "v4_hist_gradient_direction_15m_v1",
+        "experiment": "v4_hist_gradient_direction_15m_v1_amended_fold_count",
         "dataset_id": manifest.get("dataset_id"),
         "dataset_builder": manifest.get("builder"),
         "protocol_name": protocol_result.get("protocol_name"),
         "protocol_sha256": protocol_result.get("protocol_sha256"),
+        "development_amendment": {
+            "amendment_name": amendment["amendment_name"],
+            "path": str(AMENDMENT_PATH.as_posix()),
+            "sha256": _canonical_json_sha256(amendment),
+            "base_expected_fold_count": BASE_EXPECTED_FOLD_COUNT,
+            "amended_expected_fold_count": EXPECTED_FOLD_COUNT,
+            "created_before_model_outcomes": True,
+        },
         "horizon_minutes": HORIZON_MINUTES,
         "direction_contract": "conditional_up_vs_down",
         "source": "train_split_only",
@@ -301,7 +402,7 @@ def run_experiment(dataset_dir: str | Path, output_path: str | Path) -> dict[str
 
 def parser() -> argparse.ArgumentParser:
     result = argparse.ArgumentParser(
-        description="Run the preregistered train-only v4 nonlinear 15m direction challenger."
+        description="Run the amended train-only v4 nonlinear 15m direction challenger."
     )
     result.add_argument("--dataset-dir", required=True)
     result.add_argument(
@@ -314,6 +415,12 @@ def parser() -> argparse.ArgumentParser:
 def main() -> int:
     args = parser().parse_args()
     payload = run_experiment(args.dataset_dir, args.output)
+    amendment = payload["development_amendment"]
+    print(
+        "Development amendment:",
+        amendment["amendment_name"],
+        f"({amendment['base_expected_fold_count']} -> {amendment['amended_expected_fold_count']} folds)",
+    )
     for row in payload["fold_results"]:
         dates = row["validation_market_dates"]
         print(

@@ -1,0 +1,36 @@
+{
+  "schema_version": 1,
+  "amendment_name": "ourai-v4-direction-development-fold-count-amendment-v1",
+  "base_protocol_name": "ourai-v4-direction-research-preregistration-v1",
+  "base_protocol_sha256": "d4a738add117dd0fe8cabaface17ea98a0bdec0660f8fe27eab6cb02ac5f4fe8",
+  "applies_to_dataset_id": "7d5f3b066a30ba878bba",
+  "created_after_dataset_build": true,
+  "created_before_model_outcomes": true,
+  "reason": "The realized v4 train split contains 174 complete market dates. With the already-frozen walk-forward settings (55 minimum train dates, 15 validation dates, 15-date step), the deterministic fold builder produces seven complete folds, not eight. The first development invocation stopped on the fold-count assertion before entering the model-fit loop, so no development probability scores, validation outcomes, or test outcomes were observed before this amendment.",
+  "observed_before_amendment": {
+    "train_market_date_count": 174,
+    "computed_fold_count": 7,
+    "model_fit_loop_started": false,
+    "development_metrics_observed": false,
+    "validation_split_accessed": false,
+    "test_split_accessed": false
+  },
+  "change": {
+    "field": "development_gate.expected_fold_count",
+    "from": 8,
+    "to": 7
+  },
+  "unchanged_contract": {
+    "source_interval": true,
+    "dataset_and_split_boundaries": true,
+    "direction_contract": true,
+    "nonlinear_model_family_and_hyperparameters": true,
+    "linear_incumbent": true,
+    "walk_forward_window_sizes_and_embargo": true,
+    "minimum_brier_fold_wins_vs_linear": 6,
+    "minimum_brier_fold_wins_vs_null": 6,
+    "mean_brier_requirements": true,
+    "mean_log_loss_requirements": true,
+    "pnl_used": false
+  }
+}
