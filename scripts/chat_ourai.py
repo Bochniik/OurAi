@@ -37,6 +37,9 @@ def main() -> int:
     print("Model:", args.model)
     print("Requested device:", args.device)
     print("Analysis grounding:", "ON" if analysis is not None else "OFF")
+    if analysis is not None:
+        print("Snapshot source:", args.analysis_json)
+        print("Note: snapshot values are static inputs, not a verified live market forecast.")
     print("Loading model (the first run may download model weights)...")
 
     runtime = OurAIChatRuntime(
