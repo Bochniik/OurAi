@@ -36,9 +36,13 @@ class DeterministicAnalysisAnswerTests(unittest.TestCase):
         answer = deterministic_analysis_answer("Prečo si pri NVDA bullish?", snapshot)
         self.assertIsNotNone(answer)
         self.assertIn("NVDA (NVIDIA Corporation)", answer)
-        self.assertIn("68.0 %", answer)
-        self.assertIn("32.0 %", answer)
-        self.assertIn("positive short-term momentum", answer)
+        self.assertIn("68,0 %", answer)
+        self.assertIn("32,0 %", answer)
+        self.assertIn("pozitívne krátkodobé momentum", answer)
+        self.assertIn("relatívna sila voči QQQ", answer)
+        self.assertIn("zvýšený objem obchodovania", answer)
+        self.assertNotIn("medium", answer)
+        self.assertNotIn("positive short-term momentum", answer)
         self.assertEqual(find_unsupported_percentages(answer or "", snapshot), ())
 
     def test_risk_answer_does_not_repeat_uncertainty(self) -> None:
@@ -47,9 +51,12 @@ class DeterministicAnalysisAnswerTests(unittest.TestCase):
             self.snapshot(),
         )
         self.assertIsNotNone(answer)
-        self.assertIn("medium uncertainty", answer)
-        self.assertIn("chýba výrazný potvrdený katalyzátor", answer)
-        self.assertEqual((answer or "").count("medium uncertainty"), 1)
+        self.assertIn("stredná neistota modelu", answer)
+        self.assertIn("v dodaných údajoch nie je potvrdený výrazný katalyzátor", answer)
+        self.assertEqual((answer or "").count("stredná neistota"), 1)
+        self.assertEqual((answer or "").count("katalyzátor"), 1)
+        self.assertNotIn("no strong", answer)
+        self.assertEqual(find_unsupported_percentages(answer or "", self.snapshot()), ())
 
     def test_action_answer_is_bias_not_trade_order(self) -> None:
         answer = deterministic_analysis_answer(
@@ -59,6 +66,31 @@ class DeterministicAnalysisAnswerTests(unittest.TestCase):
         self.assertIsNotNone(answer)
         self.assertIn("LONG_BIAS", answer)
         self.assertIn("automatický príkaz na obchod", answer)
+        self.assertIn("68,0 %", answer)
+        self.assertEqual(find_unsupported_percentages(answer or "", self.snapshot()), ())
+
+
+    def test_probability_answer_explains_absolute_move(self) -> None:
+        snapshot = self.snapshot()
+        answer = deterministic_analysis_answer("Aká je pravdepodobnosť rastu?", snapshot)
+        self.assertIsNotNone(answer)
+        self.assertIn("68,0 %", answer)
+        self.assertIn("0,41 %", answer)
+        self.assertIn("nie", answer)
+        self.assertEqual(find_unsupported_percentages(answer or "", snapshot), ())
+
+    def test_unknown_descriptors_are_quoted_not_reinterpreted(self) -> None:
+        from dataclasses import replace
+        snapshot = replace(self.snapshot(), reasons_for=("custom-feature-42",))
+        answer = deterministic_analysis_answer("Prečo si bullish?", snapshot)
+        self.assertIn("„custom-feature-42“", answer or "")
+
+    def test_no_trade_is_not_a_trade_instruction(self) -> None:
+        from dataclasses import replace
+        snapshot = replace(self.snapshot(), decision="NO_TRADE")
+        answer = deterministic_analysis_answer("Čo by si robil?", snapshot)
+        self.assertIn("NO_TRADE", answer or "")
+        self.assertIn("Nie je to automatický príkaz na obchod", answer or "")
 
     def test_unknown_open_ended_question_falls_through(self) -> None:
         answer = deterministic_analysis_answer(
