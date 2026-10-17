@@ -72,7 +72,26 @@ class LocalOllamaChatRuntime:
                     f"Run: ollama pull {self.model_id}"
                 ) from exc
             raise RuntimeError(f"Local Ollama request failed (HTTP {exc.code}).") from exc
-        except (URLError, TimeoutError, ConnectionError) as exc:
+        except TimeoutError as exc:
+            raise RuntimeError(
+                f"Local Ollama request timed out after {self.timeout_seconds} seconds. "
+                "The server may be running but the model is loading or generating "
+                "too slowly. Run 'ollama ps' to check CPU/GPU use, reduce "
+                "'--max-new-tokens', or raise '--timeout-seconds'."
+            ) from exc
+        except URLError as exc:
+            if isinstance(exc.reason, TimeoutError):
+                raise RuntimeError(
+                    f"Local Ollama request timed out after {self.timeout_seconds} seconds. "
+                    "The server may be running but the model is loading or generating "
+                    "too slowly. Run 'ollama ps', reduce '--max-new-tokens', "
+                    "or raise '--timeout-seconds'."
+                ) from exc
+            raise RuntimeError(
+                "Cannot reach the local Ollama server at 127.0.0.1:11434. "
+                "Install and start Ollama for Windows first."
+            ) from exc
+        except ConnectionError as exc:
             raise RuntimeError(
                 "Cannot reach the local Ollama server at 127.0.0.1:11434. "
                 "Install and start Ollama for Windows first."
