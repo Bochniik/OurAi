@@ -12,14 +12,25 @@ from .grounding import (
     find_unsupported_percentages,
     grounded_fallback,
 )
-from .prompting import SYSTEM_PROMPT, build_messages
+from .prompting import (
+    ANALYSIS_QA,
+    GENERAL_CHAT,
+    ANALYSIS_SYSTEM_PROMPT,
+    GENERAL_SYSTEM_PROMPT,
+    build_messages,
+    select_conversation_mode,
+)
 
 __all__ = [
+    "ANALYSIS_QA",
+    "GENERAL_CHAT",
+    "ANALYSIS_SYSTEM_PROMPT",
+    "GENERAL_SYSTEM_PROMPT",
     "AnalysisSnapshot",
     "GroundingViolation",
-    "SYSTEM_PROMPT",
     "build_messages",
     "canonical_percentage_values",
     "find_unsupported_percentages",
     "grounded_fallback",
+    "select_conversation_mode",
 ]
