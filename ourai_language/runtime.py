@@ -6,8 +6,9 @@ from typing import Iterable, Mapping
 
 from .analysis_answers import deterministic_analysis_answer
 from .contracts import AnalysisSnapshot
+from .general_answers import deterministic_social_answer
 from .grounding import find_unsupported_percentages, grounded_fallback
-from .prompting import ANALYSIS_QA, build_messages, select_conversation_mode
+from .prompting import ANALYSIS_QA, GENERAL_CHAT, build_messages, select_conversation_mode
 
 
 DEFAULT_MODEL_ID = "Qwen/Qwen3-0.6B"
@@ -121,6 +122,18 @@ class OurAIChatRuntime:
             if deterministic is not None:
                 return ChatResult(
                     text=deterministic,
+                    used_grounding_fallback=False,
+                    mode=mode,
+                )
+
+        # Exact social phrases should not rely on a tiny multilingual model
+        # that sometimes responds in the wrong language. Open-ended general
+        # conversation still uses the local model unchanged.
+        if mode == GENERAL_CHAT:
+            social = deterministic_social_answer(user_message)
+            if social is not None:
+                return ChatResult(
+                    text=social,
                     used_grounding_fallback=False,
                     mode=mode,
                 )
