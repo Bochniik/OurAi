@@ -21,6 +21,17 @@ class LanguageBenchmarkTests(unittest.TestCase):
         self.assertIn("fundamentálnou a technickou", CASES[0][1])
         self.assertEqual(len({case_id for case_id, _ in CASES}), len(CASES))
 
+    def test_ollama_metrics_are_preserved_without_invented_quality_grades(self):
+        class _MetricRuntime(_FakeRuntime):
+            last_response_metrics = {"load_duration": 2000000, "eval_count": 32, "done_reason": "length"}
+
+            def respond(self, prompt, *, history):
+                return SimpleNamespace(text="Ukážka.\\n[Odpoveď bola skrátená limitom dĺžky.]")
+
+        rows = evaluate(_MetricRuntime(), CASES[:1])
+        self.assertEqual(rows[0]["ollama_metrics"]["eval_count"], 32)
+        self.assertTrue(rows[0]["truncated"])
+
     def test_manual_benchmark_stores_raw_responses_without_grades(self):
         runtime = _FakeRuntime()
         cases = CASES[:2]
