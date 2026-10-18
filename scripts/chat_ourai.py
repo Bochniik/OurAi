@@ -27,6 +27,7 @@ def parser() -> argparse.ArgumentParser:
     result.add_argument("--timeout-seconds", type=int, default=180, help="Local Ollama HTTP wait limit")
     result.add_argument("--num-ctx", type=int, default=3072, help="Local Ollama context window (try 1536 vs 3072)")
     result.add_argument("--concise", action="store_true", help="Ask Ollama for short direct answers")
+    result.add_argument("--raw-llm", action="store_true", help="Disable curated financial glossary for language model testing")
     result.add_argument(
         "--analysis-json",
         help="Optional canonical Orion analysis snapshot used to ground analysis answers.",
@@ -45,6 +46,7 @@ def main() -> int:
     if args.backend == "ollama":
         print("Ollama context window:", args.num_ctx)
         print("Concise response style:", args.concise)
+    print("Financial knowledge:", "OFF (raw LLM)" if args.raw_llm else "ON")
     print("Requested device:", args.device)
     print("Analysis grounding:", "ON" if analysis is not None else "OFF")
     if analysis is not None:
@@ -55,7 +57,7 @@ def main() -> int:
         runtime = LocalOllamaChatRuntime(
             model_id=model_id, max_new_tokens=args.max_new_tokens,
             timeout_seconds=args.timeout_seconds, num_ctx=args.num_ctx,
-            concise=args.concise,
+            concise=args.concise, knowledge_enabled=not args.raw_llm,
         )
     else:
         print("Loading model (the first run may download model weights)...")
@@ -63,6 +65,7 @@ def main() -> int:
             model_id=model_id,
             device=args.device,
             max_new_tokens=args.max_new_tokens,
+            knowledge_enabled=not args.raw_llm,
         )
     print("Runtime device:", runtime.device)
     print("Commands: /clear, /exit")
@@ -95,6 +98,8 @@ def main() -> int:
             continue
         print("\nOurAI >")
         print(result.text)
+        if result.answer_source == "curated_knowledge":
+            print("[source: curated financial knowledge; not a live forecast]")
         if result.used_grounding_fallback:
             values = ", ".join(f"{value:g}%" for value in result.unsupported_percentages)
             print(f"[grounding guard replaced unsupported generated percentages: {values}]")
