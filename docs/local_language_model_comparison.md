@@ -54,6 +54,52 @@ in `:cloud`.
    This small fixed benchmark is a diagnostic, NOT a formal external
    language-model benchmark or evidence of trading profitability.
 
+## GTX 1650: controlled context / latency experiment
+
+The local Ollama adapter previously hardcoded `num_ctx=3072`. It now exposes
+`--num-ctx` in both chat and benchmark; **the default remains 3072** for
+backwards compatibility. It also has an optional `--concise` response style
+(aims for 3–5 short sentences; not a factuality guarantee).
+
+On a 4 GB GTX 1650, `ollama ps` previously showed
+`32%/68% CPU/GPU` for `qwen3:4b-instruct-2507-q4_K_M`. A smaller context
+window *may* release enough KV/cache memory for greater GPU offload, but GPU
+offload depends on available VRAM and Ollama's runtime; **no improvement is
+guaranteed**. Too small a context can truncate the conversation or snapshot.
+
+Run **sequentially** (never simultaneously), with the exact same model,
+question set, generated-token limit and optional concise flag:
+
+```powershell
+git pull --ff-only
+ollama stop qwen3:4b-instruct-2507-q4_K_M
+python -m scripts.benchmark_ourai_language --backend ollama --model qwen3:4b-instruct-2507-q4_K_M --num-ctx 3072 --max-new-tokens 240 --timeout-seconds 600 --concise --output runs\language\qwen4b_ctx3072_concise.json
+ollama ps
+ollama stop qwen3:4b-instruct-2507-q4_K_M
+python -m scripts.benchmark_ourai_language --backend ollama --model qwen3:4b-instruct-2507-q4_K_M --num-ctx 1536 --max-new-tokens 240 --timeout-seconds 600 --concise --output runs\language\qwen4b_ctx1536_concise.json
+ollama ps
+```
+
+The reports contain total wall time per question, a mean including and
+excluding the first question, number of truncated answers and (when returned
+by Ollama) `load_duration`, `prompt_eval_count`, `eval_count`,
+`eval_duration`, `total_duration` and `done_reason`. Ollama's durations
+are **nanoseconds**. Check `ollama ps` *while the model is loaded* for
+CPU/GPU split; the breakdown after a model unload cannot be inferred from
+benchmark JSON. The first call can be dominated by model loading.
+
+**Caution:** concise mode is a new prompt setting. Do not compare its raw
+latency directly with an old benchmark using the longer default prompt.
+For assessing only the impact of `--num-ctx`, ensure all other flags match
+exactly. Manually review factual accuracy and Slovak fluency. Reduced context
+does not solve knowledge errors (e.g., confusing overfitting with validation).
+
+A short interactive check with the smaller context:
+
+```powershell
+python -m scripts.chat_ourai --backend ollama --model qwen3:4b-instruct-2507-q4_K_M --num-ctx 1536 --max-new-tokens 240 --timeout-seconds 600 --concise
+```
+
 ## Troubleshooting
 
 - `ollama` not recognized: reopen PowerShell after installing Ollama.
