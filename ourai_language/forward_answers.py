@@ -59,7 +59,7 @@ def _fmt(value: float | None, decimals: int = 2) -> str:
 
 
 def _metrics(row: dict) -> str:
-    if not row["resolved"]:
+    if not row.get("resolved", row.get("resolution_count", 0)):
         return "Zatiaľ nemáme žiadne vyhodnotené predikcie."
     return (
         f"MAE magnitude: champion {_fmt(row['champion_mae_bps'])} bps; "
