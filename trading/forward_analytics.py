@@ -8,6 +8,7 @@ from __future__ import annotations
 from datetime import datetime, timedelta, timezone
 from math import isfinite
 from pathlib import Path
+from zoneinfo import ZoneInfo
 from typing import Any
 
 from .forward_shadow import journal_state, read_journal
@@ -86,9 +87,7 @@ def read_forward_report(
                 or sample + HORIZON != due or source + HORIZON != target
                 or recorded < sample or recorded >= due or predicted != recorded):
             raise ValueError("forward prediction violates causal timing")
-        if row.get("session_date") != sample.astimezone(
-            __import__("zoneinfo").ZoneInfo("America/New_York")
-        ).date().isoformat():
+        if row.get("session_date") != sample.astimezone(ZoneInfo("America/New_York")).date().isoformat():
             raise ValueError("forward prediction session date mismatch")
         for field in ("reference_close", "expected_magnitude_bps",
                       "linear_expected_magnitude_bps", "null_expected_magnitude_bps"):
@@ -111,6 +110,7 @@ def read_forward_report(
         for symbol in FROZEN_SYMBOLS
     }
     last_prediction: dict[str, Any] | None = None
+    last_by_symbol: dict[str, dict[str, Any]] = {}
     for pid, prediction in predictions.items():
         sym = str(prediction["symbol"])
         target_summary = by_symbol[sym]
@@ -121,6 +121,11 @@ def read_forward_report(
             last_prediction["sequence"],
         ):
             last_prediction = prediction
+        previous = last_by_symbol.get(sym)
+        if previous is None or (recorded_at, prediction["sequence"]) > (
+            _utc(previous["recorded_at"], "recorded_at"), previous["sequence"]
+        ):
+            last_by_symbol[sym] = prediction
         resolution = resolutions.get(pid)
         if resolution is None:
             target_summary["pending"] += 1
@@ -190,6 +195,19 @@ def read_forward_report(
         "null_mae_bps": _average(total_errors["null"]),
         "symbols": symbols,
         "latest_prediction": latest,
+        "latest_by_symbol": {
+            symbol: {
+                "symbol": row["symbol"],
+                "predicted_at": row["predicted_at"],
+                "sample_timestamp": row["sample_timestamp"],
+                "target_due_at": row["target_due_at"],
+                "expected_magnitude_bps": _nonnegative(
+                    row["expected_magnitude_bps"], "expected_magnitude_bps"
+                ),
+                "resolved": row["prediction_id"] in resolutions,
+            }
+            for symbol, row in last_by_symbol.items()
+        },
         "evaluated_at_utc": now.isoformat().replace("+00:00", "Z"),
         "source": "verified_local_forward_journal",
         "limits": (
