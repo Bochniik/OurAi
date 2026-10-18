@@ -30,7 +30,7 @@ class LocalOllamaChatRuntime:
     def __init__(
         self, *, model_id: str = DEFAULT_OLLAMA_MODEL,
         max_new_tokens: int = 384, timeout_seconds: int = 180,
-        num_ctx: int = 3072,
+        num_ctx: int = 3072, concise: bool = False,
     ) -> None:
         if not model_id or model_id.strip() != model_id:
             raise ValueError("a locally installed Ollama model name is required")
@@ -46,6 +46,7 @@ class LocalOllamaChatRuntime:
         self.max_new_tokens = int(max_new_tokens)
         self.timeout_seconds = int(timeout_seconds)
         self.num_ctx = num_ctx
+        self.concise = bool(concise)
         self.last_response_metrics: dict[str, int | str] | None = None
         self.device = "ollama-local"
 
@@ -145,6 +146,15 @@ class LocalOllamaChatRuntime:
         messages = build_messages(
             user_message, analysis=analysis, history=history_rows, mode=mode,
         )
+        if self.concise:
+            messages[0] = {
+                **messages[0],
+                "content": messages[0]["content"]
+                + "\nStyle: Answer directly in three to five SHORT sentences by default. "
+                "No greetings, headings, bullet lists or long introductions unless "
+                "explicitly requested. Keep financial explanations accurate, state "
+                "uncertainty, and do not invent prices or forecast probabilities.",
+            }
         reply = self._generate(messages)
         if analysis is not None and mode == ANALYSIS_QA:
             unsupported = find_unsupported_percentages(reply, analysis)
