@@ -40,7 +40,7 @@ class LocalOllamaTests(unittest.TestCase):
         )
 
     def test_default_is_local_quantized_model(self):
-        runtime = LocalOllamaChatRuntime()
+        runtime = LocalOllamaChatRuntime(knowledge_enabled=False)
         self.assertEqual(runtime.model_id, "qwen3:1.7b")
         self.assertEqual(DEFAULT_OLLAMA_MODEL, "qwen3:1.7b")
 
@@ -55,7 +55,7 @@ class LocalOllamaTests(unittest.TestCase):
                 "done": True, "done_reason": "stop",
                 "message": {"role": "assistant", "content": "Fundamentálna skúma podnik; technická ceny."},
             })
-            result = LocalOllamaChatRuntime().respond(
+            result = LocalOllamaChatRuntime(knowledge_enabled=False).respond(
                 "Vysvetli mi rozdiel medzi fundamentálnou a technickou analýzou."
             )
         self.assertIn("technická ceny", result.text)
@@ -86,6 +86,7 @@ class LocalOllamaTests(unittest.TestCase):
             })
             runtime = LocalOllamaChatRuntime(
                 num_ctx=1536, concise=True, max_new_tokens=240,
+                knowledge_enabled=False,
             )
             reply = runtime.respond("Čo je kalibrácia modelu?")
         self.assertIn("správna", reply.text)
@@ -109,14 +110,14 @@ class LocalOllamaTests(unittest.TestCase):
                 "message": {"content": "Krátke."},
                 "eval_count": 12,
             })
-            runtime = LocalOllamaChatRuntime()
+            runtime = LocalOllamaChatRuntime(knowledge_enabled=False)
             runtime.respond("Čo je likvidita?")
             self.assertEqual(runtime.last_response_metrics["eval_count"], 12)
             runtime.respond("Ako sa máš?")
             self.assertIsNone(runtime.last_response_metrics)
 
     def test_known_analysis_and_social_questions_work_without_api(self):
-        runtime = LocalOllamaChatRuntime()
+        runtime = LocalOllamaChatRuntime(knowledge_enabled=False)
         with patch("ourai_language.ollama_runtime.urlopen") as urlopen:
             result = runtime.respond("Prečo si pri NVDA bullish?", analysis=self.snapshot())
             social = runtime.respond("Ako sa máš?", analysis=self.snapshot())
@@ -125,7 +126,7 @@ class LocalOllamaTests(unittest.TestCase):
         self.assertIn("Som pripravený pomôcť.", social.text)
 
     def test_open_analysis_reply_remains_number_grounded(self):
-        runtime = LocalOllamaChatRuntime()
+        runtime = LocalOllamaChatRuntime(knowledge_enabled=False)
         with patch("ourai_language.ollama_runtime.urlopen") as urlopen:
             urlopen.return_value = _Response({
                 "done": True, "message": {"role": "assistant", "content": "Úspešnosť: 91 %."}
@@ -139,25 +140,25 @@ class LocalOllamaTests(unittest.TestCase):
         self.assertIn("68.0%", result.text)
 
     def test_timeout_explains_slow_generation_not_server_failure(self):
-        runtime = LocalOllamaChatRuntime(timeout_seconds=4)
+        runtime = LocalOllamaChatRuntime(timeout_seconds=4, knowledge_enabled=False)
         with patch("ourai_language.ollama_runtime.urlopen", side_effect=TimeoutError("timed out")):
             with self.assertRaisesRegex(RuntimeError, "timed out after 4 seconds"):
                 runtime.respond("Čo je likvidita akcie?")
 
     def test_wrapped_url_error_timeout_is_diagnosed(self):
-        runtime = LocalOllamaChatRuntime(timeout_seconds=4)
+        runtime = LocalOllamaChatRuntime(timeout_seconds=4, knowledge_enabled=False)
         with patch("ourai_language.ollama_runtime.urlopen", side_effect=URLError(TimeoutError("timed out"))):
             with self.assertRaisesRegex(RuntimeError, "timed out after 4 seconds"):
                 runtime.respond("Čo je likvidita akcie?")
 
     def test_missing_server_reports_actionable_message(self):
-        runtime = LocalOllamaChatRuntime()
+        runtime = LocalOllamaChatRuntime(knowledge_enabled=False)
         with patch("ourai_language.ollama_runtime.urlopen", side_effect=URLError("refused")):
             with self.assertRaisesRegex(RuntimeError, "Install and start Ollama"):
                 runtime.respond("Čo je likvidita akcie?")
 
     def test_truncation_is_marked(self):
-        runtime = LocalOllamaChatRuntime()
+        runtime = LocalOllamaChatRuntime(knowledge_enabled=False)
         with patch("ourai_language.ollama_runtime.urlopen") as urlopen:
             urlopen.return_value = _Response({
                 "done": True, "done_reason": "length",

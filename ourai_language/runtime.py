@@ -7,6 +7,7 @@ from typing import Iterable, Mapping
 from .analysis_answers import deterministic_analysis_answer
 from .contracts import AnalysisSnapshot
 from .general_answers import deterministic_social_answer
+from .financial_knowledge import lookup_financial_knowledge
 from .grounding import find_unsupported_percentages, grounded_fallback
 from .prompting import ANALYSIS_QA, GENERAL_CHAT, build_messages, select_conversation_mode
 
@@ -21,6 +22,7 @@ class ChatResult:
     used_grounding_fallback: bool
     unsupported_percentages: tuple[float, ...] = ()
     mode: str = "GENERAL_CHAT"
+    answer_source: str = "model"
 
 
 class OurAIChatRuntime:
@@ -42,6 +44,7 @@ class OurAIChatRuntime:
         model_id: str = DEFAULT_MODEL_ID,
         device: str = "auto",
         max_new_tokens: int = 256,
+        knowledge_enabled: bool = True,
     ) -> None:
         try:
             import torch
@@ -69,6 +72,7 @@ class OurAIChatRuntime:
         self.device = resolved_device
         self.model_id = str(model_id)
         self.max_new_tokens = int(max_new_tokens)
+        self.knowledge_enabled = bool(knowledge_enabled)
         self.tokenizer = AutoTokenizer.from_pretrained(self.model_id)
         self.model = AutoModelForCausalLM.from_pretrained(
             self.model_id,
@@ -113,6 +117,14 @@ class OurAIChatRuntime:
             analysis=analysis,
             history=history_rows,
         )
+
+        if getattr(self, "knowledge_enabled", True):
+            curated = lookup_financial_knowledge(user_message, analysis=analysis)
+            if curated is not None:
+                return ChatResult(
+                    text=curated.text, used_grounding_fallback=False,
+                    mode=mode, answer_source="curated_knowledge",
+                )
 
         # Core Orion analysis questions should be maximally reliable. If the answer
         # can be constructed directly from the canonical snapshot, do that instead of
