@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+from pathlib import Path
 from dataclasses import dataclass
 from typing import Iterable, Mapping
 
@@ -8,6 +9,7 @@ from .analysis_answers import deterministic_analysis_answer
 from .contracts import AnalysisSnapshot
 from .general_answers import deterministic_social_answer
 from .financial_knowledge import lookup_financial_knowledge
+from .forward_answers import maybe_forward_answer
 from .grounding import find_unsupported_percentages, grounded_fallback
 from .prompting import ANALYSIS_QA, GENERAL_CHAT, build_messages, select_conversation_mode
 
@@ -45,6 +47,7 @@ class OurAIChatRuntime:
         device: str = "auto",
         max_new_tokens: int = 256,
         knowledge_enabled: bool = True,
+        forward_journal: str | Path | None = None,
     ) -> None:
         try:
             import torch
@@ -73,6 +76,7 @@ class OurAIChatRuntime:
         self.model_id = str(model_id)
         self.max_new_tokens = int(max_new_tokens)
         self.knowledge_enabled = bool(knowledge_enabled)
+        self.forward_journal = forward_journal
         self.tokenizer = AutoTokenizer.from_pretrained(self.model_id)
         self.model = AutoModelForCausalLM.from_pretrained(
             self.model_id,
@@ -124,6 +128,20 @@ class OurAIChatRuntime:
                 return ChatResult(
                     text=curated.text, used_grounding_fallback=False,
                     mode=mode, answer_source="curated_knowledge",
+                )
+
+        if getattr(self, "forward_journal", None) is not None:
+            try:
+                forward = maybe_forward_answer(user_message, self.forward_journal)
+            except (ValueError, OSError, KeyError, TypeError) as exc:
+                raise RuntimeError(
+                    "Forward denník je neplatný alebo dočasne nedostupný; "
+                    "odmietam odhadovať nevykázané výsledky."
+                ) from exc
+            if forward is not None:
+                return ChatResult(
+                    text=forward, used_grounding_fallback=False,
+                    mode=ANALYSIS_QA, answer_source="verified_forward_journal",
                 )
 
         # Core Orion analysis questions should be maximally reliable. If the answer
