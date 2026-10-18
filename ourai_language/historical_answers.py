@@ -1,0 +1,203 @@
+"""Read-only, deterministic explanations of v3 retrospective magnitude reports.
+
+Never equate historical validation/lockbox performance with forward performance.
+The report files are local inputs, not produced or modified by this module.
+"""
+from __future__ import annotations
+
+import json
+import math
+import re
+import unicodedata
+from pathlib import Path
+from typing import Any
+
+PROTOCOL = "ourai-v3-nonlinear-research-preregistration-v1"
+REPORT_FILES = {
+    "validation": "nonlinear_magnitude_validation_v1.json",
+    "test": "nonlinear_magnitude_test_lockbox_v1.json",
+}
+
+
+def _normalize(message: str) -> str:
+    folded = unicodedata.normalize("NFKD", message.casefold())
+    return "".join(c for c in folded if not unicodedata.combining(c))
+
+
+def historical_question_kind(message: str) -> str | None:
+    """Classify only model-performance requests, never finance definitions.
+
+    Latest/forward predictions belong to the verified forward journal, not
+    retrospective files. Explicit historical requests may contain 'last' in
+    another context, so historical markers take precedence there.
+    """
+    text = _normalize(str(message or "").strip())
+    if not text:
+        return None
+    historic = any(term in text for term in (
+        "historick", "validac", "lockbox", "retrospekt", "backtest",
+        "testovac", "testovaci", "testovych", "historical", "validation",
+        "held-out",
+    ))
+    performance = any(term in text for term in (
+        "ako presn", "presnost", "presne boli", "mae", "najvacsie chyb",
+        "najvacsich chyb", "najhorsie", "chybovost", "chyby model",
+        "model robi chyb", "performance", "accurac", "errors",
+        "porovnaj model", "porovnanie model", "baseline",
+    ))
+    if not (historic or performance):
+        return None
+    if not historic and any(term in text for term in (
+        "posledn", "najnov", "aktualn", "latest", "forward", "dennik", "journal",
+    )):
+        return None
+    if any(term in text for term in ("pri ktorych", "ktora akci", "ktore akci", "per-symbol", "podla akci", "by stock", "which stock", "najvacsie chyb", "najvacsich chyb")):
+        return "symbols"
+    if "forward" in text or "live" in text:
+        return "boundary"
+    if "lockbox" in text or "testovac" in text or "held-out" in text or "testovaci" in text:
+        return "test"
+    if "validac" in text or "validation" in text:
+        return "validation"
+    if "porovnaj" in text or "porovnanie" in text or "compare" in text:
+        return "compare"
+    return "overview"
+
+
+def _nonnegative(value: Any, label: str) -> float:
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        raise ValueError(f"invalid historical metric: {label}")
+    number = float(value)
+    if not math.isfinite(number) or number < 0:
+        raise ValueError(f"invalid historical metric: {label}")
+    return number
+
+
+def _count(value: Any, label: str) -> int:
+    if type(value) is not int or value < 0:
+        raise ValueError(f"invalid historical count: {label}")
+    return value
+
+
+def _read_report(directory: Path, split: str) -> dict[str, Any] | None:
+    path = directory / REPORT_FILES[split]
+    if not path.is_file():
+        return None
+    data = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(data, dict):
+        raise ValueError("historical report is not an object")
+    if data.get("protocol_name") != PROTOCOL or data.get("horizon_minutes") != 15:
+        raise ValueError("historical report protocol/horizon mismatch")
+    if not isinstance(data.get("dataset_id"), str) or not data["dataset_id"]:
+        raise ValueError("historical report missing dataset identity")
+    if not isinstance(data.get("protocol_sha256"), str) or not re.fullmatch(
+        r"[0-9a-f]{64}", data["protocol_sha256"]
+    ):
+        raise ValueError("historical report missing protocol hash")
+    if split == "validation":
+        if data.get("test_lockbox_accessed") is not False or data.get("original_validation_used") is not True:
+            raise ValueError("historical validation provenance mismatch")
+    else:
+        if data.get("test_lockbox_accessed") is not True or data.get("post_test_tuning_allowed") is not False:
+            raise ValueError("historical test provenance mismatch")
+    if type(data.get(split + "_supported")) is not bool:
+        raise ValueError("historical report missing gate outcome")
+    results = data.get(split)
+    if not isinstance(results, dict) or not isinstance(results.get("overall"), dict):
+        raise ValueError("historical report missing overall metrics")
+    overall = results["overall"]
+    count = _count(overall.get("evaluated_count"), "evaluated_count")
+    if count == 0:
+        raise ValueError("historical report contains zero evaluations")
+    metrics = {
+        field: _nonnegative(overall.get(field), field)
+        for field in ("nonlinear_mae_bps", "linear_mae_bps", "null_mae_bps")
+    }
+    days = _count(results.get("market_date_count"), "market_date_count")
+    if not days:
+        raise ValueError("historical report contains zero market days")
+    wins = {}
+    for field in ("market_date_wins_vs_linear", "market_date_wins_vs_null"):
+        wins[field] = _count(results.get(field), field)
+        if wins[field] > days:
+            raise ValueError("historical wins exceed observed market days")
+    return {
+        "dataset_id": data["dataset_id"],
+        "protocol_sha256": data["protocol_sha256"],
+        "supported": data[split + "_supported"],
+        "count": count,
+        "days": days,
+        **metrics,
+        **wins,
+    }
+
+
+def _fmt(value: float) -> str:
+    return f"{value:.2f}".replace(".", ",")
+
+
+def _summary(split: str, report: dict[str, Any]) -> str:
+    name = "Historická validácia" if split == "validation" else "Historický test lockbox"
+    accepted = "splnil" if report["supported"] else "nesplnil"
+    return (
+        f"{name} v3 (15 min, absolútna veľkosť pohybu): "
+        f"{report['count']} vyhodnotených vzoriek, {report['days']} trhových dní. "
+        f"MAE champion {_fmt(report['nonlinear_mae_bps'])} bps; "
+        f"lineárny baseline {_fmt(report['linear_mae_bps'])} bps; "
+        f"nulový baseline {_fmt(report['null_mae_bps'])} bps. "
+        f"Víťazstvá po dňoch: {report['market_date_wins_vs_linear']}/{report['days']} "
+        f"voči lineárnemu, {report['market_date_wins_vs_null']}/{report['days']} "
+        f"voči nulovému baseline. Model {accepted} príslušné historické kritériá."
+    )
+
+
+def maybe_historical_answer(message: str, reports_dir: str | Path | None) -> str | None:
+    """Return a sourced answer, or None for non-historical intent / disabled input.
+
+    Errors on supplied but corrupt reports must propagate, not become generated
+    plausible-sounding statistics. No per-symbol results can be inferred from
+    aggregated overall or per-market-date results.
+    """
+    if reports_dir is None:
+        return None
+    kind = historical_question_kind(message)
+    if kind is None:
+        return None
+    directory = Path(reports_dir)
+    splits = ("test",) if kind == "test" else (
+        ("validation",) if kind == "validation" else ("validation", "test")
+    )
+    reports = {split: _read_report(directory, split) for split in splits}
+    available = {key: value for key, value in reports.items() if value is not None}
+    if len(available) == 2:
+        a, b = available.values()
+        if a["dataset_id"] != b["dataset_id"] or a["protocol_sha256"] != b["protocol_sha256"]:
+            raise ValueError("historical validation/test provenance mismatch")
+    if not available:
+        return (
+            "Požadovaný historický report v3 v zadanom adresári nie je dostupný. "
+            "Bez lokálneho reportu nemôžem uviesť metriky."
+        )
+    if kind == "symbols":
+        return (
+            "Dostupné historické reporty v3 obsahujú agregované a denné MAE, "
+            "nie spoľahlivé hodnotenie po jednotlivých akciách. "
+            "Preto neviem určiť, pri ktorej akcii robí model najväčšie chyby. "
+            "Na poradie podľa tickerov potrebujem samostatnú per-symbol diagnostiku."
+        )
+    if kind == "boundary":
+        return (
+            "Historické reporty v3 nie sú forward výsledky. "
+            "Na hodnotenie predikcií zaznamenaných v reálnom čase je potrebný "
+            "samostatný overený forward denník."
+        )
+    details = " ".join(_summary(split, report) for split, report in available.items())
+    if len(available) != len(splits):
+        missing = ", ".join(split for split in splits if split not in available)
+        details += f" Report pre {missing} nie je v zadanom adresári dostupný."
+    return (
+        details + " MAE je priemerná absolútna chyba odhadu veľkosti pohybu "
+        "(1 bps = 0,01 percentuálneho bodu); nižšia je lepšia. "
+        "Toto nie je presnosť smeru UP/DOWN ani dôkaz ziskovosti či "
+        "úspechu v nezávislom forward teste."
+    )

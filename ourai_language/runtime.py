@@ -10,6 +10,7 @@ from .contracts import AnalysisSnapshot
 from .general_answers import deterministic_social_answer
 from .financial_knowledge import lookup_financial_knowledge
 from .forward_answers import maybe_forward_answer
+from .historical_answers import maybe_historical_answer
 from .grounding import find_unsupported_percentages, grounded_fallback
 from .prompting import ANALYSIS_QA, GENERAL_CHAT, build_messages, select_conversation_mode
 
@@ -48,6 +49,7 @@ class OurAIChatRuntime:
         max_new_tokens: int = 256,
         knowledge_enabled: bool = True,
         forward_journal: str | Path | None = None,
+        historical_reports_dir: str | Path | None = None,
     ) -> None:
         try:
             import torch
@@ -77,6 +79,7 @@ class OurAIChatRuntime:
         self.max_new_tokens = int(max_new_tokens)
         self.knowledge_enabled = bool(knowledge_enabled)
         self.forward_journal = forward_journal
+        self.historical_reports_dir = historical_reports_dir
         self.tokenizer = AutoTokenizer.from_pretrained(self.model_id)
         self.model = AutoModelForCausalLM.from_pretrained(
             self.model_id,
@@ -128,6 +131,20 @@ class OurAIChatRuntime:
                 return ChatResult(
                     text=curated.text, used_grounding_fallback=False,
                     mode=mode, answer_source="curated_knowledge",
+                )
+
+        if getattr(self, "historical_reports_dir", None) is not None:
+            try:
+                historical = maybe_historical_answer(user_message, self.historical_reports_dir)
+            except (ValueError, OSError, KeyError, TypeError) as exc:
+                raise RuntimeError(
+                    "Historický report v3 je neplatný alebo nedostupný; "
+                    "odmietam odhadovať neoverené metriky."
+                ) from exc
+            if historical is not None:
+                return ChatResult(
+                    text=historical, used_grounding_fallback=False,
+                    mode=ANALYSIS_QA, answer_source="historical_v3_reports",
                 )
 
         if getattr(self, "forward_journal", None) is not None:
