@@ -37,7 +37,7 @@ def historical_question_kind(message: str) -> str | None:
     historic = any(term in text for term in (
         "historick", "validac", "lockbox", "retrospekt", "backtest",
         "testovac", "testovaci", "testovych", "historical", "validation",
-        "held-out", "v3 model", "model v3",
+        "held-out",
     ))
     performance = any(term in text for term in (
         "ako presn", "presnost", "presne boli", "mae", "najvacsie chyb",
