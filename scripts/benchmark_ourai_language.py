@@ -48,12 +48,15 @@ def evaluate(runtime: Any, cases: tuple[tuple[str, str], ...] = CASES) -> list[d
             error = str(exc)
             answer = ""
         duration = round(perf_counter() - begin, 3)
+        model_metrics = getattr(runtime, "last_response_metrics", None)
         row = {
             "case_id": case_id,
             "prompt": prompt,
             "response": answer,
             "latency_seconds": duration,
             "error": error,
+            "ollama_metrics": dict(model_metrics) if model_metrics is not None else None,
+            "truncated": "[Odpoveď bola skrátená limitom dĺžky.]" in answer,
         }
         results.append(row)
         print(f"\n[{index}/{len(cases)}] {case_id} ({duration:.1f} s)")
@@ -73,6 +76,8 @@ def main() -> int:
     parser.add_argument("--device", choices=("auto", "cpu", "cuda"), default="auto")
     parser.add_argument("--max-new-tokens", type=int, default=384)
     parser.add_argument("--timeout-seconds", type=int, default=180, help="Local Ollama HTTP wait limit")
+    parser.add_argument("--num-ctx", type=int, default=3072, help="Local Ollama context window (try 1536 vs 3072)")
+    parser.add_argument("--concise", action="store_true", help="Ask Ollama for brief direct answers")
     parser.add_argument(
         "--output", default="runs/language/ollama_qwen3_1_7b_benchmark_v1.json",
     )
@@ -80,9 +85,12 @@ def main() -> int:
     model = args.model or (DEFAULT_OLLAMA_MODEL if args.backend == "ollama" else DEFAULT_MODEL_ID)
     print(f"OurAI language benchmark v1 | {args.backend} | {model}")
     if args.backend == "ollama":
+        print(f"Ollama num_ctx={args.num_ctx} | concise={args.concise} | num_predict={args.max_new_tokens}")
+    if args.backend == "ollama":
         runtime = LocalOllamaChatRuntime(
             model_id=model, max_new_tokens=args.max_new_tokens,
             timeout_seconds=args.timeout_seconds,
+            num_ctx=args.num_ctx, concise=args.concise,
         )
     else:
         runtime = OurAIChatRuntime(
@@ -94,8 +102,14 @@ def main() -> int:
         "benchmark": "ourai_language_finance_slovak_manual_v1",
         "backend": args.backend,
         "model": model,
+        "max_new_tokens": args.max_new_tokens,
+        "num_ctx": args.num_ctx if args.backend == "ollama" else None,
+        "concise": args.concise if args.backend == "ollama" else None,
         "cases": rows,
         "quality_grades": None,
+        "mean_wall_latency_seconds": round(sum(row["latency_seconds"] for row in rows) / len(rows), 3),
+        "mean_wall_latency_excluding_first_seconds": round(sum(row["latency_seconds"] for row in rows[1:]) / (len(rows) - 1), 3),
+        "truncated_responses": sum(row["truncated"] for row in rows),
         "grading_note": (
             "Raw qualitative test only. Review factuality, Slovak fluency, "
             "completeness and unsupported claims manually; latency is hardware-dependent."
@@ -105,6 +119,7 @@ def main() -> int:
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     print("\nReport:", output)
+    print("Truncated answers:", report["truncated_responses"], "/", len(rows))
     print("IMPORTANT: No automated factual accuracy score is implied.")
     return 0
 

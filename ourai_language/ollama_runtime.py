@@ -30,6 +30,7 @@ class LocalOllamaChatRuntime:
     def __init__(
         self, *, model_id: str = DEFAULT_OLLAMA_MODEL,
         max_new_tokens: int = 384, timeout_seconds: int = 180,
+        num_ctx: int = 3072, concise: bool = False,
     ) -> None:
         if not model_id or model_id.strip() != model_id:
             raise ValueError("a locally installed Ollama model name is required")
@@ -39,9 +40,14 @@ class LocalOllamaChatRuntime:
             raise ValueError("only local Ollama model tags are supported")
         if max_new_tokens <= 0 or timeout_seconds <= 0:
             raise ValueError("positive max tokens and timeout are required")
+        if not isinstance(num_ctx, int) or isinstance(num_ctx, bool) or not 512 <= num_ctx <= 32768:
+            raise ValueError("num_ctx must be an integer between 512 and 32768")
         self.model_id = model_id
         self.max_new_tokens = int(max_new_tokens)
         self.timeout_seconds = int(timeout_seconds)
+        self.num_ctx = num_ctx
+        self.concise = bool(concise)
+        self.last_response_metrics: dict[str, int | str] | None = None
         self.device = "ollama-local"
 
     def _generate(self, messages: list[dict[str, str]]) -> str:
@@ -52,7 +58,7 @@ class LocalOllamaChatRuntime:
             "think": False,
             "options": {
                 "temperature": 0.0,
-                "num_ctx": 3072,
+                "num_ctx": self.num_ctx,
                 "num_predict": self.max_new_tokens,
             },
         }
@@ -104,6 +110,16 @@ class LocalOllamaChatRuntime:
         content = data["message"].get("content")
         if not isinstance(content, str) or not content.strip():
             raise RuntimeError("Ollama returned an empty text answer.")
+        self.last_response_metrics = {
+            key: data[key] for key in (
+                "load_duration", "prompt_eval_count", "prompt_eval_duration",
+                "eval_count", "eval_duration", "total_duration", "done_reason",
+            )
+            if key in data and (
+                (key == "done_reason" and isinstance(data[key], str))
+                or (key != "done_reason" and type(data[key]) is int and data[key] >= 0)
+            )
+        }
         text = content.strip()
         if data.get("done_reason") == "length":
             text += "\n[Odpoveď bola skrátená limitom dĺžky.]"
@@ -113,6 +129,7 @@ class LocalOllamaChatRuntime:
         self, user_message: str, *, analysis: AnalysisSnapshot | None = None,
         history: Iterable[Mapping[str, str]] | None = None,
     ) -> ChatResult:
+        self.last_response_metrics = None
         history_rows = list(history or ())
         mode = select_conversation_mode(
             user_message, analysis=analysis, history=history_rows,
@@ -129,6 +146,15 @@ class LocalOllamaChatRuntime:
         messages = build_messages(
             user_message, analysis=analysis, history=history_rows, mode=mode,
         )
+        if self.concise:
+            messages[0] = {
+                **messages[0],
+                "content": messages[0]["content"]
+                + "\nStyle: Answer directly in three to five SHORT sentences by default. "
+                "No greetings, headings, bullet lists or long introductions unless "
+                "explicitly requested. Keep financial explanations accurate, state "
+                "uncertainty, and do not invent prices or forecast probabilities.",
+            }
         reply = self._generate(messages)
         if analysis is not None and mode == ANALYSIS_QA:
             unsupported = find_unsupported_percentages(reply, analysis)
