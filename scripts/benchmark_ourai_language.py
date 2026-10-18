@@ -44,15 +44,18 @@ def evaluate(runtime: Any, cases: tuple[tuple[str, str], ...] = CASES) -> list[d
         try:
             response = runtime.respond(prompt, history=[])
             answer = response.text
+            answer_source = getattr(response, "answer_source", "model")
         except RuntimeError as exc:
             error = str(exc)
             answer = ""
+            answer_source = None
         duration = round(perf_counter() - begin, 3)
         model_metrics = getattr(runtime, "last_response_metrics", None)
         row = {
             "case_id": case_id,
             "prompt": prompt,
             "response": answer,
+            "answer_source": answer_source,
             "latency_seconds": duration,
             "error": error,
             "ollama_metrics": dict(model_metrics) if model_metrics is not None else None,
@@ -91,10 +94,12 @@ def main() -> int:
             model_id=model, max_new_tokens=args.max_new_tokens,
             timeout_seconds=args.timeout_seconds,
             num_ctx=args.num_ctx, concise=args.concise,
+            knowledge_enabled=False,
         )
     else:
         runtime = OurAIChatRuntime(
             model_id=model, device=args.device, max_new_tokens=args.max_new_tokens,
+            knowledge_enabled=False,
         )
     rows = evaluate(runtime)
     report = {
@@ -107,6 +112,7 @@ def main() -> int:
         "concise": args.concise if args.backend == "ollama" else None,
         "cases": rows,
         "quality_grades": None,
+        "knowledge_routing": "disabled_raw_llm",
         "mean_wall_latency_seconds": round(sum(row["latency_seconds"] for row in rows) / len(rows), 3),
         "mean_wall_latency_excluding_first_seconds": round(sum(row["latency_seconds"] for row in rows[1:]) / (len(rows) - 1), 3),
         "truncated_responses": sum(row["truncated"] for row in rows),
