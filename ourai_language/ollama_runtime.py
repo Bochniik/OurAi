@@ -16,6 +16,7 @@ from .contracts import AnalysisSnapshot
 from .general_answers import deterministic_social_answer
 from .financial_knowledge import lookup_financial_knowledge
 from .forward_answers import maybe_forward_answer
+from .historical_answers import maybe_historical_answer
 from .grounding import find_unsupported_percentages, grounded_fallback
 from .prompting import (
     ANALYSIS_QA, GENERAL_CHAT, build_messages, select_conversation_mode,
@@ -36,6 +37,7 @@ class LocalOllamaChatRuntime:
         num_ctx: int = 3072, concise: bool = False,
         knowledge_enabled: bool = True,
         forward_journal: str | Path | None = None,
+        historical_reports_dir: str | Path | None = None,
     ) -> None:
         if not model_id or model_id.strip() != model_id:
             raise ValueError("a locally installed Ollama model name is required")
@@ -54,6 +56,7 @@ class LocalOllamaChatRuntime:
         self.concise = bool(concise)
         self.knowledge_enabled = bool(knowledge_enabled)
         self.forward_journal = forward_journal
+        self.historical_reports_dir = historical_reports_dir
         self.last_response_metrics: dict[str, int | str] | None = None
         self.device = "ollama-local"
 
@@ -147,6 +150,20 @@ class LocalOllamaChatRuntime:
                 return ChatResult(
                     text=curated.text, used_grounding_fallback=False,
                     mode=mode, answer_source="curated_knowledge",
+                )
+
+        if self.historical_reports_dir is not None:
+            try:
+                answer = maybe_historical_answer(user_message, self.historical_reports_dir)
+            except (ValueError, OSError, KeyError, TypeError) as exc:
+                raise RuntimeError(
+                    "Historický report v3 je neplatný alebo nedostupný; "
+                    "odmietam odhadovať neoverené metriky."
+                ) from exc
+            if answer is not None:
+                return ChatResult(
+                    text=answer, used_grounding_fallback=False,
+                    mode=ANALYSIS_QA, answer_source="historical_v3_reports",
                 )
 
         if self.forward_journal is not None:
