@@ -13,6 +13,7 @@ from urllib.request import Request, urlopen
 from .analysis_answers import deterministic_analysis_answer
 from .contracts import AnalysisSnapshot
 from .general_answers import deterministic_social_answer
+from .financial_knowledge import lookup_financial_knowledge
 from .grounding import find_unsupported_percentages, grounded_fallback
 from .prompting import (
     ANALYSIS_QA, GENERAL_CHAT, build_messages, select_conversation_mode,
@@ -31,6 +32,7 @@ class LocalOllamaChatRuntime:
         self, *, model_id: str = DEFAULT_OLLAMA_MODEL,
         max_new_tokens: int = 384, timeout_seconds: int = 180,
         num_ctx: int = 3072, concise: bool = False,
+        knowledge_enabled: bool = True,
     ) -> None:
         if not model_id or model_id.strip() != model_id:
             raise ValueError("a locally installed Ollama model name is required")
@@ -47,6 +49,7 @@ class LocalOllamaChatRuntime:
         self.timeout_seconds = int(timeout_seconds)
         self.num_ctx = num_ctx
         self.concise = bool(concise)
+        self.knowledge_enabled = bool(knowledge_enabled)
         self.last_response_metrics: dict[str, int | str] | None = None
         self.device = "ollama-local"
 
@@ -142,6 +145,14 @@ class LocalOllamaChatRuntime:
             social = deterministic_social_answer(user_message)
             if social is not None:
                 return ChatResult(text=social, used_grounding_fallback=False, mode=mode)
+
+        if self.knowledge_enabled:
+            curated = lookup_financial_knowledge(user_message, analysis=analysis)
+            if curated is not None:
+                return ChatResult(
+                    text=curated.text, used_grounding_fallback=False,
+                    mode=mode, answer_source="curated_knowledge",
+                )
 
         messages = build_messages(
             user_message, analysis=analysis, history=history_rows, mode=mode,
