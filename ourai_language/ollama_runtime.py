@@ -137,6 +137,14 @@ class LocalOllamaChatRuntime:
         mode = select_conversation_mode(
             user_message, analysis=analysis, history=history_rows,
         )
+        if self.knowledge_enabled:
+            curated = lookup_financial_knowledge(user_message, analysis=analysis)
+            if curated is not None:
+                return ChatResult(
+                    text=curated.text, used_grounding_fallback=False,
+                    mode=mode, answer_source="curated_knowledge",
+                )
+
         if analysis is not None and mode == ANALYSIS_QA:
             answer = deterministic_analysis_answer(user_message, analysis)
             if answer is not None:
@@ -145,14 +153,6 @@ class LocalOllamaChatRuntime:
             social = deterministic_social_answer(user_message)
             if social is not None:
                 return ChatResult(text=social, used_grounding_fallback=False, mode=mode)
-
-        if self.knowledge_enabled:
-            curated = lookup_financial_knowledge(user_message, analysis=analysis)
-            if curated is not None:
-                return ChatResult(
-                    text=curated.text, used_grounding_fallback=False,
-                    mode=mode, answer_source="curated_knowledge",
-                )
 
         messages = build_messages(
             user_message, analysis=analysis, history=history_rows, mode=mode,
