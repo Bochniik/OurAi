@@ -56,6 +56,7 @@ class HistoricalAnswersTests(unittest.TestCase):
         self.assertIsNone(historical_question_kind("Aká je posledná predikcia NVDA?"))
         self.assertIsNone(historical_question_kind("Ahoj"))
         self.assertIsNone(historical_question_kind("Čo je volatilita?"))
+        self.assertIsNone(historical_question_kind("Čo vie model v3?"))
         self.assertEqual(historical_question_kind("Ako dopadla historická validácia v3?"), "validation")
         self.assertEqual(historical_question_kind("Aké sú výsledky lockbox testu?"), "test")
         self.assertEqual(historical_question_kind("Pri ktorých akciách robíš najväčšie chyby?"), "symbols")
