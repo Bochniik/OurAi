@@ -118,6 +118,14 @@ class OurAIChatRuntime:
             history=history_rows,
         )
 
+        if getattr(self, "knowledge_enabled", True):
+            curated = lookup_financial_knowledge(user_message, analysis=analysis)
+            if curated is not None:
+                return ChatResult(
+                    text=curated.text, used_grounding_fallback=False,
+                    mode=mode, answer_source="curated_knowledge",
+                )
+
         # Core Orion analysis questions should be maximally reliable. If the answer
         # can be constructed directly from the canonical snapshot, do that instead of
         # asking a tiny language model to paraphrase facts it may distort.
@@ -140,14 +148,6 @@ class OurAIChatRuntime:
                     text=social,
                     used_grounding_fallback=False,
                     mode=mode,
-                )
-
-        if getattr(self, "knowledge_enabled", True):
-            curated = lookup_financial_knowledge(user_message, analysis=analysis)
-            if curated is not None:
-                return ChatResult(
-                    text=curated.text, used_grounding_fallback=False,
-                    mode=mode, answer_source="curated_knowledge",
                 )
 
         messages = build_messages(
