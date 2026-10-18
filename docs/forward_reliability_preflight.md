@@ -73,19 +73,29 @@ Do **not** backfill missed predictions or change the frozen forward start.
 | `LOCAL_OK_MARKET_NOT_CHECKED` | Offline: artifact/journal tests only |
 | `LIVE_PROBE_OK` | IEX bars observed recently for all seven symbols; not a guarantee of trading success |
 
-The report shows per-symbol latest source-bar left-edge timestamp, observed
-missing/stale tickers and provider round-trip latency. The benchmark appends
-100 **synthetic** events into a removable temporary directory, measures average
-and p95 append latency including fsync, and removes the test file. Pass
-`--benchmark-events 0` to skip it.
+The report shows per-symbol latest source-bar left-edge timestamp, missing /
+stale tickers and provider round-trip latency. The benchmark now compares
+100 **synthetic single-event appends** against a **single batch of 100 synthetic
+events**, each written to its own removable temporary JSONL journal. It reports
+`single_total_ms` and `batch_total_ms` on the current machine as well as
+legacy per-event latency. Pass `--benchmark-events 0` to skip the benchmark.
 
-**Known performance limitation:** the existing append-only journal verifies
-the full hash chain before *each* append. Per-event work therefore increases
-with the growing journal. The preflight detects baseline latency but is not
-itself an optimization or a promise that a full trading session will sustain
-7-symbol throughput. Journal optimization requires a separate carefully
-tested change preserving tamper evidence and recovery properties.
+**Updated journal writer:** forward cycles now prepare prediction records and
+subsequent resolution records in memory and append each group as an ordered
+batch, verifying the complete preexisting SHA-256 chain once per batch and
+flushing/syncing once per batch. This preserves the exact existing on-disk
+schema, hash contents and event order; old journals remain readable. Duplicate
+event IDs, invalid event fields and corrupted history are rejected before
+appending. It avoids O(N²) within each prediction batch, but full journal
+verification still costs O(N) per batch or cycle.
 
+**Important limits:** use **one** shadow runner per journal. This revision does
+not implement cross-process file locking or transactional multi-event writes.
+A disk error/power interruption can leave an incomplete final JSONL line;
+the reader fails closed and never silently truncates, backfills, or rewrites
+that evidence. Back up the journal to preserve evidence; manually investigate
+a damaged file rather than deleting it. The synthetic benchmark is not a
+guarantee of performance during live market-data fetching and resolution.
 The exit status is nonzero for local check failures or insufficient online
 coverage. The machine's credentials are never copied into GitHub CI, which
 exercises only fully synthetic unit tests.
