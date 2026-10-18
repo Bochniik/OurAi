@@ -38,6 +38,8 @@ Try these Slovak questions:
 - `Ako dopadla historická validácia v3?`
 - `Akú MAE dosiahol lockbox test?`
 - `Porovnaj model v3 s lineárnym baseline.`
+- `Porovnaj svoje výsledky s lineárnym modelom.` (validation and lockbox MAE with absolute and relative differences)
+- `Porovnaj výsledky lockbox testu s nulovým baseline.`
 - `Pri ktorých akciách robíš najväčšie chyby?`
 - `Ako presné boli tvoje posledné predikcie?`
 

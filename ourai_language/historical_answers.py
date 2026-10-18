@@ -39,13 +39,28 @@ def historical_question_kind(message: str) -> str | None:
         "testovac", "testovaci", "testovych", "historical", "validation",
         "held-out",
     ))
+    compare_action = any(term in text for term in (
+        "porovnaj", "porovnanie", "porovnat", "porovnava", "prekon",
+        "lepsi", "lepsie", "horsie", "rozdiel", "compare", "better than",
+        "worse than", "beat the",
+    ))
+    compare_subject = any(term in text for term in (
+        "linearn", "linear", "nulov", "null", "baseline", "model v3",
+        "v3 model", "svoje vysledk", "tvoje vysledk",
+    ))
+    comparison = compare_action and compare_subject
     performance = any(term in text for term in (
         "ako presn", "presnost", "presne boli", "mae", "najvacsie chyb",
         "najvacsich chyb", "najhorsie", "chybovost", "chyby model",
         "model robi chyb", "performance", "accurac", "errors",
         "porovnaj model", "porovnanie model", "baseline",
     ))
-    if not (historic or performance):
+    # An educational definition must not be misrepresented as the model's
+    # measured performance just because it happens to mention MAE/baseline.
+    if text.startswith(("co je ", "co znamena ", "what is ", "define ")) and not historic:
+        if not any(term in text for term in ("tvoj", "moj", "nas ", "ourai", "v3")):
+            return None
+    if not (historic or performance or comparison):
         return None
     if not historic and any(term in text for term in (
         "posledn", "najnov", "aktualn", "latest", "forward", "dennik", "journal",
@@ -55,6 +70,12 @@ def historical_question_kind(message: str) -> str | None:
         return "symbols"
     if "forward" in text or "live" in text:
         return "boundary"
+    if comparison:
+        if "lockbox" in text or "testovac" in text or "held-out" in text or "testovaci" in text:
+            return "compare_test"
+        if "validac" in text or "validation" in text:
+            return "compare_validation"
+        return "compare"
     if "lockbox" in text or "testovac" in text or "held-out" in text or "testovaci" in text:
         return "test"
     if "validac" in text or "validation" in text:
@@ -151,6 +172,41 @@ def _summary(split: str, report: dict[str, Any]) -> str:
     )
 
 
+def _baseline_comparison(split: str, report: dict[str, Any], baseline: str) -> str:
+    """Describe a baseline difference, never converting it to hit rate."""
+    model_mae = report["nonlinear_mae_bps"]
+    baseline_mae = report[f"{baseline}_mae_bps"]
+    baseline_label = "lineárny" if baseline == "linear" else "nulový"
+    split_label = "Validácia" if split == "validation" else "Lockbox"
+    difference = baseline_mae - model_mae
+    if abs(difference) < 1e-12:
+        verdict = "MAE je rovnaká."
+    else:
+        change = "nižšia" if difference > 0 else "vyššia"
+        relative = (
+            f" ({_fmt(abs(difference) / baseline_mae * 100)} %)"
+            if baseline_mae > 0 else ""
+        )
+        verdict = (
+            f"MAE OurAI je {change} o {_fmt(abs(difference))} bps{relative}."
+        )
+    return (
+        f"{split_label}: OurAI v3 {_fmt(model_mae)} bps, "
+        f"{baseline_label} baseline {_fmt(baseline_mae)} bps. {verdict}"
+    )
+
+
+def _comparison_targets(message: str) -> tuple[str, ...]:
+    text = _normalize(message)
+    linear = "linearn" in text or "linear" in text
+    null = "nulov" in text or "null" in text
+    if linear and not null:
+        return ("linear",)
+    if null and not linear:
+        return ("null",)
+    return ("linear", "null")
+
+
 def maybe_historical_answer(message: str, reports_dir: str | Path | None) -> str | None:
     """Return a sourced answer, or None for non-historical intent / disabled input.
 
@@ -164,8 +220,9 @@ def maybe_historical_answer(message: str, reports_dir: str | Path | None) -> str
     if kind is None:
         return None
     directory = Path(reports_dir)
-    splits = ("test",) if kind == "test" else (
-        ("validation",) if kind == "validation" else ("validation", "test")
+    splits = ("test",) if kind in {"test", "compare_test"} else (
+        ("validation",) if kind in {"validation", "compare_validation"}
+        else ("validation", "test")
     )
     reports = {split: _read_report(directory, split) for split in splits}
     available = {key: value for key, value in reports.items() if value is not None}
@@ -191,7 +248,14 @@ def maybe_historical_answer(message: str, reports_dir: str | Path | None) -> str
             "Na hodnotenie predikcií zaznamenaných v reálnom čase je potrebný "
             "samostatný overený forward denník."
         )
-    details = " ".join(_summary(split, report) for split, report in available.items())
+    if kind.startswith("compare"):
+        targets = _comparison_targets(message)
+        details = " ".join(
+            _baseline_comparison(split, report, baseline)
+            for split, report in available.items() for baseline in targets
+        )
+    else:
+        details = " ".join(_summary(split, report) for split, report in available.items())
     if len(available) != len(splits):
         missing = ", ".join(split for split in splits if split not in available)
         details += f" Report pre {missing} nie je v zadanom adresári dostupný."

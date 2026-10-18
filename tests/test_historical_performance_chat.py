@@ -60,6 +60,21 @@ class HistoricalAnswersTests(unittest.TestCase):
         self.assertEqual(historical_question_kind("Ako dopadla historická validácia v3?"), "validation")
         self.assertEqual(historical_question_kind("Aké sú výsledky lockbox testu?"), "test")
         self.assertEqual(historical_question_kind("Pri ktorých akciách robíš najväčšie chyby?"), "symbols")
+        self.assertEqual(
+            historical_question_kind("„Porovnaj svoje výsledky s lineárnym modelom.“"),
+            "compare",
+        )
+        self.assertEqual(
+            historical_question_kind("Ako veľmi prekonávaš lineárny baseline?"),
+            "compare",
+        )
+        self.assertEqual(
+            historical_question_kind("Porovnaj svoje výsledky na lockbox teste s lineárnym modelom."),
+            "compare_test",
+        )
+        self.assertIsNone(historical_question_kind("Čo znamená MAE?"))
+        self.assertIsNone(historical_question_kind("Čo je lineárny model?"))
+        self.assertIsNone(historical_question_kind("Porovnaj posledné predikcie s lineárnym modelom."))
 
     def test_validation_numbers_from_local_file_and_source_limits(self):
         with tempfile.TemporaryDirectory() as temp:
@@ -86,6 +101,54 @@ class HistoricalAnswersTests(unittest.TestCase):
             self.assertIn("8,50 bps", comparison)
             self.assertIn("9,25 bps", comparison)
             self.assertIn("nie", comparison)
+
+    def test_comparison_answers_existing_data_instead_of_asking_for_numbers(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            write_report(root, "validation")
+            write_report(root, "test", report("test", mae=9.25))
+            answer = maybe_historical_answer(
+                "„Porovnaj svoje výsledky s lineárnym modelom.“", root
+            )
+            self.assertIn("Validácia: OurAI v3 8,50 bps, lineárny baseline 11,00 bps", answer)
+            self.assertIn("nižšia o 2,50 bps (22,73 %)", answer)
+            self.assertIn("Lockbox: OurAI v3 9,25 bps, lineárny baseline 11,00 bps", answer)
+            self.assertIn("nižšia o 1,75 bps (15,91 %)", answer)
+            self.assertNotIn("nulový baseline", answer)
+            self.assertIn("nie je presnosť smeru UP/DOWN", answer)
+
+            lockbox = maybe_historical_answer(
+                "Porovnaj výsledky lockbox testu s lineárnym modelom.", root
+            )
+            self.assertIn("Lockbox:", lockbox)
+            self.assertNotIn("Validácia:", lockbox)
+
+    def test_comparison_handles_worse_and_zero_baseline(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            altered = report("validation", mae=13.0)
+            write_report(root, "validation", altered)
+            worse = maybe_historical_answer("Porovnaj model v3 s lineárnym modelom.", root)
+            self.assertIn("vyššia o 2,00 bps (18,18 %)", worse)
+
+            altered["validation"]["overall"]["nonlinear_mae_bps"] = 2.0
+            altered["validation"]["overall"]["linear_mae_bps"] = 0.0
+            write_report(root, "validation", altered)
+            zero = maybe_historical_answer("Porovnaj model v3 s lineárnym modelom.", root)
+            self.assertIn("vyššia o 2,00 bps.", zero)
+            self.assertNotIn("inf", zero)
+
+    def test_ollama_comparison_requires_no_llm_and_uses_source(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            write_report(root, "validation")
+            write_report(root, "test")
+            with patch("ourai_language.ollama_runtime.urlopen") as mocked:
+                runtime = LocalOllamaChatRuntime(historical_reports_dir=root)
+                reply = runtime.respond("Porovnaj svoje výsledky s lineárnym modelom.")
+                mocked.assert_not_called()
+                self.assertEqual(reply.answer_source, "historical_v3_reports")
+                self.assertIn("nižšia o 2,50 bps (22,73 %)", reply.text)
 
     def test_missing_report_is_explicit_and_never_fabricated(self):
         with tempfile.TemporaryDirectory() as temp:
