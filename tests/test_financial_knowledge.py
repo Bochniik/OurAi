@@ -32,6 +32,7 @@ class FinancialKnowledgeTests(unittest.TestCase):
         return AnalysisSnapshot(
             ticker="NVDA", company_name="NVIDIA Corporation",
             horizon_minutes=15, p_up=0.68, p_down=0.32,
+            expected_move_pct=0.41,
             uncertainty="medium", decision="LONG_BIAS",
         )
 
