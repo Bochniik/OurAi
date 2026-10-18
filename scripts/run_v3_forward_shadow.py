@@ -23,7 +23,7 @@ from typing import Any, Mapping
 
 from trading.dataset import NEW_YORK, MarketBar
 from trading.forward_shadow import (
-    append_journal_event,
+    append_journal_events,
     build_feature_only_samples,
     canonical_json_sha256,
     journal_state,
@@ -183,7 +183,7 @@ def _resolve_due(
 
     symbols = [str(value).upper() for value in bundle["universe"]]
     feed = str(bundle.get("feed") or "iex")
-    resolved = 0
+    resolution_events: list[dict[str, Any]] = []
     for rows in by_date.values():
         target_times = [_parse_aware(row["target_bar_timestamp"], "target_bar_timestamp") for row in rows]
         bars = _fetch_bars(
@@ -204,8 +204,7 @@ def _resolve_due(
             nonlinear_error = abs(float(row["expected_magnitude_bps"]) - actual_bps)
             linear_error = abs(float(row["linear_expected_magnitude_bps"]) - actual_bps)
             null_error = abs(float(row["null_expected_magnitude_bps"]) - actual_bps)
-            append_journal_event(
-                journal_path,
+            resolution_events.append(
                 {
                     "event_id": f"resolution:{pid}",
                     "event_type": "resolution",
@@ -222,11 +221,10 @@ def _resolve_due(
                     "linear_absolute_error_bps": linear_error,
                     "null_absolute_error_bps": null_error,
                     "resolved_at": _iso_z(now_utc),
-                },
-                recorded_at=now_utc,
+                }
             )
-            resolved += 1
-    return resolved
+    # Verify the existing hash chain only once, then fsync the batch once.
+    return len(append_journal_events(journal_path, resolution_events, recorded_at=now_utc))
 
 
 def _write_current_predictions(
@@ -272,7 +270,7 @@ def _write_current_predictions(
     champion_sha = str(_mapping(bundle["champion"], "bundle.champion")["model_sha256"])
     linear_sha = str(_mapping(bundle["linear_incumbent"], "bundle.linear_incumbent")["model_sha256"])
 
-    written = 0
+    prediction_events: list[dict[str, Any]] = []
     for sample in samples:
         if sample.session != "regular" or sample.timestamp < forward_start or sample.timestamp > now_utc:
             continue
@@ -305,8 +303,7 @@ def _write_current_predictions(
             "sample_timestamp": _iso_z(sample.timestamp),
             "features": dict(sample.features),
         }
-        append_journal_event(
-            journal_path,
+        prediction_events.append(
             {
                 "event_id": f"prediction:{pid}",
                 "event_type": "prediction",
@@ -328,12 +325,12 @@ def _write_current_predictions(
                 "model_sha256": champion_sha,
                 "linear_model_sha256": linear_sha,
                 "feature_payload_sha256": canonical_json_sha256(feature_payload),
-            },
-            recorded_at=now_utc,
+            }
         )
-        existing[pid] = {"prediction_id": pid}
-        written += 1
-    return written
+    committed = append_journal_events(journal_path, prediction_events, recorded_at=now_utc)
+    for event in committed:
+        existing[str(event["prediction_id"])] = {"prediction_id": event["prediction_id"]}
+    return len(committed)
 
 
 def run_cycle(

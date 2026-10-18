@@ -19,7 +19,7 @@ from urllib.error import HTTPError, URLError
 from scripts.run_v3_forward_shadow import DEFAULT_BUNDLE, DEFAULT_JOURNAL, _load_runtime
 from trading.forward_preflight import assess_bar_coverage, choose_probe_window
 from trading.forward_shadow import (
-    append_journal_event, journal_state, read_journal, verify_journal,
+    append_journal_event, append_journal_events, journal_state, read_journal, verify_journal,
 )
 from trading.historical_market import (
     AlpacaCredentials, HistoricalMarketConfig, fetch_alpaca_historical_bars,
@@ -30,44 +30,57 @@ EXPECTED_PROTOCOL = "ourai-v3-15m-magnitude-future-forward-v2"
 
 
 def journal_benchmark(event_count: int = 100) -> dict[str, Any]:
-    """Measure actual append+fsync and verification in a temporary hash chain."""
+    """Compare legacy single-event calls to one batch in disposable journals."""
     if not 0 <= event_count <= 1000:
         raise ValueError("benchmark event count must be 0..1000")
     if not event_count:
         return {"event_count": 0, "skipped": True}
+    rows = [
+        {
+            "event_id": f"diagnostic:{index}",
+            "event_type": "diagnostic",
+            "protocol_name": EXPECTED_PROTOCOL,
+        }
+        for index in range(event_count)
+    ]
     with tempfile.TemporaryDirectory(prefix="ourai-shadow-preflight-") as temp:
-        path = Path(temp) / "synthetic_events.jsonl"
+        path = Path(temp) / "single_events.jsonl"
+        batched_path = Path(temp) / "batch_events.jsonl"
         times: list[float] = []
-        for index in range(event_count):
+        before_single = perf_counter()
+        for row in rows:
             before = perf_counter()
-            append_journal_event(
-                path,
-                {
-                    "event_id": f"diagnostic:{index}",
-                    "event_type": "diagnostic",
-                    "protocol_name": EXPECTED_PROTOCOL,
-                },
-            )
+            append_journal_event(path, row)
             times.append(1000 * (perf_counter() - before))
+        single_total_ms = round((perf_counter() - before_single) * 1000, 2)
         before = perf_counter()
-        events = read_journal(path)
-        verify_journal(events)
+        verify_journal(read_journal(path))
         verify_ms = round((perf_counter() - before) * 1000, 2)
+
+        before_batch = perf_counter()
+        append_journal_events(batched_path, rows)
+        batch_total_ms = round((perf_counter() - before_batch) * 1000, 2)
+        verify_journal(read_journal(batched_path))
+        if len(read_journal(path)) != len(read_journal(batched_path)):
+            raise ValueError("batch and single journaling emitted different event counts")
+
     ordered = sorted(times)
     p95_index = max(0, int(0.95 * len(ordered) + 0.999999) - 1)
     return {
         "event_count": event_count,
         "average_append_ms": round(sum(times) / len(times), 2),
         "p95_append_ms": round(ordered[p95_index], 2),
+        "single_total_ms": single_total_ms,
+        "batch_total_ms": batch_total_ms,
         "final_read_verify_ms": verify_ms,
         "benchmark_is_temporary": True,
         "warning": (
-            "Current append_journal_event rereads and verifies the entire journal "
-            "per event. Cost grows with event count; this small benchmark is not "
-            "a throughput guarantee for a long-running journal."
+            "Each *cycle* still rechecks the complete existing journal. "
+            "Batching removes per-event full-history rescans, not O(N) per-cycle "
+            "verification. Synthetic local timing is not a long-run guarantee. "
+            "Run only one writer against a forward journal."
         ),
     }
-
 
 def _safe_provider_error(exc: Exception) -> str:
     """Avoid logging environment secrets, HTTP request headers or provider bodies."""

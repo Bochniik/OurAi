@@ -156,42 +156,78 @@ def verify_journal(events: Iterable[Mapping[str, Any]]) -> str | None:
     return previous
 
 
+def append_journal_events(
+    path: str | Path,
+    events: Iterable[Mapping[str, Any]],
+    *,
+    recorded_at: datetime | None = None,
+) -> list[dict[str, Any]]:
+    """Append an ordered batch with one full-chain check and one durable flush.
+
+    The on-disk JSONL schema, hash algorithm and event ordering are identical
+    to repeated single-event appends. Every event ID (existing or new) is
+    validated BEFORE any bytes are written. Existing bytes are never rewritten.
+
+    This requires a *single writer* for the journal. No concurrency/atomic
+    multi-event transaction guarantee is implied: an interrupted append may
+    leave a truncated JSON line, and subsequent checks must fail closed.
+    """
+    incoming = [dict(item) for item in events]
+    if not incoming:
+        return []
+
+    destination = Path(path)
+    # Validate timestamp and all submitted events before creating directories.
+    timestamp = _as_utc(recorded_at or datetime.now(timezone.utc))
+    seen_incoming: set[str] = set()
+    for payload in incoming:
+        for reserved in ("sequence", "prev_event_sha256", "event_sha256", "recorded_at"):
+            if reserved in payload:
+                raise ValueError(f"caller may not set reserved journal field {reserved!r}")
+        event_id = str(payload.get("event_id") or "").strip()
+        if not event_id:
+            raise ValueError("event_id is required")
+        if event_id in seen_incoming:
+            raise ValueError(f"duplicate event_id in batch: {event_id}")
+        seen_incoming.add(event_id)
+
+    existing = read_journal(destination)
+    previous = verify_journal(existing)
+    existing_ids = {str(row["event_id"]) for row in existing}
+    duplicated = existing_ids & seen_incoming
+    if duplicated:
+        raise ValueError(f"duplicate event_id: {sorted(duplicated)[0]}")
+
+    result: list[dict[str, Any]] = []
+    for index, payload in enumerate(incoming, start=len(existing)):
+        payload["recorded_at"] = timestamp.isoformat().replace("+00:00", "Z")
+        payload["sequence"] = index
+        payload["prev_event_sha256"] = previous
+        payload["event_sha256"] = canonical_json_sha256(payload)
+        previous = payload["event_sha256"]
+        result.append(payload)
+
+    lines = "".join(
+        json.dumps(row, sort_keys=True, separators=(",", ":")) + "\n"
+        for row in result
+    )
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    # Do not remove or repair a truncated/corrupt journal automatically.
+    with destination.open("a", encoding="utf-8", newline="") as handle:
+        handle.write(lines)
+        handle.flush()
+        os.fsync(handle.fileno())
+    return result
+
+
 def append_journal_event(
     path: str | Path,
     event: Mapping[str, Any],
     *,
     recorded_at: datetime | None = None,
 ) -> dict[str, Any]:
-    """Append one tamper-evident event after verifying the existing journal."""
-
-    destination = Path(path)
-    destination.parent.mkdir(parents=True, exist_ok=True)
-    existing = read_journal(destination)
-    previous = verify_journal(existing)
-
-    payload = dict(event)
-    for reserved in ("sequence", "prev_event_sha256", "event_sha256", "recorded_at"):
-        if reserved in payload:
-            raise ValueError(f"caller may not set reserved journal field {reserved!r}")
-    event_id = str(payload.get("event_id") or "").strip()
-    if not event_id:
-        raise ValueError("event_id is required")
-    if any(str(row.get("event_id")) == event_id for row in existing):
-        raise ValueError(f"duplicate event_id: {event_id}")
-
-    timestamp = _as_utc(recorded_at or datetime.now(timezone.utc))
-    payload["recorded_at"] = timestamp.isoformat().replace("+00:00", "Z")
-    payload["sequence"] = len(existing)
-    payload["prev_event_sha256"] = previous
-    payload["event_sha256"] = canonical_json_sha256(payload)
-
-    line = json.dumps(payload, sort_keys=True, separators=(",", ":")) + "\n"
-    with destination.open("a", encoding="utf-8", newline="") as handle:
-        handle.write(line)
-        handle.flush()
-        os.fsync(handle.fileno())
-    return payload
-
+    """Backward-compatible single-event append using the same verified writer."""
+    return append_journal_events(path, [event], recorded_at=recorded_at)[0]
 
 def prediction_id(
     *,
