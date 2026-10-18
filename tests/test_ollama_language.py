@@ -73,6 +73,48 @@ class LocalOllamaTests(unittest.TestCase):
         self.assertNotIn("CANONICAL_ANALYSIS_JSON", payload["messages"][0]["content"])
         self.assertEqual(kwargs["timeout"], 180)
 
+    def test_custom_num_ctx_and_concise_style_are_sent_to_ollama(self):
+        with patch("ourai_language.ollama_runtime.urlopen") as urlopen:
+            urlopen.return_value = _Response({
+                "done": True, "done_reason": "stop",
+                "message": {"role": "assistant", "content": "Krátka správna odpoveď."},
+                "load_duration": 50000000,
+                "prompt_eval_count": 88,
+                "eval_count": 42,
+                "eval_duration": 1100000000,
+                "total_duration": 1300000000,
+            })
+            runtime = LocalOllamaChatRuntime(
+                num_ctx=1536, concise=True, max_new_tokens=240,
+            )
+            reply = runtime.respond("Čo je kalibrácia modelu?")
+        self.assertIn("správna", reply.text)
+        payload = json.loads(urlopen.call_args.args[0].data)
+        self.assertEqual(payload["options"]["num_ctx"], 1536)
+        self.assertEqual(payload["options"]["num_predict"], 240)
+        self.assertIn("SHORT sentences", payload["messages"][0]["content"])
+        self.assertEqual(runtime.last_response_metrics["load_duration"], 50000000)
+        self.assertEqual(runtime.last_response_metrics["eval_count"], 42)
+        self.assertEqual(runtime.last_response_metrics["done_reason"], "stop")
+
+    def test_reject_invalid_context_windows(self):
+        for value in (-1, 0, 511, 32769, 1536.5, True):
+            with self.subTest(value=value):
+                with self.assertRaisesRegex(ValueError, "num_ctx"):
+                    LocalOllamaChatRuntime(num_ctx=value)
+
+    def test_social_answer_does_not_reuse_last_model_metrics(self):
+        with patch("ourai_language.ollama_runtime.urlopen") as urlopen:
+            urlopen.return_value = _Response({
+                "message": {"content": "Krátke."},
+                "eval_count": 12,
+            })
+            runtime = LocalOllamaChatRuntime()
+            runtime.respond("Čo je likvidita?")
+            self.assertEqual(runtime.last_response_metrics["eval_count"], 12)
+            runtime.respond("Ako sa máš?")
+            self.assertIsNone(runtime.last_response_metrics)
+
     def test_known_analysis_and_social_questions_work_without_api(self):
         runtime = LocalOllamaChatRuntime()
         with patch("ourai_language.ollama_runtime.urlopen") as urlopen:
