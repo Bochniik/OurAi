@@ -6,6 +6,7 @@ services, authenticate, download models automatically, or execute trades.
 from __future__ import annotations
 
 import json
+from pathlib import Path
 from typing import Iterable, Mapping
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
@@ -14,6 +15,7 @@ from .analysis_answers import deterministic_analysis_answer
 from .contracts import AnalysisSnapshot
 from .general_answers import deterministic_social_answer
 from .financial_knowledge import lookup_financial_knowledge
+from .forward_answers import maybe_forward_answer
 from .grounding import find_unsupported_percentages, grounded_fallback
 from .prompting import (
     ANALYSIS_QA, GENERAL_CHAT, build_messages, select_conversation_mode,
@@ -33,6 +35,7 @@ class LocalOllamaChatRuntime:
         max_new_tokens: int = 384, timeout_seconds: int = 180,
         num_ctx: int = 3072, concise: bool = False,
         knowledge_enabled: bool = True,
+        forward_journal: str | Path | None = None,
     ) -> None:
         if not model_id or model_id.strip() != model_id:
             raise ValueError("a locally installed Ollama model name is required")
@@ -50,6 +53,7 @@ class LocalOllamaChatRuntime:
         self.num_ctx = num_ctx
         self.concise = bool(concise)
         self.knowledge_enabled = bool(knowledge_enabled)
+        self.forward_journal = forward_journal
         self.last_response_metrics: dict[str, int | str] | None = None
         self.device = "ollama-local"
 
@@ -143,6 +147,20 @@ class LocalOllamaChatRuntime:
                 return ChatResult(
                     text=curated.text, used_grounding_fallback=False,
                     mode=mode, answer_source="curated_knowledge",
+                )
+
+        if self.forward_journal is not None:
+            try:
+                answer = maybe_forward_answer(user_message, self.forward_journal)
+            except (ValueError, OSError, KeyError, TypeError) as exc:
+                raise RuntimeError(
+                    "Forward denník je neplatný alebo dočasne nedostupný; "
+                    "odmietam odhadovať nevykázané výsledky."
+                ) from exc
+            if answer is not None:
+                return ChatResult(
+                    text=answer, used_grounding_fallback=False,
+                    mode=ANALYSIS_QA, answer_source="verified_forward_journal",
                 )
 
         if analysis is not None and mode == ANALYSIS_QA:
