@@ -25,6 +25,7 @@ def parser() -> argparse.ArgumentParser:
     result.add_argument("--device", choices=("auto", "cuda", "cpu"), default="auto")
     result.add_argument("--max-new-tokens", type=int, default=384)
     result.add_argument("--timeout-seconds", type=int, default=180, help="Local Ollama HTTP wait limit")
+    result.add_argument("--num-ctx", type=int, default=3072, help="Local Ollama context window (try 1536 vs 3072)")
     result.add_argument(
         "--analysis-json",
         help="Optional canonical Orion analysis snapshot used to ground analysis answers.",
@@ -40,6 +41,8 @@ def main() -> int:
     model_id = args.model or (DEFAULT_OLLAMA_MODEL if args.backend == "ollama" else DEFAULT_MODEL_ID)
     print("Backend:", args.backend)
     print("Model:", model_id)
+    if args.backend == "ollama":
+        print("Ollama context window:", args.num_ctx)
     print("Requested device:", args.device)
     print("Analysis grounding:", "ON" if analysis is not None else "OFF")
     if analysis is not None:
@@ -49,7 +52,7 @@ def main() -> int:
         print("Connecting to local Ollama at 127.0.0.1:11434 (no cloud API)...")
         runtime = LocalOllamaChatRuntime(
             model_id=model_id, max_new_tokens=args.max_new_tokens,
-            timeout_seconds=args.timeout_seconds,
+            timeout_seconds=args.timeout_seconds, num_ctx=args.num_ctx,
         )
     else:
         print("Loading model (the first run may download model weights)...")
