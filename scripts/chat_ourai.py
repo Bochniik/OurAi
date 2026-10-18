@@ -28,6 +28,7 @@ def parser() -> argparse.ArgumentParser:
     result.add_argument("--num-ctx", type=int, default=3072, help="Local Ollama context window (try 1536 vs 3072)")
     result.add_argument("--concise", action="store_true", help="Ask Ollama for short direct answers")
     result.add_argument("--raw-llm", action="store_true", help="Disable curated financial glossary for language model testing")
+    result.add_argument("--forward-journal", help="Opt-in, read-only path to verified frozen v2 forward JSONL; no API calls")
     result.add_argument(
         "--analysis-json",
         help="Optional canonical Orion analysis snapshot used to ground analysis answers.",
@@ -49,6 +50,10 @@ def main() -> int:
     print("Financial knowledge:", "OFF (raw LLM)" if args.raw_llm else "ON")
     print("Requested device:", args.device)
     print("Analysis grounding:", "ON" if analysis is not None else "OFF")
+    journal = None if args.raw_llm else args.forward_journal
+    print("Forward journal:", journal if journal is not None else "OFF")
+    if journal is not None:
+        print("Mode: READ ONLY; forecast magnitude only, no direction or trading.")
     if analysis is not None:
         print("Snapshot source:", args.analysis_json)
         print("Note: snapshot values are static inputs, not a verified live market forecast.")
@@ -58,6 +63,7 @@ def main() -> int:
             model_id=model_id, max_new_tokens=args.max_new_tokens,
             timeout_seconds=args.timeout_seconds, num_ctx=args.num_ctx,
             concise=args.concise, knowledge_enabled=not args.raw_llm,
+            forward_journal=journal,
         )
     else:
         print("Loading model (the first run may download model weights)...")
@@ -66,6 +72,7 @@ def main() -> int:
             device=args.device,
             max_new_tokens=args.max_new_tokens,
             knowledge_enabled=not args.raw_llm,
+            forward_journal=journal,
         )
     print("Runtime device:", runtime.device)
     print("Commands: /clear, /exit")
@@ -100,6 +107,8 @@ def main() -> int:
         print(result.text)
         if result.answer_source == "curated_knowledge":
             print("[source: curated financial knowledge; not a live forecast]")
+        if result.answer_source == "verified_forward_journal":
+            print("[source: verified local v2 forward journal; read-only, magnitude-only]")
         if result.used_grounding_fallback:
             values = ", ".join(f"{value:g}%" for value in result.unsupported_percentages)
             print(f"[grounding guard replaced unsupported generated percentages: {values}]")
