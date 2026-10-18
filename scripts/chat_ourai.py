@@ -29,6 +29,7 @@ def parser() -> argparse.ArgumentParser:
     result.add_argument("--concise", action="store_true", help="Ask Ollama for short direct answers")
     result.add_argument("--raw-llm", action="store_true", help="Disable curated financial glossary for language model testing")
     result.add_argument("--forward-journal", help="Opt-in, read-only path to verified frozen v2 forward JSONL; no API calls")
+    result.add_argument("--historical-reports-dir", help="Opt-in directory with local v3 validation and lockbox JSON reports; read-only")
     result.add_argument(
         "--analysis-json",
         help="Optional canonical Orion analysis snapshot used to ground analysis answers.",
@@ -51,7 +52,9 @@ def main() -> int:
     print("Requested device:", args.device)
     print("Analysis grounding:", "ON" if analysis is not None else "OFF")
     journal = None if args.raw_llm else args.forward_journal
+    historical_dir = None if args.raw_llm else args.historical_reports_dir
     print("Forward journal:", journal if journal is not None else "OFF")
+    print("Historical reports:", historical_dir if historical_dir is not None else "OFF")
     if journal is not None:
         print("Mode: READ ONLY; forecast magnitude only, no direction or trading.")
     if analysis is not None:
@@ -64,6 +67,7 @@ def main() -> int:
             timeout_seconds=args.timeout_seconds, num_ctx=args.num_ctx,
             concise=args.concise, knowledge_enabled=not args.raw_llm,
             forward_journal=journal,
+            historical_reports_dir=historical_dir,
         )
     else:
         print("Loading model (the first run may download model weights)...")
@@ -107,6 +111,8 @@ def main() -> int:
         print(result.text)
         if result.answer_source == "curated_knowledge":
             print("[source: curated financial knowledge; not a live forecast]")
+        if result.answer_source == "historical_v3_reports":
+            print("[source: local v3 historical validation/test reports; read-only, magnitude-only, not forward]")
         if result.answer_source == "verified_forward_journal":
             print("[source: verified local v2 forward journal; read-only, magnitude-only]")
         if result.used_grounding_fallback:
