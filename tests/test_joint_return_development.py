@@ -91,6 +91,10 @@ class JointReturnDevelopmentTests(unittest.TestCase):
         self.assertIsNotNone(result["covered_only_metrics"])
         self.assertIn("signed_linear_mae_bps", result["covered_only_metrics"])
         self.assertIn("train_prior_three_class_brier", result["covered_only_metrics"])
+        self.assertIn("joint_mae_optimal_magnitude_mae_bps", result["covered_only_metrics"])
+        self.assertGreaterEqual(
+            result["covered_only_metrics"]["joint_mae_optimal_magnitude_mae_bps"], 0,
+        )
         self.assertGreaterEqual(
             result["covered_only_metrics"]["q10_q90_empirical_coverage"], 0
         )

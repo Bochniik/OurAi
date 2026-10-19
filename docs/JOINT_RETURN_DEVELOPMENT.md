@@ -44,6 +44,11 @@ UNCHANGED validation/test declarations using existing metadata checks, then
   same-row linear signed return and earlier-train median signed-return null.
 - **Absolute-magnitude MAE (bps):** joint mean absolute return versus
   same-row linear magnitude and earlier-train median absolute-return null.
+- **Loss-aligned absolute-magnitude MAE (bps):** add a separate forecast
+  equal to the OOF-cell conditional *median* of absolute returns. The median
+  is the optimal point prediction for absolute-error loss; the original
+  mean magnitude remains available because it is the expected value and
+  minimizes squared-error loss. Score mean and median on the same rows.
 - **Three-class Brier:** joint (UP / DOWN / NEUTRAL) versus
   earlier-train unconditional class-frequency null; the direction head's
   conditional binary probability is **not** compared directly as a
@@ -71,6 +76,11 @@ independent trials. All model families already were explored on related
 train data; fresh genuinely untouched test and future-forward observation
 are required before any trusted deployment. This experiment does not
 optimize or calculate PnL or alter the V3 test protocol.
+
+**Important:** This added diagnostic follows a mathematical loss rule, not
+an observed-fit optimization. Since the v4 TRAIN development block was already
+inspected in the previous run, this is *not* fresh holdout validation. Never
+select or tune the next challenger on its output and claim independent skill.
 
 **Report location:** `runs/joint-return-development-v1/report.json`
 (local, gitignored). Share only the metrics/summary; never API credentials.
