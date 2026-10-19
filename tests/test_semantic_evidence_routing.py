@@ -63,6 +63,76 @@ class SemanticRouterTests(unittest.TestCase):
         self.assertIsNone(canonical_historical_question("Ahoj", '{"intent":"test","split":"both","baseline":100}'))
         self.assertIsNone(canonical_historical_question("Ahoj", "not json"))
 
+    def test_llm_misclassification_cannot_hijack_unrelated_or_definition_questions(self):
+        for question in (
+            "Aké je hlavné mesto Francúzska?",
+            "Vysvetli mi fyziku hviezd.",
+            "Čo je MAE?",
+            "What is a backtest?",
+            "Aký bol historický vývoj inflácie?",
+            "What is the difference between a model and a theory?",
+            "How do I improve my performance at chess?",
+            "Ahoj, ako sa máš?",
+        ):
+            with self.subTest(question=question):
+                self.assertIsNone(
+                    canonical_historical_question(question, _classification("test"))
+                )
+                self.assertIsNone(
+                    canonical_historical_question(question, _classification("compare"))
+                )
+
+    def test_evidence_anchor_accepts_flexible_retrospective_phrasings(self):
+        for question in (
+            "Ako si obstál na nevidených dátach?",
+            "Ako sa darilo OurAI v3?",
+            "Kto je historicky lepší?",
+            "How well do you compare with a linear model?",
+            "Why did v3 outperform the baseline historically?",
+            "What is the historical MAE of model v3?",
+        ):
+            with self.subTest(question=question):
+                self.assertIsNotNone(
+                    canonical_historical_question(question, _classification("compare"))
+                )
+
+    def test_temporal_guard_matches_words_not_unrelated_substrings(self):
+        self.assertIsNotNone(
+            canonical_historical_question(
+                "Did you deliver better historical model results?",
+                _classification("compare"),
+            )
+        )
+        self.assertIsNone(
+            canonical_historical_question(
+                "How did your model perform on live data?",
+                _classification("compare"),
+            )
+        )
+        self.assertIsNone(
+            canonical_historical_question(
+                "Ako presné sú tvoje dnešné predikcie?",
+                _classification("compare"),
+            )
+        )
+
+    def test_wrong_classifier_output_still_delegates_to_general_model(self):
+        with tempfile.TemporaryDirectory() as temp:
+            runtime = LocalOllamaChatRuntime(
+                historical_reports_dir=temp, semantic_routing=True
+            )
+            with patch.object(
+                runtime, "_generate",
+                side_effect=[
+                    _classification("test"),
+                    "Hlavným mestom Francúzska je Paríž.",
+                ],
+            ) as generate:
+                answer = runtime.respond("Aké je hlavné mesto Francúzska?")
+            self.assertEqual(answer.answer_source, "model")
+            self.assertIn("Paríž", answer.text)
+            self.assertEqual(generate.call_count, 2)
+
     def test_current_and_forward_questions_never_hijacked(self):
         for question in (
             "Aké boli tvoje posledné predikcie?",
