@@ -57,6 +57,7 @@ class JointReturnCalibrationTests(unittest.TestCase):
         self.assertAlmostEqual(pred.p_up + pred.p_down + pred.p_neutral, 1)
         self.assertAlmostEqual(pred.expected_signed_return, 0.00075)
         self.assertAlmostEqual(pred.expected_abs_return, 0.00225)
+        self.assertAlmostEqual(pred.mae_optimal_abs_return, 0.002)
         self.assertAlmostEqual(pred.q10_return, -0.002)
         self.assertAlmostEqual(pred.q90_return, 0.004)
         self.assertLessEqual(abs(pred.expected_signed_return), pred.expected_abs_return)
@@ -66,6 +67,42 @@ class JointReturnCalibrationTests(unittest.TestCase):
         self.assertAlmostEqual(prices["q90_price"], 100.4)
         with self.assertRaises(ValueError):
             pred.price_estimates(-1)
+
+    def test_magnitude_median_resists_outliers_and_is_mae_optimal_on_training(self):
+        # Purely synthetic example illustrating the mathematical loss rule,
+        # not proof of skill on development or forward data.
+        start = datetime(2026, 1, 5, 14, 30, tzinfo=timezone.utc)
+        rows = [
+            OOFReturnObservation(
+                symbol="NVDA",
+                timestamp=start + timedelta(minutes=15 * i),
+                horizon_minutes=15,
+                raw_p_up=0.72,
+                predicted_abs_return=0.003,
+                realized_return=0.1 if i % 10 == 0 else (
+                    0.001 if i % 2 else -0.001
+                ),
+                is_train_oof=True,
+            )
+            for i in range(40)
+        ]
+        calibrator = fit_joint_return_calibrator(rows)
+        dist = calibrator.predict(
+            raw_p_up=0.72, predicted_abs_return=0.003,
+            horizon_minutes=15,
+        )
+        self.assertIsNotNone(dist)
+        self.assertAlmostEqual(dist.mae_optimal_abs_return, 0.001)
+        self.assertAlmostEqual(dist.expected_abs_return, 0.0109)
+        median_mae = sum(
+            abs(dist.mae_optimal_abs_return - abs(row.realized_return))
+            for row in rows
+        ) / len(rows)
+        mean_mae = sum(
+            abs(dist.expected_abs_return - abs(row.realized_return))
+            for row in rows
+        ) / len(rows)
+        self.assertLess(median_mae, mean_mae)
 
     def test_abstains_in_unsupported_bin_and_rejects_horizon_mismatch(self):
         model = fit_joint_return_calibrator(self._rows())
@@ -113,6 +150,7 @@ class JointReturnCalibrationTests(unittest.TestCase):
         self.assertEqual(report["evaluated_count"], 3)
         self.assertGreater(report["signed_return_mae_bps"], 0)
         self.assertGreater(report["absolute_magnitude_mae_bps"], 0)
+        self.assertGreaterEqual(report["mae_optimal_magnitude_mae_bps"], 0)
         self.assertGreaterEqual(report["three_class_brier"], 0)
         self.assertAlmostEqual(report["q10_q90_empirical_coverage"], 1.0)
         with self.assertRaises(ValueError):
