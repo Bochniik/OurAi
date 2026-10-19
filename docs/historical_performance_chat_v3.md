@@ -76,3 +76,36 @@ python -m unittest tests.test_historical_performance_chat tests.test_forward_ana
 ```
 
 The repo's CI also runs Python compilation and the full unittest suite on PRs.
+
+## Context-aware follow-ups
+
+The local terminal chat now tags the origin of each assistant answer and preserves
+a canonical evidence question. When the immediately preceding assistant answer
+came from verified local historical reports, short follow-ups can inherit its
+test split and baseline *without consulting the language model*. For example:
+
+```text
+You > Porovnaj svoje výsledky s lineárnym modelom.
+You > A na lockboxe?
+You > A oproti nulovému?
+You > O koľko je to lepšie?
+You > A prečo?
+You > Vysvetli to jednoducho.
+```
+
+The "why" answer explicitly distinguishes measured performance from an
+unproven causal explanation. A standalone general question (e.g. about Python)
+still reaches local Qwen. New or latest forward questions are always routed
+independently; historical numbers must never be passed off as live metrics.
+
+Context is deliberately limited to the **immediately preceding, evidence-tagged**
+turn, with a canonical question retained for consecutive follow-ups. A social
+or unrelated turn breaks this chain. This is not unlimited conversation memory:
+open-ended model replies use the regular bounded local chat history, and some
+analytical phrasings may still need a full question.
+
+Run the regression tests without downloading LLM weights:
+
+```powershell
+python -m unittest discover -s tests -p "test_contextual_grounded_dialogue.py" -v
+```

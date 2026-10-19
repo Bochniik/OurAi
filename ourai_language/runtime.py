@@ -11,6 +11,7 @@ from .general_answers import deterministic_social_answer
 from .financial_knowledge import lookup_financial_knowledge
 from .forward_answers import maybe_forward_answer
 from .historical_answers import maybe_historical_answer
+from .conversation_followups import historical_followup_question
 from .grounding import find_unsupported_percentages, grounded_fallback
 from .prompting import ANALYSIS_QA, GENERAL_CHAT, build_messages, select_conversation_mode
 
@@ -26,6 +27,7 @@ class ChatResult:
     unsupported_percentages: tuple[float, ...] = ()
     mode: str = "GENERAL_CHAT"
     answer_source: str = "model"
+    evidence_question: str | None = None
 
 
 class OurAIChatRuntime:
@@ -135,7 +137,10 @@ class OurAIChatRuntime:
 
         if getattr(self, "historical_reports_dir", None) is not None:
             try:
-                historical = maybe_historical_answer(user_message, self.historical_reports_dir)
+                contextual = historical_followup_question(user_message, history_rows)
+                historical = maybe_historical_answer(
+                    contextual or user_message, self.historical_reports_dir
+                )
             except (ValueError, OSError, KeyError, TypeError) as exc:
                 raise RuntimeError(
                     "Historický report v3 je neplatný alebo nedostupný; "
@@ -145,6 +150,7 @@ class OurAIChatRuntime:
                 return ChatResult(
                     text=historical, used_grounding_fallback=False,
                     mode=ANALYSIS_QA, answer_source="historical_v3_reports",
+                    evidence_question=contextual or user_message,
                 )
 
         if getattr(self, "forward_journal", None) is not None:
