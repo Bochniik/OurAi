@@ -11,6 +11,7 @@ from .general_answers import deterministic_social_answer
 from .financial_knowledge import lookup_financial_knowledge
 from .forward_answers import maybe_forward_answer
 from .historical_answers import maybe_historical_answer
+from .conversation_followups import historical_followup_question
 from .grounding import find_unsupported_percentages, grounded_fallback
 from .prompting import ANALYSIS_QA, GENERAL_CHAT, build_messages, select_conversation_mode
 
@@ -135,7 +136,10 @@ class OurAIChatRuntime:
 
         if getattr(self, "historical_reports_dir", None) is not None:
             try:
-                historical = maybe_historical_answer(user_message, self.historical_reports_dir)
+                contextual = historical_followup_question(user_message, history_rows)
+                historical = maybe_historical_answer(
+                    contextual or user_message, self.historical_reports_dir
+                )
             except (ValueError, OSError, KeyError, TypeError) as exc:
                 raise RuntimeError(
                     "Historický report v3 je neplatný alebo nedostupný; "
