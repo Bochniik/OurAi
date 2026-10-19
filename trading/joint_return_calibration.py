@@ -69,6 +69,10 @@ class JointReturnDistribution:
     p_neutral: float
     expected_signed_return: float
     expected_abs_return: float
+    # The median of |return| minimizes expected absolute magnitude error (MAE).
+    # The mean above is preserved as the mathematical expectation, suitable
+    # for squared-error objectives; do not substitute one for the other.
+    mae_optimal_abs_return: float
     q10_return: float
     q50_return: float
     q90_return: float
@@ -106,7 +110,7 @@ class JointReturnCalibrator:
         values = self.cells.get(key)
         if values is None:
             return None  # Insufficient training evidence: abstain rather than guess.
-        p_up, p_down, p_neutral, signed, absolute, q10, q50, q90, count = values
+        p_up, p_down, p_neutral, signed, absolute, median_abs, q10, q50, q90, count = values
         return JointReturnDistribution(
             horizon_minutes=horizon_minutes,
             raw_p_up=float(raw_p_up),
@@ -115,6 +119,7 @@ class JointReturnCalibrator:
             p_neutral=p_neutral,
             expected_signed_return=signed,
             expected_abs_return=absolute,
+            mae_optimal_abs_return=median_abs,
             q10_return=q10,
             q50_return=q50,
             q90_return=q90,
@@ -189,6 +194,7 @@ def fit_joint_return_calibrator(
             float(np.count_nonzero(np.abs(values) <= band) / n),
             float(np.mean(values)),
             float(np.mean(np.abs(values))),
+            float(np.median(np.abs(values))),
             float(q10), float(q50), float(q90), float(n),
         )
 
@@ -213,12 +219,13 @@ def evaluate_joint_return_distributions(
     rows = list(paired_outcomes)
     if not rows:
         raise ValueError("at least one resolved distribution/outcome pair required")
-    signed_errors, magnitude_errors, scores, covered = [], [], [], []
+    signed_errors, magnitude_errors, median_abs_errors, scores, covered = [], [], [], [], []
     for pred, actual in rows:
         if not isfinite(actual):
             raise ValueError("realized return must be finite")
         signed_errors.append(abs(pred.expected_signed_return - actual) * 10_000)
         magnitude_errors.append(abs(pred.expected_abs_return - abs(actual)) * 10_000)
+        median_abs_errors.append(abs(pred.mae_optimal_abs_return - abs(actual)) * 10_000)
         band = neutral_band_bps / 10_000
         target = (float(actual > band), float(actual < -band), float(abs(actual) <= band))
         scores.append(sum((prob - y) ** 2 for prob, y in zip(
@@ -229,6 +236,7 @@ def evaluate_joint_return_distributions(
         "evaluated_count": len(rows),
         "signed_return_mae_bps": float(np.mean(signed_errors)),
         "absolute_magnitude_mae_bps": float(np.mean(magnitude_errors)),
+        "mae_optimal_magnitude_mae_bps": float(np.mean(median_abs_errors)),
         "three_class_brier": float(np.mean(scores)),
         "q10_q90_empirical_coverage": float(np.mean(covered)),
         "nominal_interval_coverage": 0.80,
