@@ -1,6 +1,7 @@
 """Multi-turn contextual grounding: tests never require Ollama or model weights."""
 from __future__ import annotations
 
+import json
 import tempfile
 import unittest
 from pathlib import Path
@@ -9,7 +10,40 @@ from unittest.mock import patch
 from ourai_language.conversation_followups import historical_followup_question
 from ourai_language.ollama_runtime import LocalOllamaChatRuntime
 from ourai_language.runtime import OurAIChatRuntime
-from tests.test_historical_performance_chat import report, write_report
+
+
+def report(split: str, *, mae: float = 8.5) -> dict:
+    return {
+        "dataset_id": "synthetic-v3",
+        "protocol_name": "ourai-v3-nonlinear-research-preregistration-v1",
+        "protocol_sha256": "a" * 64,
+        "horizon_minutes": 15,
+        "test_lockbox_accessed": split == "test",
+        "original_validation_used": split == "validation",
+        "post_test_tuning_allowed": False,
+        f"{split}_supported": True,
+        split: {
+            "overall": {
+                "evaluated_count": 150,
+                "nonlinear_mae_bps": mae,
+                "linear_mae_bps": 11.0,
+                "null_mae_bps": 12.0,
+            },
+            "market_date_count": 5,
+            "market_date_wins_vs_linear": 4,
+            "market_date_wins_vs_null": 5,
+        },
+    }
+
+
+def write_report(directory: Path, split: str, payload: dict | None = None) -> Path:
+    filename = (
+        "nonlinear_magnitude_validation_v1.json" if split == "validation"
+        else "nonlinear_magnitude_test_lockbox_v1.json"
+    )
+    path = directory / filename
+    path.write_text(json.dumps(payload or report(split)), encoding="utf-8")
+    return path
 
 
 def append_turn(history, message, result):
