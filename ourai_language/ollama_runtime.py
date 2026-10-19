@@ -168,6 +168,7 @@ class LocalOllamaChatRuntime:
                 return ChatResult(
                     text=answer, used_grounding_fallback=False,
                     mode=ANALYSIS_QA, answer_source="historical_v3_reports",
+                    evidence_question=contextual or user_message,
                 )
 
         if self.forward_journal is not None:
