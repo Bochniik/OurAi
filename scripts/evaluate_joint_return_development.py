@@ -251,6 +251,12 @@ def evaluate_train_only_joint(
                 (dist.expected_abs_return, abs(actual))
                 for dist, actual, _, _ in supported
             ]),
+            # MAE should score the conditional median of absolute returns,
+            # whereas the existing joint estimate is their mean.
+            "joint_mae_optimal_magnitude_mae_bps": _metric_mae([
+                (dist.mae_optimal_abs_return, abs(actual))
+                for dist, actual, _, _ in supported
+            ]),
             "magnitude_linear_mae_bps": _metric_mae([
                 (magnitude, abs(actual)) for _, actual, _, magnitude in supported
             ]),
@@ -322,6 +328,7 @@ def main() -> int:
     print("Abstained:", report["abstained_count"])
     print("Coverage:", round(report["coverage_fraction"], 4))
     print("Covered-only scores:", json.dumps(report["covered_only_metrics"], indent=2))
+    print("NOTE: conditional median |return| is MAE-optimal; old mean kept as expectation.")
     print("All-row baselines:", json.dumps(report["baseline_all_development"], indent=2))
     print("Conclusion:", report["conclusion"], "(NO PRODUCTION PROMOTION)")
     print("V4 validation/test and V3 forward: NOT OPENED")
