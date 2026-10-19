@@ -81,6 +81,16 @@ def historical_followup_question(
     why = text.startswith(("a preco", "preco", "a z akeho dovodu", "z akeho dovodu"))
     if why:
         return "Prečo sa líšia historické výsledky modelu v3?"
+    simple = text.startswith((
+        "vysvetli", "a vysvetli", "jednoducho", "zhrn",
+        "a co z toho", "co z toho", "co to znamena pre model",
+    ))
+    if simple:
+        if split == "lockbox teste":
+            return "Zhrň historické výsledky lockbox testu v3 jednoducho."
+        if split == "validácii":
+            return "Zhrň výsledky historickej validácie v3 jednoducho."
+        return "Zhrň historické výsledky modelu v3 jednoducho."
     if text.startswith(("a pri ktorej", "a pri ktorych", "a ktora akcia", "a ktore akcie")):
         return "Pri ktorých akciách robí historický model v3 najväčšie chyby?"
 
