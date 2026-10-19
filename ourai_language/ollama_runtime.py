@@ -17,6 +17,7 @@ from .general_answers import deterministic_social_answer
 from .financial_knowledge import lookup_financial_knowledge
 from .forward_answers import maybe_forward_answer
 from .historical_answers import maybe_historical_answer
+from .semantic_router import SYSTEM_PROMPT as SEMANTIC_ROUTER_PROMPT, canonical_historical_question
 from .conversation_followups import historical_followup_question
 from .grounding import find_unsupported_percentages, grounded_fallback
 from .prompting import (
@@ -39,6 +40,7 @@ class LocalOllamaChatRuntime:
         knowledge_enabled: bool = True,
         forward_journal: str | Path | None = None,
         historical_reports_dir: str | Path | None = None,
+        semantic_routing: bool = False,
     ) -> None:
         if not model_id or model_id.strip() != model_id:
             raise ValueError("a locally installed Ollama model name is required")
@@ -58,10 +60,11 @@ class LocalOllamaChatRuntime:
         self.knowledge_enabled = bool(knowledge_enabled)
         self.forward_journal = forward_journal
         self.historical_reports_dir = historical_reports_dir
+        self.semantic_routing = bool(semantic_routing)
         self.last_response_metrics: dict[str, int | str] | None = None
         self.device = "ollama-local"
 
-    def _generate(self, messages: list[dict[str, str]]) -> str:
+    def _generate(self, messages: list[dict[str, str]], *, json_mode: bool = False) -> str:
         payload = {
             "model": self.model_id,
             "messages": messages,
@@ -73,6 +76,9 @@ class LocalOllamaChatRuntime:
                 "num_predict": self.max_new_tokens,
             },
         }
+        if json_mode:
+            payload["format"] = "json"
+            payload["options"]["num_predict"] = min(self.max_new_tokens, 140)
         request = Request(
             OLLAMA_ENDPOINT,
             data=json.dumps(payload, ensure_ascii=False).encode("utf-8"),
@@ -193,6 +199,33 @@ class LocalOllamaChatRuntime:
             social = deterministic_social_answer(user_message)
             if social is not None:
                 return ChatResult(text=social, used_grounding_fallback=False, mode=mode)
+
+        # Experimental local-language semantic router. It proposes only an
+        # intent/split/baseline enum, not numbers, filenames or executable code.
+        # All resulting answers pass through the verified retrospective reader.
+        if self.semantic_routing and self.historical_reports_dir is not None and analysis is None:
+            candidate = self._generate(
+                [
+                    {"role": "system", "content": SEMANTIC_ROUTER_PROMPT},
+                    {"role": "user", "content": user_message},
+                ],
+                json_mode=True,
+            )
+            canonical = canonical_historical_question(user_message, candidate)
+            if canonical is not None:
+                try:
+                    historical = maybe_historical_answer(canonical, self.historical_reports_dir)
+                except (ValueError, OSError, KeyError, TypeError) as exc:
+                    raise RuntimeError(
+                        "Historický report v3 je neplatný alebo nedostupný; "
+                        "odmietam odhadovať neoverené metriky."
+                    ) from exc
+                if historical is not None:
+                    return ChatResult(
+                        text=historical, used_grounding_fallback=False,
+                        mode=ANALYSIS_QA, answer_source="historical_v3_reports",
+                        evidence_question=canonical,
+                    )
 
         messages = build_messages(
             user_message, analysis=analysis, history=history_rows, mode=mode,
