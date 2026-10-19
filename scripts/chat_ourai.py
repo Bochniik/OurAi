@@ -31,6 +31,10 @@ def parser() -> argparse.ArgumentParser:
     result.add_argument("--forward-journal", help="Opt-in, read-only path to verified frozen v2 forward JSONL; no API calls")
     result.add_argument("--historical-reports-dir", help="Opt-in directory with local v3 validation and lockbox JSON reports; read-only")
     result.add_argument(
+        "--semantic-routing", action="store_true",
+        help="Experimental Ollama intent classification for free-form v3 historical questions; uses an extra local model call",
+    )
+    result.add_argument(
         "--analysis-json",
         help="Optional canonical Orion analysis snapshot used to ground analysis answers.",
     )
@@ -39,6 +43,12 @@ def parser() -> argparse.ArgumentParser:
 
 def main() -> int:
     args = parser().parse_args()
+    if args.semantic_routing and args.backend != "ollama":
+        parser().error("--semantic-routing currently requires --backend ollama")
+    if args.semantic_routing and args.raw_llm:
+        parser().error("--semantic-routing cannot be combined with --raw-llm")
+    if args.semantic_routing and not args.historical_reports_dir:
+        parser().error("--semantic-routing requires --historical-reports-dir")
     analysis = _load_analysis(args.analysis_json)
 
     print("=== OURAI LOCAL CONVERSATIONAL MODEL ===")
@@ -55,6 +65,7 @@ def main() -> int:
     historical_dir = None if args.raw_llm else args.historical_reports_dir
     print("Forward journal:", journal if journal is not None else "OFF")
     print("Historical reports:", historical_dir if historical_dir is not None else "OFF")
+    print("Semantic historical routing:", "ON (experimental)" if args.semantic_routing else "OFF")
     if journal is not None:
         print("Mode: READ ONLY; forecast magnitude only, no direction or trading.")
     if analysis is not None:
@@ -68,6 +79,7 @@ def main() -> int:
             concise=args.concise, knowledge_enabled=not args.raw_llm,
             forward_journal=journal,
             historical_reports_dir=historical_dir,
+            semantic_routing=args.semantic_routing,
         )
     else:
         print("Loading model (the first run may download model weights)...")
@@ -77,6 +89,7 @@ def main() -> int:
             max_new_tokens=args.max_new_tokens,
             knowledge_enabled=not args.raw_llm,
             forward_journal=journal,
+            historical_reports_dir=historical_dir,
         )
     print("Runtime device:", runtime.device)
     print("Commands: /clear, /exit")
