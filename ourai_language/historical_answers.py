@@ -70,6 +70,12 @@ def historical_question_kind(message: str) -> str | None:
         return "symbols"
     if "forward" in text or "live" in text:
         return "boundary"
+    if historic and text.startswith(("preco", "a preco", "z akeho dovodu")):
+        return "causes"
+    if historic and any(term in text for term in (
+        "jednoducho", "jednoduchsie", "zhrn", "co z toho vyplyva",
+    )):
+        return "simple"
     if comparison:
         if "lockbox" in text or "testovac" in text or "held-out" in text or "testovaci" in text:
             return "compare_test"
@@ -234,6 +240,36 @@ def maybe_historical_answer(message: str, reports_dir: str | Path | None) -> str
         return (
             "Požadovaný historický report v3 v zadanom adresári nie je dostupný. "
             "Bez lokálneho reportu nemôžem uviesť metriky."
+        )
+    if kind == "causes":
+        return (
+            "Historické reporty v3 potvrdzujú nameranú MAE, ale neurčujú "
+            "príčinu rozdielov medzi modelmi. Bez samostatnej analýzy "
+            "chýb podľa volatility, likvidity a ďalších faktorov neviem "
+            "vysvetliť, prečo bol model presnejší alebo menej presný. "
+            "Nižšia historická chyba nezaručuje lepšie budúce predikcie."
+        )
+    if kind == "simple":
+        parts = []
+        for split, report in available.items():
+            name = "validácii" if split == "validation" else "lockbox teste"
+            model_mae = report["nonlinear_mae_bps"]
+            linear_mae = report["linear_mae_bps"]
+            if model_mae < linear_mae:
+                verdict = "nižšia"
+            elif model_mae > linear_mae:
+                verdict = "vyššia"
+            else:
+                verdict = "rovnaká"
+            parts.append(
+                f"Na historickej {name} dosiahol OurAI v3 MAE "
+                f"{_fmt(model_mae)} bps; lineárny model {_fmt(linear_mae)} bps "
+                f"(chyba OurAI bola {verdict})."
+            )
+        return (
+            "Jednoducho: " + " ".join(parts) +
+            " Hovoríme len o 15-minútovej absolútnej veľkosti pohybu, "
+            "nie o jeho smere, budúcej úspešnosti alebo zisku."
         )
     if kind == "symbols":
         return (
