@@ -115,6 +115,8 @@ class ContextualHistoricalDialogueTests(unittest.TestCase):
         fake[-1]["source"] = "historical_v3_reports"
         self.assertIsNotNone(historical_followup_question("A oproti nulovému?", fake))
         self.assertIsNone(historical_followup_question("Čo je Python?", fake))
+        self.assertIsNone(historical_followup_question("A čo Python?", fake))
+        self.assertIsNone(historical_followup_question("A ako naprogramujem API?", fake))
         self.assertIsNone(historical_followup_question("A dnes na burze?", fake))
 
     def test_social_break_clears_context(self):
