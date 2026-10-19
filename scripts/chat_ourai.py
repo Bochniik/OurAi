@@ -122,7 +122,8 @@ def main() -> int:
         history.extend(
             [
                 {"role": "user", "content": user_message, "mode": result.mode},
-                {"role": "assistant", "content": result.text, "mode": result.mode},
+                {"role": "assistant", "content": result.text, "mode": result.mode,
+                 "source": result.answer_source},
             ]
         )
         # Bound conversational history. Mode tags prevent an analysis answer from
