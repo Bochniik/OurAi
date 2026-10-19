@@ -99,18 +99,30 @@ def historical_followup_question(
         "o kolko", "oproti", "v porovnani", "porovnaj", "kolko leps",
         "kolko hors", "aky rozdiel", "rozdiel oproti", "prekon",
     ))
-    if comparative or comparable_prompt or (
-        text.startswith(("a co ", "a oproti ", "a ten ", "a s ")) and
-        any(term in text for term in ("linearn", "linear", "nulov", "null", "baseline"))
-    ):
-        scope = ("na historickom lockbox teste" if split == "lockbox teste" else "v historickej validácii") if split else ""
-        return f"Porovnaj výsledky modelu v3 {scope} s {target}."
-
+    baseline_followup = (
+        text.startswith(("a co ", "a oproti ", "a ten ", "a s ", "a k "))
+        and any(term in text for term in (
+            "linearn", "linear", "nulov", "null", "baseline",
+        ))
+    )
     change_split = (
         any(term in text for term in ("lockbox", "validac", "testovac", "testovaci"))
-        and text.startswith(("a ", "co ", "ako ", "a na", "a co"))
+        and text.startswith(("a ", "co ", "ako "))
     )
+    # Source provenance alone is not permission to hijack an arbitrary new
+    # question: only a clear referential cue can inherit the old comparison.
+    if not (comparable_prompt or baseline_followup or change_split):
+        return None
+    if comparative or comparable_prompt or baseline_followup:
+        scope = (
+            "na historickom lockbox teste" if split == "lockbox teste"
+            else "v historickej validácii"
+        ) if split else ""
+        return f"Porovnaj výsledky modelu v3 {scope} s {target}.".replace("  ", " ")
     if change_split:
-        scope = "na historickom lockbox teste" if split == "lockbox teste" else "v historickej validácii"
+        scope = (
+            "na historickom lockbox teste" if split == "lockbox teste"
+            else "v historickej validácii"
+        )
         return f"Aká bola MAE modelu v3 {scope}?"
     return None
