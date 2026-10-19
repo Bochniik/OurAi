@@ -8,7 +8,6 @@ forward predictions, and current/live data are explicitly excluded.
 from __future__ import annotations
 
 import json
-import re
 import unicodedata
 
 
