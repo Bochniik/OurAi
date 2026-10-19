@@ -98,13 +98,13 @@ class SemanticRouterTests(unittest.TestCase):
             with patch.object(
                 runtime, "_generate", return_value=_classification("validation")
             ) as generate:
-                answer = runtime.respond("Ako sa ti darilo na nevidených historických vzorkách?")
+                answer = runtime.respond("Ako si obstál na nevidených dátach?")
             self.assertEqual(generate.call_count, 1)
             self.assertTrue(generate.call_args.kwargs.get("json_mode"))
             self.assertEqual(answer.answer_source, "historical_v3_reports")
             self.assertIn("8,00 bps", answer.text)
             self.assertNotIn("99", answer.text)
-            self.assertEqual(path.read_bytes(), path.read_bytes())
+            self.assertEqual(json.loads(path.read_text(encoding="utf-8")), _validation_report())
             self.assertTrue(answer.evidence_question)
 
     def test_llm_none_delegates_to_general_conversation(self):
