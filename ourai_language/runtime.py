@@ -27,6 +27,7 @@ class ChatResult:
     unsupported_percentages: tuple[float, ...] = ()
     mode: str = "GENERAL_CHAT"
     answer_source: str = "model"
+    evidence_question: str | None = None
 
 
 class OurAIChatRuntime:
@@ -149,6 +150,7 @@ class OurAIChatRuntime:
                 return ChatResult(
                     text=historical, used_grounding_fallback=False,
                     mode=ANALYSIS_QA, answer_source="historical_v3_reports",
+                    evidence_question=contextual or user_message,
                 )
 
         if getattr(self, "forward_journal", None) is not None:
