@@ -109,3 +109,34 @@ Run the regression tests without downloading LLM weights:
 ```powershell
 python -m unittest discover -s tests -p "test_contextual_grounded_dialogue.py" -v
 ```
+
+## Experimental semantic routing (local Ollama only)
+
+Add `--semantic-routing` to the normal `--backend ollama` launch command,
+**alongside** `--historical-reports-dir runs\\first-real-15m-v3`.
+This flag is opt-in and off by default. It makes an **extra local Ollama
+inference call** for open-ended questions that were not recognized by the
+reviewed, deterministic routes. There is no external cloud/API dependency.
+
+The classifier returns only a constrained JSON intent, validation/test split,
+and linear/null baseline selection. Its result is validated and translated to
+a fixed internal request. The existing read-only report loader remains the
+only authority for performance metrics. The classifier never supplies prices,
+MAE values, probabilities, filenames or execution commands. Questions about
+current/live/latest/forward data are not allowed to route to historical reports.
+Generic questions remain handled by the conversational model when no historical
+source is selected. An invalid local report still blocks fabricated metrics.
+
+Try varied paraphrases: `Ako si obstál na nevidených dátach?`,
+`Ktorý baseline si dokázal prekonať?`, or
+`Je tvoja chyba lepšia na validácii alebo testovaní?`.
+The experimental classifier may be wrong or slower; monitor real-user
+accuracy before making it the default. This is **not** unrestricted tool use
+or proof of general reasoning ability. `--raw-llm` and the Transformers
+backend do not support this semantic flag.
+
+The same change fixes the CLI handoff of local historical reports to the
+Transformers backend for the existing deterministic report explanations.
+
+Run `python -m unittest discover -s tests -p "test_semantic_evidence_routing.py" -v`
+for mocked, offline regression checks.
