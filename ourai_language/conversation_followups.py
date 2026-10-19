@@ -28,7 +28,7 @@ def _context(history: Iterable[Mapping[str, str]] | None) -> str | None:
         or last_assistant.get("source") != "historical_v3_reports"
     ):
         return None
-    question = str(last_user.get("content", ""))
+    question = str(last_assistant.get("evidence_question") or last_user.get("content", ""))
     if historical_question_kind(question) is None:
         return None
     return question
@@ -103,7 +103,7 @@ def historical_followup_question(
         text.startswith(("a co ", "a oproti ", "a ten ", "a s ")) and
         any(term in text for term in ("linearn", "linear", "nulov", "null", "baseline"))
     ):
-        scope = ("na historickom lockbox teste" if split == "lockbox teste" else "v historickej validácii") if split else "v historickej validácii aj na historickom lockbox teste"
+        scope = ("na historickom lockbox teste" if split == "lockbox teste" else "v historickej validácii") if split else ""
         return f"Porovnaj výsledky modelu v3 {scope} s {target}."
 
     change_split = (
