@@ -67,7 +67,6 @@ def historical_followup_question(
         elif prior_kind in ("test", "compare_test"):
             split = "lockbox teste"
 
-    combined = _norm(raw + " " + prior)
     if any(term in text for term in ("nulov", "null")):
         target = "nulovým baseline"
     elif any(term in text for term in ("linearn", "linear")):
@@ -94,7 +93,7 @@ def historical_followup_question(
         text.startswith(("a co ", "a oproti ", "a ten ", "a s ")) and
         any(term in text for term in ("linearn", "linear", "nulov", "null", "baseline"))
     ):
-        scope = f"na historickej {split}" if split else "na historickej validácii a lockbox teste"
+        scope = ("na historickom lockbox teste" if split == "lockbox teste" else "v historickej validácii") if split else "v historickej validácii aj na historickom lockbox teste"
         return f"Porovnaj výsledky modelu v3 {scope} s {target}."
 
     change_split = (
@@ -102,5 +101,6 @@ def historical_followup_question(
         and text.startswith(("a ", "co ", "ako ", "a na", "a co"))
     )
     if change_split:
-        return f"Aká bola MAE modelu v3 na historickej {split}?"
+        scope = "na historickom lockbox teste" if split == "lockbox teste" else "v historickej validácii"
+        return f"Aká bola MAE modelu v3 {scope}?"
     return None
