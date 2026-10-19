@@ -252,7 +252,7 @@ def maybe_historical_answer(message: str, reports_dir: str | Path | None) -> str
     if kind == "simple":
         parts = []
         for split, report in available.items():
-            name = "validácii" if split == "validation" else "lockbox teste"
+            name = "historickej validácii" if split == "validation" else "historickom lockbox teste"
             model_mae = report["nonlinear_mae_bps"]
             linear_mae = report["linear_mae_bps"]
             if model_mae < linear_mae:
@@ -262,7 +262,7 @@ def maybe_historical_answer(message: str, reports_dir: str | Path | None) -> str
             else:
                 verdict = "rovnaká"
             parts.append(
-                f"Na historickej {name} dosiahol OurAI v3 MAE "
+                f"Na {name} dosiahol OurAI v3 MAE "
                 f"{_fmt(model_mae)} bps; lineárny model {_fmt(linear_mae)} bps "
                 f"(chyba OurAI bola {verdict})."
             )
