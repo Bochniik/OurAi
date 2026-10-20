@@ -26,6 +26,18 @@ class FinancialKnowledgeAnswer:
 
 # Short direct answers by design, with no invented current market facts.
 _LIBRARY: dict[str, FinancialKnowledgeAnswer] = {
+    "simple_moving_average": FinancialKnowledgeAnswer(
+        topic="simple_moving_average",
+        text=(
+            "SMA znamená Simple Moving Average (jednoduchý kĺzavý priemer). "
+            "Pri SMA(20) ide o aritmetický priemer posledných 20 hodnôt "
+            "zvolenej ceny, spravidla uzatváracej. Pri každej novej sviečke "
+            "najstaršia cena vypadne a pridá sa nová. SMA pomáha "
+            "vyhladzovať krátkodobé výkyvy, ale reaguje oneskorene "
+            "a sama osebe nepredpovedá budúci smer ceny."
+        ),
+        references=("https://www.investopedia.com/terms/s/sma.asp",),
+    ),
     "fundamental_technical": FinancialKnowledgeAnswer(
         topic="fundamental_technical",
         text=(
@@ -168,6 +180,15 @@ def lookup_financial_knowledge(
     )):
         return None
 
+    # SMA can also mean spinal muscular atrophy. Do not hijack an
+    # explicitly medical question with a finance definition.
+    if re.search(r"(?<!\w)sma(?!\w)", normalized) and not any(
+        marker in normalized for marker in (
+            "spin", "atrofi", "ochoren", "medicin", "genet",
+            "motorick", "neurolog", "liecb", "diagnoz",
+        )
+    ):
+        return _LIBRARY["simple_moving_average"]
     if "fundamentaln" in normalized and "technick" in normalized and "analyz" in normalized:
         return _LIBRARY["fundamental_technical"]
     if "preucen" in normalized or "overfitt" in normalized or "overfit" in normalized:
