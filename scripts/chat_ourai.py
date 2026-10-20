@@ -35,6 +35,10 @@ def parser() -> argparse.ArgumentParser:
         help="Experimental Ollama intent classification for free-form v3 historical questions; uses an extra local model call",
     )
     result.add_argument(
+        "--semantic-tool-routing", action="store_true",
+        help="Experimental Ollama choice of verified historical-v3 or forward-v2 read-only tool; one extra local model call",
+    )
+    result.add_argument(
         "--analysis-json",
         help="Optional canonical Orion analysis snapshot used to ground analysis answers.",
     )
@@ -43,12 +47,18 @@ def parser() -> argparse.ArgumentParser:
 
 def main() -> int:
     args = parser().parse_args()
-    if args.semantic_routing and args.backend != "ollama":
+    if args.semantic_tool_routing and args.semantic_routing:
+        parser().error("choose --semantic-routing or --semantic-tool-routing")
+    if (args.semantic_routing or args.semantic_tool_routing) and args.backend != "ollama":
         parser().error("--semantic-routing currently requires --backend ollama")
-    if args.semantic_routing and args.raw_llm:
+    if (args.semantic_routing or args.semantic_tool_routing) and args.raw_llm:
         parser().error("--semantic-routing cannot be combined with --raw-llm")
     if args.semantic_routing and not args.historical_reports_dir:
         parser().error("--semantic-routing requires --historical-reports-dir")
+    if args.semantic_tool_routing and not (
+        args.historical_reports_dir or args.forward_journal
+    ):
+        parser().error("--semantic-tool-routing requires a historical reports directory or forward journal")
     analysis = _load_analysis(args.analysis_json)
 
     print("=== OURAI LOCAL CONVERSATIONAL MODEL ===")
@@ -66,6 +76,7 @@ def main() -> int:
     print("Forward journal:", journal if journal is not None else "OFF")
     print("Historical reports:", historical_dir if historical_dir is not None else "OFF")
     print("Semantic historical routing:", "ON (experimental)" if args.semantic_routing else "OFF")
+    print("Verified tool selection:", "ON (experimental)" if args.semantic_tool_routing else "OFF")
     if journal is not None:
         print("Mode: READ ONLY; forecast magnitude only, no direction or trading.")
     if analysis is not None:
@@ -80,6 +91,7 @@ def main() -> int:
             forward_journal=journal,
             historical_reports_dir=historical_dir,
             semantic_routing=args.semantic_routing,
+            semantic_tool_routing=args.semantic_tool_routing,
         )
     else:
         print("Loading model (the first run may download model weights)...")
