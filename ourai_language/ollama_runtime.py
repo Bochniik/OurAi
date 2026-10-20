@@ -23,6 +23,9 @@ from .semantic_router import (
     explicit_heldout_performance_question,
 )
 from .conversation_followups import historical_followup_question
+from .verified_tool_router import (
+    SYSTEM_PROMPT as VERIFIED_TOOL_ROUTER_PROMPT, select_verified_tool,
+)
 from .grounding import find_unsupported_percentages, grounded_fallback
 from .prompting import (
     ANALYSIS_QA, GENERAL_CHAT, build_messages, select_conversation_mode,
@@ -45,6 +48,7 @@ class LocalOllamaChatRuntime:
         forward_journal: str | Path | None = None,
         historical_reports_dir: str | Path | None = None,
         semantic_routing: bool = False,
+        semantic_tool_routing: bool = False,
     ) -> None:
         if not model_id or model_id.strip() != model_id:
             raise ValueError("a locally installed Ollama model name is required")
@@ -65,6 +69,9 @@ class LocalOllamaChatRuntime:
         self.forward_journal = forward_journal
         self.historical_reports_dir = historical_reports_dir
         self.semantic_routing = bool(semantic_routing)
+        self.semantic_tool_routing = bool(semantic_tool_routing)
+        if self.semantic_routing and self.semantic_tool_routing:
+            raise ValueError("choose --semantic-routing or --semantic-tool-routing")
         self.last_response_metrics: dict[str, int | str] | None = None
         self.device = "ollama-local"
 
@@ -203,6 +210,49 @@ class LocalOllamaChatRuntime:
             social = deterministic_social_answer(user_message)
             if social is not None:
                 return ChatResult(text=social, used_grounding_fallback=False, mode=mode)
+
+        # Opt-in model-assisted selection from a closed list of two verified
+        # readers. Qwen never supplies file paths, symbols, numerical outputs
+        # or free-form arguments to a tool. Existing deterministic routes run
+        # first and remain authoritative.
+        if self.semantic_tool_routing and analysis is None:
+            candidate = self._generate(
+                [
+                    {"role": "system", "content": VERIFIED_TOOL_ROUTER_PROMPT},
+                    {"role": "user", "content": user_message},
+                ],
+                json_mode=True,
+            )
+            route = select_verified_tool(
+                user_message, candidate,
+                historical_available=self.historical_reports_dir is not None,
+                forward_available=self.forward_journal is not None,
+            )
+            if route is not None:
+                source, canonical = route
+                try:
+                    if source == "historical_v3":
+                        answer = maybe_historical_answer(
+                            canonical, self.historical_reports_dir
+                        )
+                    else:
+                        answer = maybe_forward_answer(canonical, self.forward_journal)
+                except (ValueError, OSError, KeyError, TypeError) as exc:
+                    label = "Historický report v3" if source == "historical_v3" else "Forward denník"
+                    raise RuntimeError(
+                        f"{label} je neplatný alebo nedostupný; "
+                        "odmietam odhadovať neoverené metriky."
+                    ) from exc
+                if answer is not None:
+                    return ChatResult(
+                        text=answer, used_grounding_fallback=False,
+                        mode=ANALYSIS_QA,
+                        answer_source=(
+                            "historical_v3_reports" if source == "historical_v3"
+                            else "verified_forward_journal"
+                        ),
+                        evidence_question=canonical if source == "historical_v3" else None,
+                    )
 
         # Experimental local-language semantic router. It proposes only an
         # intent/split/baseline enum, not numbers, filenames or executable code.
