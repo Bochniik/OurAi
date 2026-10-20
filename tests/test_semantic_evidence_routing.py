@@ -8,7 +8,9 @@ from pathlib import Path
 from unittest.mock import patch
 
 from ourai_language.ollama_runtime import LocalOllamaChatRuntime
-from ourai_language.semantic_router import canonical_historical_question
+from ourai_language.semantic_router import (
+    canonical_historical_question, explicit_heldout_performance_question,
+)
 from scripts.chat_ourai import parser
 
 
@@ -157,6 +159,69 @@ class SemanticRouterTests(unittest.TestCase):
         )
         self.assertIn("validácii", null_question)
         self.assertIn("nulovým baseline", null_question)
+
+    def test_actual_colloquial_unseen_dialogue_survives_wrong_classifier(self):
+        # Regression for a real user transcript: first question was answered by
+        # generic Qwen chat instead of local held-out evidence, losing follow-up.
+        question = "Ako sa ti vlastne darilo na dátach, ktoré si predtým nevidel?"
+        self.assertEqual(
+            explicit_heldout_performance_question(question),
+            "Aký bol historický lockbox test v3?",
+        )
+        with tempfile.TemporaryDirectory() as temp:
+            data = _validation_report()
+            data["test_lockbox_accessed"] = True
+            data["post_test_tuning_allowed"] = False
+            data["test_supported"] = True
+            data["test"] = data.pop("validation")
+            data.pop("validation_supported")
+            data["test"]["overall"]["nonlinear_mae_bps"] = 17.19
+            data["test"]["overall"]["linear_mae_bps"] = 17.65
+            (Path(temp) / "nonlinear_magnitude_test_lockbox_v1.json").write_text(
+                json.dumps(data), encoding="utf-8"
+            )
+            runtime = LocalOllamaChatRuntime(
+                historical_reports_dir=temp, semantic_routing=True,
+            )
+            # Even an incorrectly returned 'none' cannot turn an explicit
+            # self-performance/held-out question into unrelated chat.
+            with patch.object(
+                runtime, "_generate", return_value=_classification("none")
+            ) as generated:
+                first = runtime.respond(question)
+                self.assertEqual(first.answer_source, "historical_v3_reports")
+                self.assertIn("17,19 bps", first.text)
+                history = [
+                    {"role": "user", "content": question, "mode": first.mode},
+                    {
+                        "role": "assistant", "content": first.text,
+                        "mode": first.mode, "source": first.answer_source,
+                        "evidence_question": first.evidence_question,
+                    },
+                ]
+                followup = runtime.respond(
+                    "A ako si na tom bol oproti lineárnemu modelu?",
+                    history=history,
+                )
+                self.assertEqual(followup.answer_source, "historical_v3_reports")
+                self.assertIn("Lockbox:", followup.text)
+                self.assertIn("17,65 bps", followup.text)
+                self.assertIn("nižšia o 0,46 bps", followup.text)
+                self.assertNotIn("Validácia:", followup.text)
+                self.assertEqual(generated.call_count, 1)
+
+    def test_unseen_fallback_does_not_hijack_generic_or_live_questions(self):
+        questions = (
+            "Vysvetli mi, čo je out-of-sample test.",
+            "Ako sa ti darilo na dátach z dnešného trhu?",
+            "Na skúške som nevidel otázky, ako sa ti darilo?",
+            "Čo si myslíš o dátach, ktoré si predtým nevidel?",
+            "Ako sa darilo modelom na nevidených dátach všeobecne?",
+            "Ako sa ti darilo na živých forward dátach?",
+        )
+        for question in questions:
+            with self.subTest(question=question):
+                self.assertIsNone(explicit_heldout_performance_question(question))
 
     def test_ollama_semantic_route_uses_local_classifier_and_checked_metrics(self):
         with tempfile.TemporaryDirectory() as temp:
