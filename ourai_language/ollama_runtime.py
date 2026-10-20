@@ -17,7 +17,11 @@ from .general_answers import deterministic_social_answer
 from .financial_knowledge import lookup_financial_knowledge
 from .forward_answers import maybe_forward_answer
 from .historical_answers import maybe_historical_answer
-from .semantic_router import SYSTEM_PROMPT as SEMANTIC_ROUTER_PROMPT, canonical_historical_question
+from .semantic_router import (
+    SYSTEM_PROMPT as SEMANTIC_ROUTER_PROMPT,
+    canonical_historical_question,
+    explicit_heldout_performance_question,
+)
 from .conversation_followups import historical_followup_question
 from .grounding import find_unsupported_percentages, grounded_fallback
 from .prompting import (
@@ -211,7 +215,10 @@ class LocalOllamaChatRuntime:
                 ],
                 json_mode=True,
             )
-            canonical = canonical_historical_question(user_message, candidate)
+            canonical = (
+                canonical_historical_question(user_message, candidate)
+                or explicit_heldout_performance_question(user_message)
+            )
             if canonical is not None:
                 try:
                     historical = maybe_historical_answer(canonical, self.historical_reports_dir)
