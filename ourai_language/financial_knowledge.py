@@ -182,7 +182,7 @@ def lookup_financial_knowledge(
 
     # SMA can also mean spinal muscular atrophy. Do not hijack an
     # explicitly medical question with a finance definition.
-    if re.search(r"(?<!\\w)sma(?!\\w)", normalized) and not any(
+    if re.search(r"(?<!\w)sma(?!\w)", normalized) and not any(
         marker in normalized for marker in (
             "spin", "atrofi", "ochoren", "medicin", "genet",
             "motorick", "neurolog", "liecb", "diagnoz",
