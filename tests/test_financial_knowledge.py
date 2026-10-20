@@ -71,6 +71,34 @@ class FinancialKnowledgeTests(unittest.TestCase):
         self.assertIn("štvorcov", lookup_financial_knowledge("Čo je Brier score?").text)
         self.assertIn("skutočne dosiahnutou", lookup_financial_knowledge("Čo je slippage?").text)
 
+    def test_sma_expands_correctly_but_not_medical_ambiguity(self):
+        query = "Čo je to SMA?"
+        answer = lookup_financial_knowledge(query)
+        self.assertIsNotNone(answer)
+        self.assertEqual(answer.topic, "simple_moving_average")
+        self.assertIn("Simple Moving Average", answer.text)
+        self.assertIn("posledných 20", answer.text)
+        self.assertNotIn("smernica", answer.text)
+
+        # Same acronym can also mean spinal muscular atrophy.
+        self.assertIsNone(
+            lookup_financial_knowledge("Čo je SMA pri spinálnej svalovej atrofii?")
+        )
+        self.assertIsNone(
+            lookup_financial_knowledge("Čo znamená SMA v genetike?")
+        )
+        self.assertIsNone(
+            lookup_financial_knowledge("Ako sa ti darilo na dátach, ktoré si predtým nevidel?")
+        )
+        with patch("ourai_language.ollama_runtime.urlopen") as urlopen:
+            ollama = LocalOllamaChatRuntime().respond(query)
+            urlopen.assert_not_called()
+        hf = object.__new__(OurAIChatRuntime)
+        hf.knowledge_enabled = True
+        hf_answer = hf.respond(query)
+        self.assertEqual(ollama.text, hf_answer.text)
+        self.assertEqual(ollama.answer_source, "curated_knowledge")
+
     def test_unrelated_and_specific_questions_are_not_hijacked(self):
         for query in (
             "Aké je hlavné mesto Francúzska?",
