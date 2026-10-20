@@ -64,6 +64,7 @@ def historical_question_kind(message: str) -> str | None:
         return None
     if not historic and any(term in text for term in (
         "posledn", "najnov", "aktualn", "latest", "forward", "dennik", "journal",
+        "shadow", "paper trading", "paper-trading", "live",
     )):
         return None
     if any(term in text for term in ("pri ktorych", "ktora akci", "ktore akci", "per-symbol", "podla akci", "by stock", "which stock", "najvacsie chyb", "najvacsich chyb")):
