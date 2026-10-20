@@ -78,13 +78,36 @@ def historical_followup_question(
     else:
         target = "lineárnym a nulovým baseline"
 
-    why = text.startswith(("a preco", "preco", "a z akeho dovodu", "z akeho dovodu"))
+    # A tagged historical reply is not permission to reinterpret an unrelated
+    # "Why ...?" or "Explain ..." question as a request for model statistics.
+    # Bare/clearly referential follow-ups retain the source; explicit model
+    # performance questions can still mention the verified report by name.
+    why = text in (
+        "a preco", "preco", "a z akeho dovodu", "z akeho dovodu",
+        "a preco to tak je", "preco to tak je",
+    ) or (
+        text.startswith(("a preco ", "preco ", "a z akeho dovodu ", "z akeho dovodu "))
+        and any(term in text for term in (
+            "vysled", "model v3", "mae", "baseline", "validac", "lockbox",
+        ))
+    )
     if why:
         return "Prečo sa líšia historické výsledky modelu v3?"
-    simple = text.startswith((
-        "vysvetli", "a vysvetli", "jednoducho", "zhrn",
-        "a co z toho", "co z toho", "co to znamena pre model",
-    ))
+
+    simple = text in (
+        "jednoducho", "a jednoducho", "vysvetli", "a vysvetli",
+        "zhrn", "a zhrn", "a co z toho", "co z toho",
+        "co z toho vyplyva", "co to znamena pre model",
+    )
+    for prefix in ("vysvetli ", "a vysvetli ", "zhrn ", "a zhrn "):
+        if text.startswith(prefix) and text[len(prefix):] in (
+            "to", "to jednoducho", "mi to", "mi to jednoducho",
+            "tieto vysledky", "tieto vysledky jednoducho",
+            "tie vysledky", "historicke vysledky",
+            "vysledky modelu v3", "ten rozdiel", "tento rozdiel",
+            "validaciu modelu v3", "lockbox test modelu v3",
+        ):
+            simple = True
     if simple:
         if split == "lockbox teste":
             return "Zhrň historické výsledky lockbox testu v3 jednoducho."
