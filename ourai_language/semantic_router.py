@@ -29,6 +29,7 @@ For compare, set split and baseline from the question when given; otherwise
 "both". Do not produce numbers, user-supplied text, explanations or file paths.
 Examples:
 'How did you do on unseen historical data?' => test
+'Ako sa ti darilo na dátach, ktoré si predtým nevidel?' => test
 'Explain what a stock is' => none
 'How well do you compare with a linear model?' => compare, linear, both
 'What is the latest NVDA prediction?' => none
@@ -55,11 +56,12 @@ def _plain(text: str) -> str:
 # *user's* question before permitting a historical report to be opened.
 _HISTORICAL_CUES = (
     "histor", "retrospekt", "backtest", "lockbox", "validac", "held-out",
-    "unseen", "neviden", "out-of-sample", "testovac",
+    "unseen", "neviden", "nevidel", "out-of-sample", "testovac",
 )
 _MODEL_CUES = (
     "ourai", "model", "v3", "baseline", "predik", "forecast",
     "tvoj", "tvoje", "tvojich", "nasich", "our ", "your ",
+    "sa ti", "si na tom", "did you",
 )
 _PERFORMANCE_CUES = (
     "vysled", "result", "performance", "presn", "accuracy", "mae",
@@ -88,6 +90,35 @@ def _mentions_current_or_forward(text: str) -> bool:
     # Match at the start of a word, not inside an unrelated word (e.g.
     # "deliver" contains "live"). Prefix matching handles Slovak inflections.
     return any(re.search(r"(?<!\w)" + re.escape(token), text) for token in _CURRENT)
+
+
+def explicit_heldout_performance_question(original_question: str) -> str | None:
+    """Fail-closed fallback for unmistakable *self-performance on unseen data* intent.
+
+    A small classifier can return `none` for colloquial Slovak even when the
+    user is asking OurAI about its held-out results. Never infer unseen
+    performance from a generated explanation: this only selects the local
+    verified lockbox report reader, which still checks all report provenance.
+    """
+    text = _plain(str(original_question or "").strip())
+    if not text or _mentions_current_or_forward(text):
+        return None
+    if text.startswith(_DEFINITION_STARTS):
+        return None
+    if not re.search(r"(?<!\w)(?:dat\w*|dataset\w*|vzork\w*|samples?\b)", text):
+        return None
+    if not any(term in text for term in (
+        "nevidel", "neviden", "unseen", "held-out", "out-of-sample",
+    )):
+        return None
+    if not re.search(r"(?<!\w)(?:ti|si|tvoj\w*|ourai|v3|modelu?\b|you|your)\b", text):
+        return None
+    if not any(term in text for term in (
+        "daril", "obstal", "presn", "uspes", "vysled",
+        "perform", "accur", "error", "chyb",
+    )):
+        return None
+    return "Aký bol historický lockbox test v3?"
 
 
 def canonical_historical_question(
