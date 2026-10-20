@@ -8,6 +8,7 @@ forward predictions, and current/live data are explicitly excluded.
 from __future__ import annotations
 
 import json
+import re
 import unicodedata
 
 
@@ -49,6 +50,46 @@ def _plain(text: str) -> str:
     return "".join(c for c in folded if not unicodedata.combining(c))
 
 
+# An LLM classification is a suggestion, not proof that the user asked for
+# retrospective model performance. Require explicit linguistic evidence in the
+# *user's* question before permitting a historical report to be opened.
+_HISTORICAL_CUES = (
+    "histor", "retrospekt", "backtest", "lockbox", "validac", "held-out",
+    "unseen", "neviden", "out-of-sample", "testovac",
+)
+_MODEL_CUES = (
+    "ourai", "model", "v3", "baseline", "predik", "forecast",
+    "tvoj", "tvoje", "tvojich", "nasich", "our ", "your ",
+)
+_PERFORMANCE_CUES = (
+    "vysled", "result", "performance", "presn", "accuracy", "mae",
+    "chyb", "error", "baseline", "prekon", "outperform", "porovn",
+    "compare", "leps", "better", "hors", "worse", "obstal", "daril",
+    "did you do", "uspesn", "vyhodnot", "validac", "lockbox",
+    "testovac", "struggle", "reliable", "spolahliv",
+)
+_DEFINITION_STARTS = (
+    "co je ", "co znamena ", "what is ", "define ", "vysvetli pojem ",
+)
+
+
+def _is_retrospective_performance_request(text: str) -> bool:
+    historical = any(cue in text for cue in _HISTORICAL_CUES)
+    model = any(cue in text for cue in _MODEL_CUES)
+    performance = any(cue in text for cue in _PERFORMANCE_CUES)
+    if text.startswith(_DEFINITION_STARTS) and not (
+        historical and model and performance
+    ):
+        return False
+    return performance and (historical or model)
+
+
+def _mentions_current_or_forward(text: str) -> bool:
+    # Match at the start of a word, not inside an unrelated word (e.g.
+    # "deliver" contains "live"). Prefix matching handles Slovak inflections.
+    return any(re.search(r"(?<!\w)" + re.escape(token), text) for token in _CURRENT)
+
+
 def canonical_historical_question(
     original_question: str,
     model_response: str,
@@ -59,7 +100,11 @@ def canonical_historical_question(
     about recent/forward/live activity, even when the model misclassifies it.
     """
     user_text = _plain(str(original_question or "").strip())
-    if not user_text or any(token in user_text for token in _CURRENT):
+    if (
+        not user_text
+        or _mentions_current_or_forward(user_text)
+        or not _is_retrospective_performance_request(user_text)
+    ):
         return None
     if not isinstance(model_response, str) or len(model_response) > 500:
         return None
