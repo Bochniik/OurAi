@@ -7,6 +7,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
+from ourai_language.historical_answers import historical_question_kind
 from ourai_language.ollama_runtime import LocalOllamaChatRuntime
 from ourai_language.verified_tool_router import select_verified_tool
 from scripts.chat_ourai import parser
@@ -109,6 +110,11 @@ class VerifiedToolSelectionTests(unittest.TestCase):
             "Ako sa darilo OurAI v3?", classification,
             historical_available=False, forward_available=True,
         ))
+
+    def test_historical_reader_never_steals_forward_shadow_metrics(self):
+        self.assertIsNone(historical_question_kind("Ako sa ti darí v shadow režime?"))
+        self.assertIsNone(historical_question_kind("Aká je moja MAE v shadow režime?"))
+        self.assertIsNone(historical_question_kind("Ako úspešný je paper trading?"))
 
     def test_ticker_can_only_come_from_user_and_frozen_universe(self):
         original = "Aké máš výsledky shadow pre NVDA?"
