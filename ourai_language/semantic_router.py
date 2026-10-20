@@ -87,7 +87,7 @@ def _is_retrospective_performance_request(text: str) -> bool:
 def _mentions_current_or_forward(text: str) -> bool:
     # Match at the start of a word, not inside an unrelated word (e.g.
     # "deliver" contains "live"). Prefix matching handles Slovak inflections.
-    return any(re.search(r"(?<!\\w)" + re.escape(token), text) for token in _CURRENT)
+    return any(re.search(r"(?<!\w)" + re.escape(token), text) for token in _CURRENT)
 
 
 def canonical_historical_question(
