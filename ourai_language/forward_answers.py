@@ -26,33 +26,62 @@ def _ticker_in(text: str) -> str | None:
 
 
 def forward_question_kind(message: str) -> str | None:
-    """Require explicit forward/record/forecast intent; not everyday questions."""
-    text = _normalize(str(message or "").strip())
+    """Route only user-grounded requests for OurAI's recorded predictions.
+
+    A word such as "forward", "MAE" or "prediction" is not evidence that
+    the user wants *our* forward journal. In particular, ordinary questions
+    about how an indicator, metric or forward testing works must never be
+    replaced with journal counts, even when a journal is configured.
+    """
+    text = _normalize(str(message or "").strip()).strip(" .?!„“\"")
     if not text:
         return None
-    ticker = _ticker_in(text)
-    explicit = any(word in text for word in (
-        "forward", "dennik", "journal", "zaznam", "predikc", "predpoved",
-        "forecast", "tvoje odhad", "nas odhad", "vas odhad", "mae",
-    ))
-    tied = ticker is not None and any(word in text for word in (
-        "pohyb", "ocakav", "odhad", "model", "presn", "chyb", "predik",
-        "predpoved", "vysled", "magnitude",
-    ))
-    accuracy = any(word in text for word in (
-        "ako presn", "ako presne", "najvacsie chyby", "najvacsich chyb",
-        "presnost nas", "nase chyby", "najhorsie predikcie",
-    ))
-    if not (explicit or tied or accuracy):
+
+    # Definitions and conceptual comparisons belong to educational answers.
+    # This gate is intentionally before every other keyword-based route.
+    if text.startswith((
+        "co je ", "co su ", "co znamena ", "co oznacuje ",
+        "what is ", "what are ", "what does ", "define ",
+        "vysvetli pojem ", "vysvetli mi pojem ", "explain the term ",
+        "ako funguje ", "ako funguju ", "how does ", "how do ",
+        "aky je rozdiel medzi ", "aka je rozdiel medzi ",
+        "what is the difference between ", "vysvetli rozdiel medzi ",
+        "ako sa pocita ", "ako vypocitat ", "how to calculate ",
+    )):
         return None
-    if any(word in text for word in ("chyb", "presn", "mae", "vysled", "porovnaj", "presnost")):
+
+    ticker = _ticker_in(text)
+    journal = any(word in text for word in (
+        "forward", "dennik", "journal", "zaznam", "shadow",
+    ))
+    owner = bool(re.search(
+        r"(?<!\\w)(?:tvoj\\w*|moj\\w*|nas\\w*|vas\\w*|"
+        r"ourai|your|my|our|robis|sa ti|si na tom)(?!\\w)", text
+    ))
+    forecast = any(word in text for word in (
+        "predikc", "predpoved", "forecast", "odhad",
+    ))
+    subject = forecast or any(word in text for word in (
+        "pohyb", "ocakav", "model", "presn", "chyb", "vysled",
+        "mae", "magnitude", "uspes", "vykonn",
+    ))
+    recent = any(word in text for word in (
+        "posledn", "aktualn", "najnov", "latest", "recent",
+    ))
+    if not (journal or (owner and subject) or (ticker and subject)
+            or (recent and forecast)):
+        return None
+
+    if any(word in text for word in (
+        "chyb", "presn", "mae", "vysled", "porovnaj",
+        "presnost", "uspes", "vykonn",
+    )):
         return "performance"
     if ticker:
         return "ticker"
-    if any(word in text for word in ("posledn", "aktualn", "najnov", "latest", "teraz")):
+    if recent or any(word in text for word in ("teraz", "dnes")):
         return "latest"
     return "summary"
-
 
 def _fmt(value: float | None, decimals: int = 2) -> str:
     return "nedostupné" if value is None else f"{value:.{decimals}f}".replace(".", ",")
