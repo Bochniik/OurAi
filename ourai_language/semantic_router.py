@@ -42,6 +42,7 @@ _BASELINES = {"both", "linear", "null"}
 _CURRENT = (
     "forward", "journal", "dennik", "latest", "recent", "current", "live",
     "teraz", "dnes", "dnesn", "aktualn", "posledn", "najnov", "real-time",
+    "shadow", "paper trading", "paper-trading",
     "real time", "prave teraz", "zajtra", "v realnom case",
 )
 
