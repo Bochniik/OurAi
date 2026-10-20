@@ -49,9 +49,10 @@ _FORWARD_SUBJECTS = (
     "odhad", "predik", "model", "ourai", "zaznam", "dennik",
     "vysled", "chyb", "mae", "uspes", "presn", "daril", "stav",
     "pocet", "kolko", "zatial", "dotera", "report", "hodnoten",
+    "dari", "mas ", "have ",
 )
 _CURRENT_TRADE = (
-    "kupi", "predaj", "nakup", "kupit", "predat", "zobchoduj",
+    "kupi", "kup ", "predaj", "nakup", "kupit", "predat", "zobchoduj",
     "order", "obchodny prikaz", "garantuj", "zaruc",
 )
 _DEFINITIONS = ("co je ", "co znamena ", "what is ", "define ", "vysvetli pojem ")
