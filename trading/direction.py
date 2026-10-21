@@ -327,32 +327,74 @@ def evaluate_direction_predictions(
 
 @dataclass(frozen=True)
 class JointReturnResearchEstimate:
-    """Research-only signed-return estimate from conditional direction magnitudes.
+    """Research-only 15m signed-return identity, NOT a calibrated forecast.
 
-    The magnitude inputs MUST be conditional estimates trained/evaluated for
-    their respective directions. Never pass V3 unconditional absolute magnitude
-    as both conditional inputs: that would assert an unvalidated independence.
+    The existing V4-V6 binary direction head estimates P(UP | UP or DOWN),
+    *excluding NEUTRAL rows*. It is not unconditional P(UP). The caller must
+    independently estimate P(NEUTRAL), both direction-conditional magnitudes,
+    and the NEUTRAL-conditional signed mean from leakage-safe TRAIN OOF data.
+
+    All conditional means and the neutral band are in basis points (bps).
+    Do not pass the frozen V3 unconditional absolute-magnitude estimate as
+    either direction-conditional mean. No interval, calibration, ABSTAIN
+    eligibility, or trading decision can be inferred from these five inputs.
     """
 
-    p_up: float
+    p_up_given_directional: float
+    p_neutral: float
     up_magnitude_bps: float
     down_magnitude_bps: float
+    neutral_signed_mean_bps: float
     horizon_minutes: int = 15
+    neutral_band_bps: float = 3.0
 
     def __post_init__(self) -> None:
-        if not isfinite(self.p_up) or not 0.0 <= self.p_up <= 1.0:
-            raise ValueError("p_up must be a finite probability")
-        for name in ("up_magnitude_bps", "down_magnitude_bps"):
+        for name in (
+            "p_up_given_directional", "p_neutral", "up_magnitude_bps",
+            "down_magnitude_bps", "neutral_signed_mean_bps", "neutral_band_bps",
+        ):
             value = getattr(self, name)
-            if not isfinite(value) or value < 0:
-                raise ValueError(f"{name} must be finite and nonnegative")
-        if self.horizon_minutes != 15:
+            if isinstance(value, bool) or not isinstance(value, (int, float)):
+                raise ValueError(f"{name} must be a finite real number")
+            if not isfinite(value):
+                raise ValueError(f"{name} must be finite")
+        if not 0.0 <= self.p_up_given_directional <= 1.0:
+            raise ValueError("p_up_given_directional must be in [0, 1]")
+        if not 0.0 <= self.p_neutral < 1.0:
+            raise ValueError("p_neutral must be in [0, 1); all-neutral must abstain")
+        if self.neutral_band_bps < 0:
+            raise ValueError("neutral_band_bps must be nonnegative")
+        if abs(self.neutral_signed_mean_bps) > self.neutral_band_bps:
+            raise ValueError("neutral conditional signed mean exceeds neutral band")
+        if self.up_magnitude_bps < 0 or self.down_magnitude_bps < 0:
+            raise ValueError("conditional direction magnitudes must be nonnegative")
+        if self.p_up > 0 and self.up_magnitude_bps < self.neutral_band_bps:
+            raise ValueError("UP conditional magnitude is below neutral threshold")
+        if self.p_down > 0 and self.down_magnitude_bps < self.neutral_band_bps:
+            raise ValueError("DOWN conditional magnitude is below neutral threshold")
+        if type(self.horizon_minutes) is not int or self.horizon_minutes != 15:
             raise ValueError("joint research contract requires 15-minute horizon")
 
     @property
+    def p_up(self) -> float:
+        """Unconditional probability of a move above the neutral band."""
+        return (1.0 - self.p_neutral) * self.p_up_given_directional
+
+    @property
+    def p_down(self) -> float:
+        """Unconditional probability of a move below the negative band."""
+        return (1.0 - self.p_neutral) * (1.0 - self.p_up_given_directional)
+
+    @property
     def expected_signed_return_bps(self) -> float:
-        return self.p_up * self.up_magnitude_bps - (1.0 - self.p_up) * self.down_magnitude_bps
+        """Law of total expectation, including nonzero neutral signed drift."""
+        return (
+            self.p_up * self.up_magnitude_bps
+            - self.p_down * self.down_magnitude_bps
+            + self.p_neutral * self.neutral_signed_mean_bps
+        )
 
     @property
     def expected_signed_return_percent(self) -> float:
+        """Percentage points: 14 bps = +0.14%, not +14%."""
         return self.expected_signed_return_bps / 100.0
