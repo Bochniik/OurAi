@@ -323,3 +323,36 @@ def evaluate_direction_predictions(
         "actual_up_rate": fmean(outcomes),
         "null_p_up": prior,
     }
+
+
+@dataclass(frozen=True)
+class JointReturnResearchEstimate:
+    """Research-only signed-return estimate from conditional direction magnitudes.
+
+    The magnitude inputs MUST be conditional estimates trained/evaluated for
+    their respective directions. Never pass V3 unconditional absolute magnitude
+    as both conditional inputs: that would assert an unvalidated independence.
+    """
+
+    p_up: float
+    up_magnitude_bps: float
+    down_magnitude_bps: float
+    horizon_minutes: int = 15
+
+    def __post_init__(self) -> None:
+        if not isfinite(self.p_up) or not 0.0 <= self.p_up <= 1.0:
+            raise ValueError("p_up must be a finite probability")
+        for name in ("up_magnitude_bps", "down_magnitude_bps"):
+            value = getattr(self, name)
+            if not isfinite(value) or value < 0:
+                raise ValueError(f"{name} must be finite and nonnegative")
+        if self.horizon_minutes != 15:
+            raise ValueError("joint research contract requires 15-minute horizon")
+
+    @property
+    def expected_signed_return_bps(self) -> float:
+        return self.p_up * self.up_magnitude_bps - (1.0 - self.p_up) * self.down_magnitude_bps
+
+    @property
+    def expected_signed_return_percent(self) -> float:
+        return self.expected_signed_return_bps / 100.0
