@@ -3,6 +3,8 @@ from __future__ import annotations
 import unittest
 from datetime import datetime, timedelta, timezone
 
+from trading.direction import JointReturnResearchEstimate
+
 from trading.evaluation import (
     LONG,
     NO_TRADE,
@@ -174,6 +176,22 @@ class ForecastEvaluationTests(unittest.TestCase):
     def test_invalid_probability_is_rejected(self) -> None:
         with self.assertRaisesRegex(ValueError, "p_up"):
             self._forecast(p_up=1.2)
+
+
+class JointReturnResearchEstimateTests(unittest.TestCase):
+    def test_conditional_expectation_and_percent_units(self):
+        estimate = JointReturnResearchEstimate(p_up=0.6, up_magnitude_bps=30, down_magnitude_bps=10)
+        self.assertAlmostEqual(estimate.expected_signed_return_bps, 14.0)
+        self.assertAlmostEqual(estimate.expected_signed_return_percent, 0.14)
+
+    def test_asymmetric_magnitudes_can_override_majority_direction(self):
+        estimate = JointReturnResearchEstimate(p_up=0.6, up_magnitude_bps=5, down_magnitude_bps=20)
+        self.assertAlmostEqual(estimate.expected_signed_return_bps, -5.0)
+
+    def test_invalid_inputs_fail_closed(self):
+        for kwargs in ({"p_up": float("nan")}, {"p_up": 1.1}, {"up_magnitude_bps": -1}, {"down_magnitude_bps": float("inf")}, {"horizon_minutes": 5}):
+            with self.subTest(kwargs=kwargs), self.assertRaises(ValueError):
+                JointReturnResearchEstimate(**({**{"p_up": 0.5, "up_magnitude_bps": 10, "down_magnitude_bps": 10}, **kwargs}))
 
 
 if __name__ == "__main__":
