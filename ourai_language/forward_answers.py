@@ -40,14 +40,15 @@ def is_forward_educational_request(message: str) -> bool:
     """
     text = _normalize(str(message or "")).strip().strip('.?!„“"')
     text = re.sub(r"^prosim[, ]+", "", text)
+    # Preserve the existing conservative education boundary for broad
+    # "please explain" prompts; only explicit observed-result phrasing
+    # such as "vysvetli mi výsledky" opts into the reader.
+    if text.startswith(("vysvetli prosim ", "vysvetli prosim, ", "can you explain ")):
+        return True
     if text.startswith(_DEFINITION_CLAUSES + (
         "define ", "vysvetli pojem ", "explain what ",
     )):
         return True
-    if text.startswith("can you explain "):
-        return text[len("can you explain "):].startswith((
-            "what ", "how ", "the difference between ",
-        ))
     preface = re.match(
         r"^(?:(?:mozes|vies|dokazes)(?: mi)?(?: prosim)? )?"
         r"(?:vysvetli|vysvetlit)(?: mi)?[, ]+",
