@@ -9,7 +9,7 @@ from __future__ import annotations
 import unicodedata
 from typing import Iterable, Mapping
 
-from .historical_answers import historical_question_kind
+from .historical_answers import historical_question_kind, historical_source_correction_target
 
 
 def _norm(value: str) -> str:
@@ -55,6 +55,17 @@ def historical_followup_question(
         "forward", "posledn", "najnov", "aktualn", "journal", "dennik",
         "teraz", "zajtra", "dnes", "live", "obchod", "nakup", "predaj",
     )):
+        return None
+
+    # A correction may change the requested retrospective source only when
+    # the immediately preceding assistant answer came from the verified
+    # historical reader. Never inherit the old lockbox/validation split.
+    corrected = historical_source_correction_target(raw)
+    if corrected == "validation":
+        return "Aké boli výsledky historickej validácie v3?"
+    if corrected == "test":
+        return "Aký bol historický lockbox test v3?"
+    if corrected == "ambiguous":
         return None
 
     split = "lockbox teste" if any(term in text for term in (
