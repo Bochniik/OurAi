@@ -1,7 +1,10 @@
 from __future__ import annotations
 
 import unittest
+from unittest.mock import Mock, patch
 
+from ourai_language.ollama_runtime import LocalOllamaChatRuntime
+from ourai_language.runtime import OurAIChatRuntime, snapshot_mismatch_result
 from ourai_language.contracts import AnalysisSnapshot
 from ourai_language.grounding import (
     canonical_percentage_values,
@@ -12,6 +15,7 @@ from ourai_language.prompting import (
     ANALYSIS_QA,
     GENERAL_CHAT,
     build_messages,
+    explicit_snapshot_ticker_mismatch,
     select_conversation_mode,
 )
 
@@ -285,6 +289,77 @@ class OurAILanguageTests(unittest.TestCase):
             select_conversation_mode("Prečo?", analysis=snapshot, history=history),
             ANALYSIS_QA,
         )
+
+    def test_explicit_other_ticker_does_not_borrow_nvda_snapshot(self) -> None:
+        snapshot = self.snapshot()
+        for question in (
+            "Aká je predikcia pre AAPL?",
+            "Aké sú riziká pri AAPL?",
+            "Prečo je AAPL bullish?",
+            "AAPL forecast?",
+            "What is the forecast for AAPL?",
+        ):
+            with self.subTest(question=question):
+                self.assertEqual(
+                    explicit_snapshot_ticker_mismatch(question, snapshot), "AAPL",
+                )
+                result = snapshot_mismatch_result(question, snapshot)
+                self.assertEqual(result.answer_source, "snapshot_ticker_mismatch")
+                self.assertEqual(result.mode, GENERAL_CHAT)
+                self.assertIn("AAPL", result.text)
+                self.assertIn("NVDA", result.text)
+                self.assertNotIn("68", result.text)
+
+    def test_matching_ticker_and_metric_acronyms_are_not_rejected(self) -> None:
+        snapshot = self.snapshot()
+        for question in (
+            "Aká je predikcia pre NVDA?",
+            "Prečo je NVDA bullish?",
+            "Čo znamená MAE?",
+            "Vysvetli RSI pre NVDA.",
+            "Aké riziko má ETF?",
+            "Ako sa máš?",
+        ):
+            with self.subTest(question=question):
+                self.assertIsNone(
+                    explicit_snapshot_ticker_mismatch(question, snapshot)
+                )
+
+    def test_both_local_backends_fail_closed_before_model_generation(self) -> None:
+        snapshot = self.snapshot()
+        native = OurAIChatRuntime.__new__(OurAIChatRuntime)
+        native.knowledge_enabled = False
+        native.historical_reports_dir = None
+        native.forward_journal = None
+        ollama = LocalOllamaChatRuntime(knowledge_enabled=False)
+        ollama._generate = Mock(side_effect=AssertionError("model should not run"))
+        for runtime in (native, ollama):
+            with self.subTest(runtime=type(runtime).__name__):
+                result = runtime.respond("Aká je predikcia pre AAPL?", analysis=snapshot)
+                self.assertEqual(result.answer_source, "snapshot_ticker_mismatch")
+                self.assertNotIn("68", result.text)
+        ollama._generate.assert_not_called()
+
+    def test_verified_forward_reader_keeps_priority_over_ticker_guard(self) -> None:
+        snapshot = self.snapshot()
+        native = OurAIChatRuntime.__new__(OurAIChatRuntime)
+        native.knowledge_enabled = False
+        native.historical_reports_dir = None
+        native.forward_journal = "verified-local-journal"
+        ollama = LocalOllamaChatRuntime(
+            knowledge_enabled=False, forward_journal="verified-local-journal"
+        )
+        for runtime, module in (
+            (native, "ourai_language.runtime"),
+            (ollama, "ourai_language.ollama_runtime"),
+        ):
+            with self.subTest(runtime=type(runtime).__name__):
+                with patch(module + ".maybe_forward_answer", return_value="Verified AAPL record"):
+                    result = runtime.respond(
+                        "Aká je posledná predikcia pre AAPL?", analysis=snapshot
+                    )
+                self.assertEqual(result.text, "Verified AAPL record")
+                self.assertEqual(result.answer_source, "verified_forward_journal")
 
     def test_grounding_guard_accepts_only_snapshot_percentages(self) -> None:
         snapshot = self.snapshot()
