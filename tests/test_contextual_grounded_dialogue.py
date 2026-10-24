@@ -119,6 +119,28 @@ class ContextualHistoricalDialogueTests(unittest.TestCase):
         self.assertIsNone(historical_followup_question("A ako naprogramujem API?", fake))
         self.assertIsNone(historical_followup_question("A dnes na burze?", fake))
 
+    def test_topic_switch_does_not_inherit_historical_evidence(self):
+        prior = [
+            {"role": "user", "content": "Ako dopadla historická validácia v3?"},
+            {
+                "role": "assistant",
+                "content": "Overené historické výsledky.",
+                "source": "historical_v3_reports",
+                "evidence_question": "Ako dopadla historická validácia v3?",
+            },
+        ]
+        for question in (
+            "Prečo Python používa odsadenie?",
+            "A prečo sa menia úrokové sadzby?",
+            "Vysvetli mi, čo je likvidita.",
+            "Vysvetli, ako fungujú dlhopisy.",
+            "Zhrň mi dnešné správy.",
+        ):
+            with self.subTest(question=question):
+                self.assertIsNone(historical_followup_question(question, prior))
+        self.assertIsNotNone(historical_followup_question("A prečo?", prior))
+        self.assertIsNotNone(historical_followup_question("Vysvetli to jednoducho.", prior))
+
     def test_social_break_clears_context(self):
         history = [
             {"role": "user", "content": "Ako dopadla historická validácia?"},
