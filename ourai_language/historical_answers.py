@@ -73,6 +73,8 @@ def historical_question_kind(message: str) -> str | None:
     text = _normalize(str(message or "").strip())
     if not text or is_historical_educational_request(message):
         return None
+    if explicit_comparison_baseline(message) == "ambiguous":
+        return None
     historic = any(term in text for term in (
         "historick", "validac", "lockbox", "retrospekt", "backtest",
         "testovac", "testovaci", "testovych", "historical", "validation",
@@ -242,14 +244,47 @@ def _baseline_comparison(split: str, report: dict[str, Any], baseline: str) -> s
     )
 
 
+def explicit_comparison_baseline(message: str) -> str | None:
+    """Honor a clearly negated baseline contrast; reject unresolved exclusions.
+
+    Return linear/null/both for explicit targets, None when unspecified, and
+    ambiguous when a negative instruction has no supported positive target.
+    Never infer an excluded baseline as requested just because it is named.
+    """
+    text = _normalize(str(message or ""))
+    contrast = re.search(
+        r"(?<!\w)(?:nie\s+(?:s|so|oproti)|neporovnavaj\b.{0,70}?\b(?:s|so|oproti))"
+        r"\s+(linearn\w*|linear\w*|nulov\w*|null)\b"
+        r".{0,70}?\b(?:ale|radsej)\s+(?:s|so|oproti)\s+"
+        r"(linearn\w*|linear\w*|nulov\w*|null)\b",
+        text,
+    )
+    if contrast:
+        def label(word: str) -> str:
+            return "linear" if word.startswith(("linearn", "linear")) else "null"
+
+        excluded, requested = map(label, contrast.groups())
+        if excluded != requested:
+            return requested
+    # Without a clear "not X, but Y" contrast, never silently include a
+    # baseline that the user explicitly told us not to compare against.
+    if re.search(r"(?<!\w)(?:neporovnavaj\b|nie\s+(?:s|so|oproti)\s+(?:linearn|linear|nulov|null))", text):
+        return "ambiguous"
+    linear = bool(re.search(r"(?<!\w)(?:linearn|linear)\w*", text))
+    null = bool(re.search(r"(?<!\w)(?:nulov\w*|null\b)", text))
+    if linear and null:
+        return "both"
+    if linear:
+        return "linear"
+    if null:
+        return "null"
+    return None
+
+
 def _comparison_targets(message: str) -> tuple[str, ...]:
-    text = _normalize(message)
-    linear = "linearn" in text or "linear" in text
-    null = "nulov" in text or "null" in text
-    if linear and not null:
-        return ("linear",)
-    if null and not linear:
-        return ("null",)
+    selected = explicit_comparison_baseline(message)
+    if selected in {"linear", "null"}:
+        return (selected,)
     return ("linear", "null")
 
 
