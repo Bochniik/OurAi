@@ -56,6 +56,21 @@ _CURRENT_TRADE = (
     "order", "obchodny prikaz", "garantuj", "zaruc",
 )
 _DEFINITIONS = ("co je ", "co znamena ", "what is ", "define ", "vysvetli pojem ")
+# Educational requests must never open an evidence reader simply because they
+# mention a forward model, report, or historical validation.
+_EDUCATIONAL_OPENINGS = (
+    "vysvetli mi ", "vysvetli mi, ", "vysvetli prosim ", "vysvetli prosim, ", "vysvetli, ",
+    "ako funguje ", "ako vlastne funguje ", "na co sluzi ",
+    "aky je rozdiel medzi ", "aky je vyznam ",
+    "can you explain ", "explain what ", "how does ",
+    "what does ", "what is the difference between ",
+)
+
+
+def _educational_request(text: str) -> bool:
+    return text.startswith(_DEFINITIONS + _EDUCATIONAL_OPENINGS)
+
+
 
 
 def _plain(text: str) -> str:
@@ -65,7 +80,7 @@ def _plain(text: str) -> str:
 
 def _user_forward_evidence(question: str) -> bool:
     text = _plain(question).strip(" .?!„“\"")
-    if not text or len(text) > 500 or text.startswith(_DEFINITIONS):
+    if not text or len(text) > 500 or _educational_request(text):
         return False
     if not any(anchor in text for anchor in _FORWARD_ANCHORS):
         return False
