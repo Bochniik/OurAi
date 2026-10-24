@@ -40,6 +40,10 @@ Rules:
 - If data needed for an answer is absent, say that it is unavailable.
 - LONG_BIAS and SHORT_BIAS are analytical biases, not guaranteed outcomes or trade orders.
 - NO_TRADE means the evidence is insufficient for a directional action.
+- For uncertainty questions, explain only uncertainty and limitations supported by the snapshot.
+- If asked what would make a prediction more reliable, clearly label possible factors as
+  hypothetical and do not claim those factors were tested, measured, or observed.
+- Never treat a hypothetical improvement as a verified historical or forward result.
 - Keep explanations concise unless the user asks for detail.
 """
 
@@ -196,6 +200,8 @@ def _is_short_referential_followup(message: str) -> bool:
         "a čo z toho vyplýva", "a co z toho vyplyva",
         "čo z toho vyplýva", "co z toho vyplyva",
         "vieš mi to vysvetliť jednoduchšie", "vies mi to vysvetlit jednoduchsie",
+        "prečo si tým nie si istý", "preco si tym nie si isty",
+        "a prečo si tým nie si istý", "a preco si tym nie si isty",
     } or bool(re.fullmatch(
         # Deliberately require the referent "to" and the entire utterance:
         # "vysvetli mi Python" must never inherit a stock snapshot.
