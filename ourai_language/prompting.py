@@ -151,6 +151,33 @@ def _has_analysis_signal(message: str, analysis: AnalysisSnapshot | None) -> boo
     return any(marker in text for marker in _ANALYSIS_MARKERS)
 
 
+def explicit_snapshot_ticker_mismatch(
+    message: str, analysis: AnalysisSnapshot | None,
+) -> str | None:
+    """Detect a *clearly named* other ticker in a snapshot-specific question.
+
+    This intentionally does not guess tickers from ordinary capitalized words,
+    company names or free text. Unrecognized wording stays on the existing
+    route; the guard prevents a known mismatch, not universal entity linking.
+    """
+    if analysis is None or not _has_analysis_signal(message, analysis):
+        return None
+    text = str(message or "")
+    patterns = (
+        r"(?<!\w)(?i:pre|pri|o|for|of|on|ticker|symbol|stock|akciu|akcie|akcii)\s+\$?([A-Z]{2,5})(?!\w)",
+        r"(?<!\w)(?i:je|is)\s+([A-Z]{2,5})\s+(?i:bullish|bearish)\b",
+        r"(?<!\w)([A-Z]{2,5})\s+(?i:bullish|bearish|forecast|predikcia|analýza|analyza)\b",
+    )
+    # Common metrics and market acronyms are not evidence of a stock identity.
+    non_tickers = {"MAE", "RSI", "USD", "EUR", "UP", "DOWN", "ETF", "NYSE", "API", "SIP", "IEX"}
+    for pattern in patterns:
+        for match in re.finditer(pattern, text):
+            ticker = match.group(1)
+            if ticker != analysis.ticker and ticker not in non_tickers:
+                return ticker
+    return None
+
+
 def _is_short_referential_followup(message: str) -> bool:
     """Only elliptical turns inherit the preceding snapshot analysis mode.
 
