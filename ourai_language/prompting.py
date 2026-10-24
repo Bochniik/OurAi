@@ -151,6 +151,22 @@ def _has_analysis_signal(message: str, analysis: AnalysisSnapshot | None) -> boo
     return any(marker in text for marker in _ANALYSIS_MARKERS)
 
 
+def _requests_different_ticker(message: str, analysis: AnalysisSnapshot) -> bool:
+    """Do not attach the active snapshot to an explicitly named other ticker.
+
+    Only recognize uppercase ticker tokens after a stock-specific preposition;
+    ordinary capitalized words and unqualified symbols are ambiguous.
+    """
+    for match in re.finditer(
+        r"(?i)\\b(?:pri|pre|o|akcie|akciu|ticker|symbol)\\s+([A-Z]{1,5})\\b",
+        message,
+    ):
+        symbol = match.group(1)
+        if symbol.isupper() and symbol != analysis.ticker:
+            return True
+    return False
+
+
 def _is_short_referential_followup(message: str) -> bool:
     """Only elliptical turns inherit the preceding snapshot analysis mode.
 
@@ -189,6 +205,8 @@ def select_conversation_mode(
     if analysis is None:
         return GENERAL_CHAT
     if _is_social_message(message):
+        return GENERAL_CHAT
+    if _requests_different_ticker(message, analysis):
         return GENERAL_CHAT
     if _has_analysis_signal(message, analysis):
         return ANALYSIS_QA
