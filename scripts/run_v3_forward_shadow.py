@@ -15,11 +15,13 @@ from __future__ import annotations
 import argparse
 import json
 import pickle
+import socket
 import time as time_module
 from collections import defaultdict
 from datetime import datetime, time, timedelta, timezone
 from pathlib import Path
 from typing import Any, Mapping
+from urllib.error import HTTPError, URLError
 
 from trading.dataset import NEW_YORK, MarketBar
 from trading.forward_shadow import (
@@ -42,6 +44,41 @@ from trading.nonlinear import UnifiedHistGradientMagnitude
 
 DEFAULT_BUNDLE = "runs/first-real-15m-v3/v3_15m_forward_bundle.json"
 DEFAULT_JOURNAL = "runs/first-real-15m-v3/forward_shadow_v2/events.jsonl"
+
+
+def shadow_failure_category(exc: BaseException) -> str:
+    """Classify transport outages without exposing credentials or blaming the model.
+
+    Categories are diagnostics only: they never change model, journal or retries.
+    Follow urllib's .reason as well as exception chains for Windows socket errors.
+    """
+    seen: set[int] = set()
+    pending: list[BaseException] = [exc]
+    errors: list[BaseException] = []
+    while pending:
+        current = pending.pop()
+        if id(current) in seen:
+            continue
+        seen.add(id(current))
+        errors.append(current)
+        for related in (current.__cause__, current.__context__, getattr(current, "reason", None)):
+            if isinstance(related, BaseException):
+                pending.append(related)
+    if any(isinstance(error, socket.gaierror) for error in errors):
+        return "provider_dns_failure"
+    if any(
+        isinstance(error, TimeoutError)
+        or getattr(error, "winerror", None) == 10060
+        or getattr(error, "errno", None) in (10060, 110)
+        for error in errors
+    ):
+        return "provider_timeout"
+    if any(isinstance(error, HTTPError) for error in errors):
+        return "provider_http_error"
+    if any(isinstance(error, (ConnectionError, URLError)) for error in errors):
+        return "provider_connection_failure"
+    return "cycle_failure_unclassified"
+
 
 
 def _parse_aware(value: object, name: str) -> datetime:
@@ -467,9 +504,9 @@ def main() -> int:
                 if payload["predictions_appended"] or payload["resolutions_appended"]:
                     _print_cycle(payload)
             except Exception as exc:
-                # Keep the long-running collector alive through transient provider/network errors.
-                # No secrets are embedded in the exception text by our Alpaca client.
-                print(f"shadow cycle error: {type(exc).__name__}: {exc}")
+                # Keep serving, but never echo exception messages (URLs may carry secrets).
+                # A provider outage is not evidence of a model prediction error.
+                print(f"shadow cycle failure: {shadow_failure_category(exc)}")
             time_module.sleep(args.poll_seconds)
     except KeyboardInterrupt:
         print("Forward shadow runner stopped.")
