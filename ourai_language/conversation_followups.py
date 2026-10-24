@@ -140,6 +140,17 @@ def historical_followup_question(
         )):
             return None
 
+    # A free-standing "how much" comparison may introduce an unrelated
+    # subject (e.g. product prices). Inherit evidence only for an explicit
+    # model metric or an anaphoric reference to the prior result.
+    if text.startswith(("o kolko ", "a o kolko ")):
+        if not any(marker in text for marker in (
+            "to ", "toho ", "tie vysledky", "model", "baseline", "mae",
+            "chyb", "presn", "leps", "hors", "nulov", "linearn",
+            "lockbox", "validac",
+        )):
+            return None
+
     comparative = prior_kind is not None and prior_kind.startswith("compare")
     comparable_prompt = any(term in text for term in (
         "o kolko", "oproti", "v porovnani", "porovnaj", "kolko leps",
