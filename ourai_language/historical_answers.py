@@ -63,6 +63,27 @@ def is_historical_educational_request(message: str) -> bool:
     return False
 
 
+def historical_source_correction_target(message: str) -> str | None:
+    """Parse a *bare* source correction, not a standalone evidence request.
+
+    Returns validation/test for an unambiguous short correction, "ambiguous"
+    for other correction phrasing, or None for ordinary requests. A caller
+    must require a recent verified historical turn before using the target.
+    """
+    text = _normalize(str(message or "")).strip().strip('.?!„“"')
+    prefix = r"(?:nie\s*,?\s*)?(?:myslel(?:a)? som|mal(?:a)? som na mysli)\b"
+    if not re.match(r"^" + prefix, text):
+        return None
+    match = re.fullmatch(
+        prefix + r"\s+(?:tu\s+)?(?:historicku\s+)?"
+        r"(validaciu|validacne vysledky|lockbox(?: test)?|test lockbox)",
+        text,
+    )
+    if match is None:
+        return "ambiguous"
+    return "validation" if match.group(1).startswith("validac") else "test"
+
+
 def historical_question_kind(message: str) -> str | None:
     """Classify only model-performance requests, never finance definitions.
 
@@ -72,6 +93,10 @@ def historical_question_kind(message: str) -> str | None:
     """
     text = _normalize(str(message or "").strip())
     if not text or is_historical_educational_request(message):
+        return None
+    # A bare "Nie, myslel som validáciu" needs a verified preceding source.
+    # The standalone deterministic reader must never assume that context.
+    if historical_source_correction_target(message) is not None:
         return None
     if explicit_comparison_baseline(message) == "ambiguous":
         return None

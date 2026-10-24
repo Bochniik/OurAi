@@ -7,8 +7,11 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
+from ourai_language.conversation_followups import historical_followup_question
 from ourai_language.forward_answers import forward_question_kind
-from ourai_language.historical_answers import historical_question_kind, maybe_historical_answer
+from ourai_language.historical_answers import (
+    historical_question_kind, historical_source_correction_target, maybe_historical_answer,
+)
 from ourai_language.semantic_router import canonical_historical_question
 from ourai_language.ollama_runtime import LocalOllamaChatRuntime
 from ourai_language.verified_tool_router import select_verified_tool
@@ -48,6 +51,94 @@ def validation_fixture(directory: Path):
 
 
 class VerifiedToolSelectionTests(unittest.TestCase):
+    def test_historical_source_corrections_require_verified_immediate_context(self):
+        # The old lockbox answer authorizes a correction, not reuse of its
+        # metrics. The new question is read from the requested validation file.
+        lockbox_history = [
+            {"role": "user", "content": "Ukáž výsledky lockbox testu."},
+            {"role": "assistant", "content": "Overený lockbox report.",
+             "source": "historical_v3_reports",
+             "evidence_question": "Aký bol historický lockbox test v3?"},
+        ]
+        validation_history = [
+            {"role": "user", "content": "Ukáž výsledky validácie."},
+            {"role": "assistant", "content": "Overený validačný report.",
+             "source": "historical_v3_reports",
+             "evidence_question": "Aké boli výsledky historickej validácie v3?"},
+        ]
+        cases = (
+            ("Nie, myslel som validáciu.", lockbox_history,
+             "Aké boli výsledky historickej validácie v3?", "validation"),
+            ("Mala som na mysli historickú validáciu.", lockbox_history,
+             "Aké boli výsledky historickej validácie v3?", "validation"),
+            ("Nie, myslel som lockbox test.", validation_history,
+             "Aký bol historický lockbox test v3?", "test"),
+        )
+        for question, history, canonical, split in cases:
+            with self.subTest(question=question):
+                self.assertEqual(historical_source_correction_target(question), split)
+                self.assertEqual(historical_followup_question(question, history), canonical)
+                self.assertEqual(historical_question_kind(canonical), split)
+                self.assertIsNone(historical_question_kind(question))
+                self.assertIsNone(select_verified_tool(
+                    question, choice("historical_v3", split),
+                    historical_available=True, forward_available=True,
+                ))
+                for invalid_history in (
+                    [],
+                    history[:-1],
+                    [history[0], {**history[1], "source": "model"}],
+                    [history[0], {**history[1], "source": "verified_forward_journal"}],
+                    history + [{"role": "user", "content": "A čo Python?"}],
+                ):
+                    self.assertIsNone(historical_followup_question(
+                        question, invalid_history,
+                    ))
+
+        # A correction naming multiple sources or changing topic is not an
+        # authorization to select one report without explicit clarification.
+        for ambiguous in (
+            "Nie, myslel som validáciu aj lockbox.",
+            "Nie, myslel som validáciu modelu v3 a forward denník.",
+            "Nie, myslel som historické výsledky Pythonu.",
+        ):
+            with self.subTest(ambiguous=ambiguous):
+                self.assertEqual(historical_source_correction_target(ambiguous), "ambiguous")
+                self.assertIsNone(historical_followup_question(ambiguous, lockbox_history))
+                self.assertIsNone(historical_question_kind(ambiguous))
+                self.assertIsNone(canonical_historical_question(
+                    ambiguous, json.dumps({
+                        "intent": "validation", "split": "validation", "baseline": "both",
+                    }),
+                ))
+
+    def test_corrected_validation_reads_only_verified_validation_report(self):
+        prior = [
+            {"role": "user", "content": "Ukáž výsledky lockbox testu."},
+            {"role": "assistant", "content": "Historický test lockbox.",
+             "source": "historical_v3_reports",
+             "evidence_question": "Aký bol historický lockbox test v3?"},
+        ]
+        with tempfile.TemporaryDirectory() as directory:
+            validation_fixture(Path(directory))
+            runtime = LocalOllamaChatRuntime(
+                historical_reports_dir=directory, semantic_tool_routing=True,
+                knowledge_enabled=False,
+            )
+            # No Qwen model is involved: a verified source switch must happen
+            # before the optional model-assisted router.
+            with patch.object(runtime, "_generate",
+                              side_effect=AssertionError("model must not run")):
+                result = runtime.respond("Nie, myslel som validáciu.", history=prior)
+            self.assertEqual(result.answer_source, "historical_v3_reports")
+            self.assertEqual(result.evidence_question,
+                             "Aké boli výsledky historickej validácie v3?")
+            self.assertIn("Historická validácia v3", result.text)
+            self.assertNotIn("Historický test lockbox", result.text)
+            self.assertIsNone(maybe_historical_answer(
+                "Nie, myslel som validáciu.", directory,
+            ))
+
     def test_model_may_choose_only_preapproved_tool_and_operation(self):
         question = "Ako sa ti darí v shadow režime?"
         self.assertEqual(
