@@ -230,7 +230,7 @@ def select_conversation_mode(
     # Strip only an isolated closing courtesy, never a social request such
     # as "Povedz vtip o NVDA, ďakujem".
     courtesy_suffix = re.search(
-        r"(?i)[,!.\\s]+(?:ďakujem|dakujem|thanks|thank you)[!?.]*\\s*$",
+        r"(?i)[,!.\s]+(?:ďakujem|dakujem|thanks|thank you)[!?.]*\s*$",
         effective_message,
     )
     substantive_message = (
