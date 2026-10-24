@@ -217,6 +217,9 @@ def select_conversation_mode(
         return GENERAL_CHAT
     if _is_social_message(message):
         return GENERAL_CHAT
+    # Never route an explicitly different ticker to the active snapshot.
+    if explicit_snapshot_ticker_mismatch(message, analysis) is not None:
+        return GENERAL_CHAT
     if _has_analysis_signal(message, analysis):
         return ANALYSIS_QA
 
@@ -313,6 +316,10 @@ def build_messages(
     if selected_mode not in {GENERAL_CHAT, ANALYSIS_QA}:
         raise ValueError("mode must be GENERAL_CHAT or ANALYSIS_QA")
     if selected_mode == ANALYSIS_QA and analysis is None:
+        selected_mode = GENERAL_CHAT
+    # Enforce the same boundary even if a caller explicitly forces ANALYSIS_QA.
+    # Runtime-specific unavailable replies still take precedence before prompting.
+    if analysis is not None and explicit_snapshot_ticker_mismatch(message, analysis):
         selected_mode = GENERAL_CHAT
 
     if selected_mode == ANALYSIS_QA:
