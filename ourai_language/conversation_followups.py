@@ -6,6 +6,7 @@ into numerical evidence or infer a new source from conversational prose.
 """
 from __future__ import annotations
 
+import re
 import unicodedata
 from typing import Iterable, Mapping
 
@@ -41,6 +42,8 @@ def historical_followup_question(
     """Rewrite conservative short follow-ups, preserving source and split.
 
     Ambiguous long or unrelated turns stay with the normal language model.
+    A narrowly scoped 'a teraz to porovnaj s X' changes only the baseline,
+    never the verified historical source or its validation/lockbox split.
     The returned question must still go through the report reader and all
     of its provenance and numeric checks before any result is displayed.
     """
@@ -51,10 +54,20 @@ def historical_followup_question(
     text = _norm(raw).strip(" .?!„“\"")
     if not text or len(raw) > 110 or len(text.split()) > 13:
         return None
+    # "A teraz to porovnaj s nulovým" refers to the previous *verified*
+    # retrospective report, not current market data. Accept only this
+    # tightly scoped discourse transition; other uses of "teraz" remain
+    # excluded along with forward/live/trading requests.
+    discourse_baseline_comparison = bool(re.fullmatch(
+        r"(?:a )?teraz (?:to )?porovnaj (?:to )?(?:s|so) "
+        r"(?:nulov\w*|null|linearn\w*|linear)"
+        r"(?: (?:baseline|modelom))?",
+        text,
+    ))
     if any(term in text for term in (
         "forward", "posledn", "najnov", "aktualn", "journal", "dennik",
-        "teraz", "zajtra", "dnes", "live", "obchod", "nakup", "predaj",
-    )):
+        "zajtra", "dnes", "live", "obchod", "nakup", "predaj",
+    )) or ("teraz" in text and not discourse_baseline_comparison):
         return None
 
     # A correction may change the requested retrospective source only when
