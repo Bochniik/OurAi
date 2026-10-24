@@ -30,7 +30,7 @@ from .grounding import find_unsupported_percentages, grounded_fallback
 from .prompting import (
     ANALYSIS_QA, GENERAL_CHAT, build_messages, select_conversation_mode,
 )
-from .runtime import ChatResult
+from .runtime import ChatResult, snapshot_mismatch_result
 
 
 OLLAMA_ENDPOINT = "http://127.0.0.1:11434/api/chat"
@@ -201,6 +201,12 @@ class LocalOllamaChatRuntime:
                     text=answer, used_grounding_fallback=False,
                     mode=ANALYSIS_QA, answer_source="verified_forward_journal",
                 )
+
+        # Keep the verified readers above authoritative, but do not ask the
+        # local model to interpret one ticker using another ticker's snapshot.
+        mismatch = snapshot_mismatch_result(user_message, analysis)
+        if mismatch is not None:
+            return mismatch
 
         if analysis is not None and mode == ANALYSIS_QA:
             answer = deterministic_analysis_answer(user_message, analysis)
