@@ -310,6 +310,36 @@ class OurAILanguageTests(unittest.TestCase):
                 self.assertIn("NVDA", result.text)
                 self.assertNotIn("68", result.text)
 
+    def test_prompt_builder_never_injects_wrong_ticker_snapshot(self) -> None:
+        snapshot = self.snapshot()
+        for question in (
+            "Aká je predikcia pre AAPL?",
+            "Aké sú riziká pri TSLA?",
+            "Prečo je MSFT bullish?",
+        ):
+            with self.subTest(question=question):
+                self.assertEqual(
+                    select_conversation_mode(question, analysis=snapshot), GENERAL_CHAT,
+                )
+                for forced_mode in (None, ANALYSIS_QA):
+                    messages = build_messages(
+                        question, analysis=snapshot, mode=forced_mode,
+                    )
+                    self.assertNotIn("CANONICAL_ANALYSIS_FACTS", messages[0]["content"])
+                    self.assertNotIn("CANONICAL_ANALYSIS_JSON", messages[0]["content"])
+
+    def test_prompt_builder_keeps_matching_snapshot_and_metric_acronyms(self) -> None:
+        snapshot = self.snapshot()
+        for question in ("Aká je predikcia pre NVDA?", "Vysvetli RSI pre NVDA."):
+            with self.subTest(question=question):
+                self.assertEqual(
+                    select_conversation_mode(question, analysis=snapshot), ANALYSIS_QA,
+                )
+                self.assertIn(
+                    "CANONICAL_ANALYSIS_FACTS",
+                    build_messages(question, analysis=snapshot)[0]["content"],
+                )
+
     def test_matching_ticker_and_metric_acronyms_are_not_rejected(self) -> None:
         snapshot = self.snapshot()
         for question in (
