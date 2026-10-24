@@ -215,7 +215,16 @@ def select_conversation_mode(
         raise ValueError("user_message is required")
     if analysis is None:
         return GENERAL_CHAT
-    if _is_social_message(message):
+    # A greeting may prefix a real analytical request. Treat a bare greeting
+    # as social, but do not discard the substantive question after it.
+    greeting_prefix = re.match(
+        r"(?i)^(?:ahoj|čau|cau|hello|dobrý deň|dobry den)[,!:.]?\\s+",
+        message,
+    )
+    effective_message = message[greeting_prefix.end():] if greeting_prefix else message
+    if _is_social_message(message) and not (
+        greeting_prefix and _has_analysis_signal(effective_message, analysis)
+    ):
         return GENERAL_CHAT
     # Never route an explicitly different ticker to the active snapshot.
     if explicit_snapshot_ticker_mismatch(message, analysis) is not None:
