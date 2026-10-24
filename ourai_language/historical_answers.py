@@ -24,6 +24,45 @@ def _normalize(message: str) -> str:
     return "".join(c for c in folded if not unicodedata.combining(c))
 
 
+def is_historical_educational_request(message: str) -> bool:
+    """Recognize explicit definitions without opening retrospective reports.
+
+    Require a definition clause, not just the word "vysvetli": explaining
+    observed validation results is a legitimate verified-reader request.
+    """
+    text = _normalize(str(message or "")).strip().strip('.?!„“"')
+    text = re.sub(r"^prosim[, ]+", "", text)
+    definitions = (
+        "co znamena ", "co je ", "ako funguje ", "ako vlastne funguje ",
+        "na co sluzi ", "aky je vyznam ", "aky je rozdiel medzi ",
+        "vysvetli pojem ", "define ", "what does ", "how does ",
+        "explain what ", "what is the meaning of ",
+    )
+    if text.startswith(definitions):
+        return True
+    # An English "what is the MAE of model v3" can ask for a measured
+    # value; generic "what is historical MAE" remains a definition.
+    if text.startswith("what is "):
+        return not bool(re.search(
+            r"\b(?:mae|accuracy|error rate)\b.*\b(?:of|for)\b"
+            r".*\b(?:ourai|model|v3)\b",
+            text,
+        ))
+    preface = re.match(
+        r"^(?:(?:mozes|vies|dokazes)(?: mi)?(?: prosim)? )?"
+        r"(?:vysvetli|vysvetlit)(?: mi)?[, ]+",
+        text,
+    )
+    if preface and text[preface.end():].startswith(definitions):
+        return True
+    if text.startswith("can you explain "):
+        subject = text[len("can you explain "):]
+        return subject.startswith((
+            "what does ", "what is ", "how does ", "the meaning of ",
+        )) or bool(re.match(r"^what .+ means(?: |$)", subject))
+    return False
+
+
 def historical_question_kind(message: str) -> str | None:
     """Classify only model-performance requests, never finance definitions.
 
@@ -32,7 +71,7 @@ def historical_question_kind(message: str) -> str | None:
     another context, so historical markers take precedence there.
     """
     text = _normalize(str(message or "").strip())
-    if not text:
+    if not text or is_historical_educational_request(message):
         return None
     historic = any(term in text for term in (
         "historick", "validac", "lockbox", "retrospekt", "backtest",

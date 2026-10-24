@@ -11,6 +11,8 @@ import json
 import re
 import unicodedata
 
+from .historical_answers import is_historical_educational_request
+
 
 SYSTEM_PROMPT = """Classify the user's question for a strictly READ-ONLY historical
 15-minute absolute-return-magnitude performance report reader. Reply ONLY a
@@ -30,6 +32,9 @@ For compare, set split and baseline from the question when given; otherwise
 Examples:
 'How did you do on unseen historical data?' => test
 'Ako sa ti darilo na dátach, ktoré si predtým nevidel?' => test
+'Čo znamená historická MAE modelu v3?' => none
+'Aká je historická MAE modelu v3?' => overview
+'Vysvetli mi výsledky historickej validácie v3' => validation
 'Explain what a stock is' => none
 'How well do you compare with a linear model?' => compare, linear, both
 'What is the latest NVDA prediction?' => none
@@ -109,7 +114,7 @@ def explicit_heldout_performance_question(original_question: str) -> str | None:
     verified lockbox report reader, which still checks all report provenance.
     """
     text = _plain(str(original_question or "").strip())
-    if not text or _mentions_current_or_forward(text):
+    if not text or _mentions_current_or_forward(text) or is_historical_educational_request(original_question):
         return None
     if text.startswith(_DEFINITION_STARTS):
         return None
@@ -142,6 +147,7 @@ def canonical_historical_question(
     if (
         not user_text
         or _mentions_current_or_forward(user_text)
+        or is_historical_educational_request(original_question)
         or not _is_retrospective_performance_request(user_text)
     ):
         return None

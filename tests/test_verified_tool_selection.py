@@ -9,6 +9,7 @@ from unittest.mock import patch
 
 from ourai_language.forward_answers import forward_question_kind
 from ourai_language.historical_answers import historical_question_kind
+from ourai_language.semantic_router import canonical_historical_question
 from ourai_language.ollama_runtime import LocalOllamaChatRuntime
 from ourai_language.verified_tool_router import select_verified_tool
 from scripts.chat_ourai import parser
@@ -175,6 +176,68 @@ class VerifiedToolSelectionTests(unittest.TestCase):
                 result = runtime.respond("Čo znamená MAE vo forward denníku?")
             self.assertEqual(result.answer_source, "model")
             self.assertIn("priemerná absolútna chyba", result.text)
+            self.assertEqual(generated.call_count, 2)
+            self.assertFalse(missing.exists())
+
+    def test_historical_definitions_do_not_open_verified_reports(self):
+        # Even a bad model proposal must not turn a definition into a
+        # measured retrospective result, and the deterministic route must
+        # apply the same boundary before the optional model router.
+        proposal = choice("historical_v3", "overview")
+        for question in (
+            "Čo znamená historická MAE?",
+            "Čo znamená MAE v historickej validácii modelu v3?",
+            "Ako funguje lockbox test?",
+            "Môžeš mi vysvetliť, čo znamená historická MAE modelu v3?",
+            "Prosím, vysvetli mi, čo je historický baseline OurAI.",
+            "Can you explain what historical MAE means for model v3?",
+        ):
+            with self.subTest(question=question):
+                self.assertIsNone(historical_question_kind(question))
+                self.assertIsNone(canonical_historical_question(
+                    question, json.dumps({
+                        "intent": "overview", "split": "both", "baseline": "both",
+                    }),
+                ))
+                self.assertIsNone(select_verified_tool(
+                    question, proposal,
+                    historical_available=True, forward_available=True,
+                ))
+
+    def test_historical_measured_results_still_open_verified_reader(self):
+        proposal = choice("historical_v3", "overview")
+        for question in (
+            "Aká je historická MAE modelu v3?",
+            "Aké boli výsledky historickej validácie v3?",
+            "What is the historical MAE of model v3?",
+        ):
+            with self.subTest(question=question):
+                self.assertIsNotNone(historical_question_kind(question))
+                self.assertEqual(select_verified_tool(
+                    question, proposal,
+                    historical_available=True, forward_available=True,
+                )[0], "historical_v3")
+        self.assertEqual(
+            historical_question_kind("Vysvetli mi výsledky historickej validácie v3"),
+            "validation",
+        )
+
+    def test_historical_definition_skips_missing_report_reader(self):
+        with tempfile.TemporaryDirectory() as temp:
+            missing = Path(temp) / "missing-reports"
+            runtime = LocalOllamaChatRuntime(
+                historical_reports_dir=missing, semantic_tool_routing=True,
+                knowledge_enabled=False,
+            )
+            with patch.object(runtime, "_generate", side_effect=[
+                choice("historical_v3", "overview"),
+                "MAE znamená priemernú absolútnu chybu.",
+            ]) as generated:
+                result = runtime.respond(
+                    "Čo znamená MAE v historickej validácii modelu v3?"
+                )
+            self.assertEqual(result.answer_source, "model")
+            self.assertIn("priemernú absolútnu chybu", result.text)
             self.assertEqual(generated.call_count, 2)
             self.assertFalse(missing.exists())
 
