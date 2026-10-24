@@ -112,6 +112,22 @@ def historical_followup_question(
     if text.startswith(("a pri ktorej", "a pri ktorych", "a ktora akcia", "a ktore akcie")):
         return "Pri ktorých akciách robí historický model v3 najväčšie chyby?"
 
+    # A fresh comparison of unrelated subjects is not a request to compare
+    # historical model evidence. Keep only an explicit result/baseline target
+    # or a short reference back to the immediately preceding report.
+    if text.startswith(("porovnaj ", "a porovnaj ")):
+        referential_comparison = text.startswith((
+            "porovnaj to", "a porovnaj to", "porovnaj ich",
+            "a porovnaj ich", "porovnaj tie vysledky",
+            "a porovnaj tie vysledky",
+        ))
+        grounded_comparison = any(term in text for term in (
+            "vysledk", "baseline", "nulov", "linearn", "linear",
+            "lockbox", "validac", "model v3", "mae",
+        ))
+        if not (referential_comparison or grounded_comparison):
+            return None
+
     comparative = prior_kind is not None and prior_kind.startswith("compare")
     comparable_prompt = any(term in text for term in (
         "o kolko", "oproti", "v porovnani", "porovnaj", "kolko leps",
