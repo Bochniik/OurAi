@@ -145,3 +145,16 @@ Transformers backend for the existing deterministic report explanations.
 
 Run `python -m unittest discover -s tests -p "test_semantic_evidence_routing.py" -v`
 for mocked, offline regression checks.
+
+### Follow-up topic boundary (October 2026)
+
+Only the immediately preceding verified historical report can supply historical
+context to an abbreviated follow-up. Requests about unrelated prices, objects,
+time periods or comparison targets do **not** inherit that evidence merely
+because they include “o koľko”, “oproti”, or “v porovnaní s”. Explicit
+retrospective model/baseline comparisons and short referential prompts such
+as “O koľko je to lepšie?” remain eligible. Every historical answer is still
+produced by the verified report reader; this routing does not invent metrics.
+
+These rules are covered by `tests/test_history_topic_boundaries.py` and do not
+constitute a local Qwen or Ollama language-quality benchmark.
