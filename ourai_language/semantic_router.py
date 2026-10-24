@@ -29,7 +29,8 @@ have the largest/smallest errors; "causes" when asked *why* measured historical
 performance differs; "simple" when asked to summarize historical performance.
 For compare, set split and baseline from the question when given; otherwise
 "both". Explicit validation versus lockbox wording from the user overrides
-a model-suggested split. Do not produce numbers, user-supplied text,
+a model-suggested split. Explicit linear/null baseline names in the user's
+question override a model-suggested baseline; if both are named, use both. Do not produce numbers, user-supplied text,
 explanations or file paths.
 Examples:
 'How did you do on unseen historical data?' => test
@@ -39,6 +40,7 @@ Examples:
 'Vysvetli mi výsledky historickej validácie v3' => validation
 'Explain what a stock is' => none
 'How well do you compare with a linear model?' => compare, linear, both
+'Porovnaj historickú MAE v3 s nulovým baseline' => compare, null, both
 'What is the latest NVDA prediction?' => none
 'Why did v3 outperform the baseline historically?' => causes
 """
@@ -157,6 +159,23 @@ def _explicit_report_split(text: str) -> str | None:
     return None
 
 
+def _explicit_comparison_baseline(text: str) -> str | None:
+    """Preserve the user's named baseline; a model may not silently replace it.
+
+    This only constrains comparisons. With no explicitly named baseline the
+    existing classifier behavior is retained for backward compatibility.
+    """
+    linear = bool(re.search(r"(?<!\w)(?:linearn|linear)\w*", text))
+    null = bool(re.search(r"(?<!\w)(?:nulov\w*|null\b)", text))
+    if linear and null:
+        return "both"
+    if linear:
+        return "linear"
+    if null:
+        return "null"
+    return None
+
+
 def canonical_historical_question(
     original_question: str,
     model_response: str,
@@ -203,6 +222,12 @@ def canonical_historical_question(
         split = requested_split
         if intent in {"overview", "validation", "test"}:
             intent = requested_split
+    # A classifier must not silently swap the user's requested comparison
+    # baseline. Keep the original behavior when the user named neither.
+    if intent == "compare":
+        named_baseline = _explicit_comparison_baseline(user_text)
+        if named_baseline is not None:
+            baseline = named_baseline
     if intent == "overview":
         return "Ako presný bol historicky model v3?"
     if intent == "validation":

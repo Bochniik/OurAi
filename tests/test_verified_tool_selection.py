@@ -8,7 +8,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 from ourai_language.forward_answers import forward_question_kind
-from ourai_language.historical_answers import historical_question_kind
+from ourai_language.historical_answers import historical_question_kind, maybe_historical_answer
 from ourai_language.semantic_router import canonical_historical_question
 from ourai_language.ollama_runtime import LocalOllamaChatRuntime
 from ourai_language.verified_tool_router import select_verified_tool
@@ -272,6 +272,84 @@ class VerifiedToolSelectionTests(unittest.TestCase):
                 self.assertEqual(selected[0], "historical_v3")
                 self.assertIn(marker, selected[1])
                 self.assertEqual(historical_question_kind(selected[1]), expected_kind)
+
+    def test_user_named_historical_baseline_overrides_wrong_model_choice(self):
+        # The opt-in model may propose the wrong comparison baseline. The
+        # user's explicitly named baseline(s) must win, including both.
+        cases = (
+            (
+                "Porovnaj MAE modelu v3 s lineárnym baseline v historickej validácii.",
+                "null", "lineárnym modelom", "nulovým baseline",
+            ),
+            (
+                "Ako si obstál v historickej validácii v3 oproti nulovému baseline?",
+                "linear", "nulovým baseline", "lineárnym modelom",
+            ),
+            (
+                "Porovnaj historickú MAE modelu v3 s lineárnym aj nulovým baseline.",
+                "linear", "lineárnym aj nulovým baseline", None,
+            ),
+            (
+                "Porovnaj historickú MAE modelu v3 s lineárnym aj nulovým baseline.",
+                "null", "lineárnym aj nulovým baseline", None,
+            ),
+        )
+        for question, wrong_baseline, expected, excluded in cases:
+            with self.subTest(question=question, proposed=wrong_baseline):
+                proposal = choice("historical_v3", "compare", "both", wrong_baseline)
+                selected = select_verified_tool(
+                    question, proposal,
+                    historical_available=True, forward_available=True,
+                )
+                self.assertIsNotNone(selected)
+                self.assertEqual(selected[0], "historical_v3")
+                self.assertIn(expected, selected[1])
+                if excluded:
+                    self.assertNotIn(excluded, selected[1])
+                self.assertEqual(
+                    selected[1],
+                    canonical_historical_question(
+                        question, json.dumps({
+                            "intent": "compare", "split": "both",
+                            "baseline": wrong_baseline,
+                        }),
+                    ),
+                )
+
+        # Without a named baseline, retain the existing model-selected
+        # baseline rather than changing unrelated classification behavior.
+        unspecified = select_verified_tool(
+            "Porovnaj historické výsledky modelu v3 s benchmarkom.",
+            choice("historical_v3", "compare", "both", "linear"),
+            historical_available=True, forward_available=True,
+        )
+        self.assertIsNotNone(unspecified)
+        self.assertIn("lineárnym modelom", unspecified[1])
+
+    def test_named_baseline_is_honored_by_existing_read_only_report(self):
+        # Synthetic fixture only: no real measured historical/forward values.
+        with tempfile.TemporaryDirectory() as directory:
+            validation_fixture(Path(directory))
+            for question, wrong, expected, excluded in (
+                (
+                    "Porovnaj historickú validáciu modelu v3 s lineárnym baseline.",
+                    "null", "lineárny baseline", "nulový baseline",
+                ),
+                (
+                    "Porovnaj historickú validáciu modelu v3 s nulovým baseline.",
+                    "linear", "nulový baseline", "lineárny baseline",
+                ),
+            ):
+                with self.subTest(question=question):
+                    selected = select_verified_tool(
+                        question, choice("historical_v3", "compare", "test", wrong),
+                        historical_available=True, forward_available=True,
+                    )
+                    self.assertIsNotNone(selected)
+                    answer = maybe_historical_answer(selected[1], directory)
+                    self.assertIsNotNone(answer)
+                    self.assertIn(expected, answer)
+                    self.assertNotIn(excluded, answer)
 
     def test_model_cannot_narrow_explicit_validation_and_lockbox_comparison(self):
         question = "Porovnaj historickú validáciu a lockbox test modelu v3."
