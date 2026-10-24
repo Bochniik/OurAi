@@ -241,6 +241,49 @@ class VerifiedToolSelectionTests(unittest.TestCase):
             self.assertEqual(generated.call_count, 2)
             self.assertFalse(missing.exists())
 
+    def test_user_named_historical_split_overrides_wrong_model_choice(self):
+        # A classifier cannot turn a validation question into a lockbox
+        # answer (or vice versa), including overview and comparison actions.
+        cases = (
+            (
+                "Aké boli výsledky historickej validácie v3?",
+                "test", "test", "validation", "validácia",
+            ),
+            (
+                "Aká bola MAE na historickom lockbox teste modelu v3?",
+                "validation", "validation", "test", "lockbox",
+            ),
+            (
+                "Porovnaj MAE modelu v3 s lineárnym baseline v historickej validácii.",
+                "compare", "test", "compare_validation", "validácii",
+            ),
+            (
+                "Zhrň výsledky historickej validácie v3 jednoducho.",
+                "simple", "test", "simple", "validácie",
+            ),
+        )
+        for question, action, wrong_split, expected_kind, marker in cases:
+            with self.subTest(question=question):
+                selected = select_verified_tool(
+                    question, choice("historical_v3", action, wrong_split),
+                    historical_available=True, forward_available=True,
+                )
+                self.assertIsNotNone(selected)
+                self.assertEqual(selected[0], "historical_v3")
+                self.assertIn(marker, selected[1])
+                self.assertEqual(historical_question_kind(selected[1]), expected_kind)
+
+    def test_model_cannot_narrow_explicit_validation_and_lockbox_comparison(self):
+        question = "Porovnaj historickú validáciu a lockbox test modelu v3."
+        self.assertIsNone(select_verified_tool(
+            question, choice("historical_v3", "compare", "validation"),
+            historical_available=True, forward_available=True,
+        ))
+        self.assertIsNone(select_verified_tool(
+            question, choice("historical_v3", "compare", "test"),
+            historical_available=True, forward_available=True,
+        ))
+
     def test_historical_source_never_steals_shadow_and_requires_report_config(self):
         classification = choice("historical_v3", "compare", "validation", "linear")
         result = select_verified_tool(
