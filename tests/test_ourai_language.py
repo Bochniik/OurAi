@@ -306,6 +306,38 @@ class OurAILanguageTests(unittest.TestCase):
                 ), GENERAL_CHAT,
             )
 
+    def test_uncertainty_followups_keep_only_matching_snapshot_context(self) -> None:
+        snapshot = self.snapshot()
+        correct_history = [
+            {"role": "user", "content": "Prečo je NVDA bullish?",
+             "mode": ANALYSIS_QA, "analysis_ticker": "NVDA"},
+            {"role": "assistant", "content": "Snapshot NVDA.",
+             "mode": ANALYSIS_QA, "analysis_ticker": "NVDA"},
+        ]
+        wrong_history = [
+            {"role": "user", "content": "Analýza AAPL?",
+             "mode": ANALYSIS_QA, "analysis_ticker": "AAPL"},
+        ]
+        general_history = [
+            {"role": "user", "content": "Ako funguje fotosyntéza?",
+             "mode": GENERAL_CHAT},
+        ]
+        for question in ("Prečo si tým nie si istý?", "A preco si tym nie si isty?"):
+            with self.subTest(question=question):
+                messages = build_messages(question, analysis=snapshot, history=correct_history)
+                self.assertIn("CANONICAL_ANALYSIS_FACTS", messages[0]["content"])
+                self.assertIn("hypothetical", messages[0]["content"])
+                for unrelated in (wrong_history, general_history):
+                    self.assertEqual(
+                        select_conversation_mode(
+                            question, analysis=snapshot, history=unrelated,
+                        ), GENERAL_CHAT,
+                    )
+                    self.assertNotIn(
+                        "CANONICAL_ANALYSIS_FACTS",
+                        build_messages(question, analysis=snapshot, history=unrelated)[0]["content"],
+                    )
+
     def test_multiturn_topic_break_does_not_inherit_old_analysis(self) -> None:
         snapshot = self.snapshot()
         history = [
