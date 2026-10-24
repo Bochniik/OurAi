@@ -137,6 +137,37 @@ class OurAILanguageTests(unittest.TestCase):
             GENERAL_CHAT,
         )
 
+    def test_trailing_thanks_does_not_hide_substantive_analysis(self) -> None:
+        snapshot = self.snapshot()
+        for question in (
+            "Prečo je NVDA bullish? Ďakujem.",
+            "Aké sú riziká predikcie NVDA, dakujem!",
+            "Explain NVDA forecast, thanks.",
+        ):
+            with self.subTest(question=question):
+                self.assertEqual(select_conversation_mode(question, analysis=snapshot), ANALYSIS_QA)
+                self.assertIn(
+                    "CANONICAL_ANALYSIS_FACTS",
+                    build_messages(question, analysis=snapshot)[0]["content"],
+                )
+        for question in (
+            "Povedz vtip o NVDA, ďakujem.",
+            "Ako sa máš, ďakujem.",
+            "Ďakujem!",
+        ):
+            with self.subTest(question=question):
+                self.assertEqual(select_conversation_mode(question, analysis=snapshot), GENERAL_CHAT)
+                self.assertNotIn(
+                    "CANONICAL_ANALYSIS_FACTS",
+                    build_messages(question, analysis=snapshot)[0]["content"],
+                )
+        foreign = "Aká je predikcia pre AAPL? Ďakujem."
+        self.assertEqual(select_conversation_mode(foreign, analysis=snapshot), GENERAL_CHAT)
+        self.assertNotIn(
+            "CANONICAL_ANALYSIS_FACTS",
+            build_messages(foreign, analysis=snapshot)[0]["content"],
+        )
+
     def test_short_followup_can_inherit_analysis_mode_but_social_overrides(self) -> None:
         snapshot = self.snapshot()
         history = [
