@@ -226,8 +226,21 @@ def select_conversation_mode(
         message,
     )
     effective_message = message[courtesy_prefix.end():] if courtesy_prefix else message
+    # A closing "ďakujem" is politeness, not a request to switch topics.
+    # Strip only an isolated closing courtesy, never a social request such
+    # as "Povedz vtip o NVDA, ďakujem".
+    courtesy_suffix = re.search(
+        r"(?i)[,!.\s]+(?:ďakujem|dakujem|thanks|thank you)[!?.]*\s*$",
+        effective_message,
+    )
+    substantive_message = (
+        effective_message[:courtesy_suffix.start()].rstrip(" ,!:.")
+        if courtesy_suffix else effective_message
+    )
     if _is_social_message(message) and not (
-        courtesy_prefix and _has_analysis_signal(effective_message, analysis)
+        _has_analysis_signal(substantive_message, analysis)
+        and not _is_social_message(substantive_message)
+        and (courtesy_prefix is not None or courtesy_suffix is not None)
     ):
         return GENERAL_CHAT
     # Never route an explicitly different ticker to the active snapshot.
