@@ -143,6 +143,24 @@ def _has_analysis_signal(message: str, analysis: AnalysisSnapshot | None) -> boo
     return any(marker in text for marker in _ANALYSIS_MARKERS)
 
 
+def _is_short_referential_followup(message: str) -> bool:
+    """Only elliptical turns inherit the preceding snapshot analysis mode.
+
+    Length alone is not evidence of continuity: 'A čo Python?' is a new
+    subject, while 'Prečo?' or 'A čo to znamená?' refers to the prior answer.
+    """
+    text = message.casefold().strip(" \t\n?!.,")
+    return text in {
+        "prečo", "preco", "a prečo", "a preco",
+        "a ako", "ako to", "a ako to",
+        "vysvetli to", "vysvetli to jednoducho",
+        "a čo to znamená", "a co to znamena",
+        "čo to znamená", "co to znamena",
+        "a čo ďalej", "a co dalej",
+        "a potom", "čo tým myslíš", "co tym myslis",
+    }
+
+
 def select_conversation_mode(
     user_message: str,
     *,
@@ -168,7 +186,7 @@ def select_conversation_mode(
         return ANALYSIS_QA
 
     tokens = message.split()
-    if len(tokens) <= 4:
+    if len(tokens) <= 4 and _is_short_referential_followup(message):
         for item in reversed(list(history or ())):
             if str(item.get("role", "")).strip().lower() != "user":
                 continue
