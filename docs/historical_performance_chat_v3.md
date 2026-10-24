@@ -100,7 +100,12 @@ independently; historical numbers must never be passed off as live metrics.
 
 Context is deliberately limited to the **immediately preceding, evidence-tagged**
 turn, with a canonical question retained for consecutive follow-ups. A social
-or unrelated turn breaks this chain. This is not unlimited conversation memory:
+or unrelated turn breaks this chain. Stock-specific follow-ups are also
+topic-guarded: `A pri ktorej akcii má model najväčšiu chybu?` can refer back
+to historical error diagnostics, but `A ktorá akcia má najvyššiu dividendu?`
+is a new question and must not trigger historical report selection. The
+verified reader still refuses to invent per-symbol rankings when diagnostics
+are unavailable. This is not unlimited conversation memory:
 open-ended model replies use the regular bounded local chat history, and some
 analytical phrasings may still need a full question.
 
