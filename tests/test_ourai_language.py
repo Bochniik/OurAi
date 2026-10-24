@@ -178,6 +178,53 @@ class OurAILanguageTests(unittest.TestCase):
                     ANALYSIS_QA,
                 )
 
+    def test_natural_slovak_referential_followups_keep_topic_boundary(self) -> None:
+        snapshot = self.snapshot()
+        analytical_history = [
+            {"role": "user", "content": "Prečo je NVDA bullish?",
+             "mode": ANALYSIS_QA, "analysis_ticker": "NVDA"},
+            {"role": "assistant", "content": "Podľa snapshotu.",
+             "mode": ANALYSIS_QA, "analysis_ticker": "NVDA"},
+        ]
+        questions = (
+            "A čo z toho vyplýva?",
+            "Čo z toho vyplýva?",
+            "Vieš mi to vysvetliť jednoduchšie?",
+            "A co z toho vyplyva?",
+        )
+        for question in questions:
+            with self.subTest(question=question):
+                self.assertEqual(
+                    select_conversation_mode(question, analysis=snapshot, history=analytical_history),
+                    ANALYSIS_QA,
+                )
+                self.assertIn(
+                    "CANONICAL_ANALYSIS_FACTS",
+                    build_messages(question, analysis=snapshot, history=analytical_history)[0]["content"],
+                )
+                general_history = [
+                    {"role": "user", "content": "Čo je fotosyntéza?", "mode": GENERAL_CHAT},
+                    {"role": "assistant", "content": "Prírodný proces.", "mode": GENERAL_CHAT},
+                ]
+                self.assertEqual(
+                    select_conversation_mode(question, analysis=snapshot, history=general_history),
+                    GENERAL_CHAT,
+                )
+                different_history = [
+                    {"role": "user", "content": "Analýza AAPL?",
+                     "mode": ANALYSIS_QA, "analysis_ticker": "AAPL"},
+                ]
+                self.assertEqual(
+                    select_conversation_mode(question, analysis=snapshot, history=different_history),
+                    GENERAL_CHAT,
+                )
+        self.assertEqual(
+            select_conversation_mode(
+                "A čo z toho vyplýva pre Python?", analysis=snapshot, history=analytical_history,
+            ),
+            GENERAL_CHAT,
+        )
+
     def test_multiturn_topic_break_does_not_inherit_old_analysis(self) -> None:
         snapshot = self.snapshot()
         history = [
