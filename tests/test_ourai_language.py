@@ -109,6 +109,49 @@ class OurAILanguageTests(unittest.TestCase):
             GENERAL_CHAT,
         )
 
+    def test_short_unrelated_topic_breaks_snapshot_inheritance(self) -> None:
+        snapshot = self.snapshot()
+        history = [
+            {"role": "user", "content": "Prečo si bullish?", "mode": ANALYSIS_QA},
+            {"role": "assistant", "content": "Podľa snapshotu.", "mode": ANALYSIS_QA},
+        ]
+        for question in (
+            "A čo Python?",
+            "Ako funguje fotosyntéza?",
+            "Kto bol Newton?",
+            "A čo počasie?",
+        ):
+            with self.subTest(question=question):
+                self.assertEqual(
+                    select_conversation_mode(question, analysis=snapshot, history=history),
+                    GENERAL_CHAT,
+                )
+                messages = build_messages(question, analysis=snapshot, history=history)
+                self.assertNotIn("CANONICAL_ANALYSIS_FACTS", messages[0]["content"])
+        for question in ("Prečo?", "A ako?", "A čo to znamená?"):
+            with self.subTest(question=question):
+                self.assertEqual(
+                    select_conversation_mode(question, analysis=snapshot, history=history),
+                    ANALYSIS_QA,
+                )
+
+    def test_multiturn_topic_break_does_not_inherit_old_analysis(self) -> None:
+        snapshot = self.snapshot()
+        history = [
+            {"role": "user", "content": "Prečo si bullish?", "mode": ANALYSIS_QA},
+            {"role": "assistant", "content": "Podľa snapshotu.", "mode": ANALYSIS_QA},
+            {"role": "user", "content": "A čo Python?", "mode": GENERAL_CHAT},
+            {"role": "assistant", "content": "Python je jazyk.", "mode": GENERAL_CHAT},
+        ]
+        self.assertEqual(
+            select_conversation_mode("Prečo?", analysis=snapshot, history=history),
+            GENERAL_CHAT,
+        )
+        self.assertEqual(
+            select_conversation_mode("Aké sú riziká?", analysis=snapshot, history=history),
+            ANALYSIS_QA,
+        )
+
     def test_history_is_filtered_by_mode(self) -> None:
         snapshot = self.snapshot()
         history = [
