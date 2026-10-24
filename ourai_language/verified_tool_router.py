@@ -59,7 +59,7 @@ _DEFINITIONS = ("co je ", "co znamena ", "what is ", "define ", "vysvetli pojem 
 # Educational requests must never open an evidence reader simply because they
 # mention a forward model, report, or historical validation.
 _EDUCATIONAL_OPENINGS = (
-    "vysvetli mi ", "vysvetli prosim ", "vysvetli, ",
+    "vysvetli mi ", "vysvetli mi, ", "vysvetli prosim ", "vysvetli prosim, ", "vysvetli, ",
     "ako funguje ", "ako vlastne funguje ", "na co sluzi ",
     "aky je rozdiel medzi ", "aky je vyznam ",
     "can you explain ", "explain what ", "how does ",
