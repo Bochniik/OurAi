@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import unittest
+from trading.direction import JointReturnResearchEstimate
 from datetime import datetime, timedelta, timezone
 
 from trading.evaluation import (
@@ -175,6 +176,59 @@ class ForecastEvaluationTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "p_up"):
             self._forecast(p_up=1.2)
 
+
+
+class JointReturnResearchEstimateTests(unittest.TestCase):
+    def test_three_outcome_expectation_and_percent_units(self):
+        estimate = JointReturnResearchEstimate(
+            p_up_given_directional=0.75, p_neutral=0.2,
+            up_magnitude_bps=30, down_magnitude_bps=10,
+            neutral_signed_mean_bps=0,
+        )
+        self.assertAlmostEqual(estimate.p_up, 0.6)
+        self.assertAlmostEqual(estimate.p_down, 0.2)
+        self.assertAlmostEqual(estimate.p_up + estimate.p_down + estimate.p_neutral, 1.0)
+        self.assertAlmostEqual(estimate.expected_signed_return_bps, 16)
+        self.assertAlmostEqual(estimate.expected_signed_return_percent, 0.16)
+
+    def test_conditional_magnitudes_can_reverse_direction_majority(self):
+        estimate = JointReturnResearchEstimate(
+            p_up_given_directional=0.6, p_neutral=0.2,
+            up_magnitude_bps=5, down_magnitude_bps=20,
+            neutral_signed_mean_bps=-1,
+        )
+        self.assertAlmostEqual(estimate.expected_signed_return_bps, -4.2)
+
+    def test_invalid_inputs_fail_closed(self):
+        defaults = {
+            "p_up_given_directional": 0.6,
+            "p_neutral": 0.2,
+            "up_magnitude_bps": 10,
+            "down_magnitude_bps": 10,
+            "neutral_signed_mean_bps": 0,
+        }
+        for changed in (
+            {"p_up_given_directional": float("nan")},
+            {"p_up_given_directional": 1.1},
+            {"p_neutral": 1},
+            {"p_neutral": -0.1},
+            {"p_up_given_directional": True},
+            {"up_magnitude_bps": -1},
+            {"down_magnitude_bps": float("inf")},
+            {"neutral_signed_mean_bps": 5},
+            {"up_magnitude_bps": 2},
+            {"horizon_minutes": 5},
+        ):
+            with self.subTest(changed=changed), self.assertRaises(ValueError):
+                JointReturnResearchEstimate(**(defaults | changed))
+
+    def test_all_neutral_abstains_instead_of_fabricating_probability(self):
+        with self.assertRaisesRegex(ValueError, "all-neutral"):
+            JointReturnResearchEstimate(
+                p_up_given_directional=0.5, p_neutral=1,
+                up_magnitude_bps=10, down_magnitude_bps=10,
+                neutral_signed_mean_bps=0,
+            )
 
 if __name__ == "__main__":
     unittest.main()
