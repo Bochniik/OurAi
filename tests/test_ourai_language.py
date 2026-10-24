@@ -208,6 +208,42 @@ class OurAILanguageTests(unittest.TestCase):
         self.assertIn("Ahoj!", contents)
         self.assertNotIn("Analysis answer", contents)
 
+    def test_return_to_current_snapshot_filters_previous_instrument(self) -> None:
+        snapshot = self.snapshot()
+        history = [
+            {"role": "user", "content": "Analýza AAPL?", "mode": ANALYSIS_QA,
+             "analysis_ticker": "AAPL"},
+            {"role": "assistant", "content": "STARÁ AAPL PROGNÓZA", "mode": ANALYSIS_QA,
+             "analysis_ticker": "AAPL"},
+            {"role": "user", "content": "Ahoj", "mode": GENERAL_CHAT},
+            {"role": "assistant", "content": "Ahoj!", "mode": GENERAL_CHAT},
+            {"role": "user", "content": "Prečo je NVDA bullish?", "mode": ANALYSIS_QA,
+             "analysis_ticker": "NVDA"},
+            {"role": "assistant", "content": "AKTUÁLNY NVDA KONTEXT",
+             "mode": ANALYSIS_QA, "analysis_ticker": "NVDA"},
+        ]
+        messages = build_messages("Vráťme sa k analýze NVDA.",
+                                  analysis=snapshot, history=history)
+        content = "\n".join(item["content"] for item in messages)
+        self.assertIn("AKTUÁLNY NVDA KONTEXT", content)
+        self.assertIn("CANONICAL_ANALYSIS_FACTS", content)
+        self.assertNotIn("STARÁ AAPL PROGNÓZA", content)
+        self.assertNotIn("Analýza AAPL?", content)
+        self.assertNotIn("Ahoj!", content)
+
+    def test_legacy_untagged_analysis_turns_remain_supported(self) -> None:
+        snapshot = self.snapshot()
+        history = [
+            {"role": "user", "content": "Prečo si bullish?", "mode": ANALYSIS_QA},
+            {"role": "assistant", "content": "Neoznačený starší kontext.",
+             "mode": ANALYSIS_QA},
+        ]
+        messages = build_messages("Prečo?", analysis=snapshot, history=history)
+        self.assertIn(
+            "Neoznačený starší kontext.",
+            [item["content"] for item in messages],
+        )
+
     def test_grounding_guard_accepts_only_snapshot_percentages(self) -> None:
         snapshot = self.snapshot()
         self.assertEqual(
