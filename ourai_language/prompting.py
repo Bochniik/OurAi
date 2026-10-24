@@ -111,6 +111,7 @@ def _normalized_history(
     history: Iterable[Mapping[str, str]] | None,
     *,
     mode: str | None = None,
+    analysis_ticker: str | None = None,
 ) -> list[dict[str, str]]:
     rows: list[dict[str, str]] = []
     for item in history or ():
@@ -123,6 +124,13 @@ def _normalized_history(
             continue
         if mode is not None and item_mode and item_mode != mode:
             continue
+        # When a recorded analysis turn is tagged with the snapshot it used,
+        # never leak its answer into a different instrument's active snapshot.
+        # Untagged legacy history remains backward compatible.
+        if mode == ANALYSIS_QA and analysis_ticker is not None:
+            tagged_ticker = str(item.get("analysis_ticker", "")).strip().upper()
+            if tagged_ticker and tagged_ticker != analysis_ticker.upper():
+                continue
         rows.append({"role": role, "content": content})
     return rows
 
@@ -293,6 +301,9 @@ def build_messages(
         system = GENERAL_SYSTEM_PROMPT
 
     messages = [{"role": "system", "content": system}]
-    messages.extend(_normalized_history(history, mode=selected_mode))
+    messages.extend(_normalized_history(
+        history, mode=selected_mode,
+        analysis_ticker=analysis.ticker if selected_mode == ANALYSIS_QA and analysis is not None else None,
+    ))
     messages.append({"role": "user", "content": message})
     return messages
