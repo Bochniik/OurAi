@@ -25,10 +25,44 @@ def _ticker_in(text: str) -> str | None:
     )
 
 
+_DEFINITION_CLAUSES = (
+    "co je ", "co znamena ", "ako funguje ", "ako vlastne funguje ",
+    "na co sluzi ", "aky je rozdiel medzi ", "aky je vyznam ",
+    "what is ", "what does ", "how does ", "what is the difference between ",
+)
+
+
+def is_forward_educational_request(message: str) -> bool:
+    """Do not mistake explanations of concepts for observed forward evidence.
+
+    Keep performance requests such as "vysvetli mi výsledky forward denníka"
+    eligible: only an explicit definition clause is educational.
+    """
+    text = _normalize(str(message or "")).strip().strip('.?!„“"')
+    text = re.sub(r"^prosim[, ]+", "", text)
+    # Preserve the existing conservative education boundary for broad
+    # "please explain" prompts; only explicit observed-result phrasing
+    # such as "vysvetli mi výsledky" opts into the reader.
+    if text.startswith(("vysvetli prosim ", "vysvetli prosim, ", "can you explain ")):
+        return True
+    if text.startswith(_DEFINITION_CLAUSES + (
+        "define ", "vysvetli pojem ", "explain what ",
+    )):
+        return True
+    preface = re.match(
+        r"^(?:(?:mozes|vies|dokazes)(?: mi)?(?: prosim)? )?"
+        r"(?:vysvetli|vysvetlit)(?: mi)?[, ]+",
+        text,
+    )
+    return bool(
+        preface and text[preface.end():].startswith(_DEFINITION_CLAUSES)
+    )
+
+
 def forward_question_kind(message: str) -> str | None:
     """Require explicit forward/record/forecast intent; not everyday questions."""
     text = _normalize(str(message or "").strip())
-    if not text:
+    if not text or is_forward_educational_request(message):
         return None
     ticker = _ticker_in(text)
     explicit = any(word in text for word in (

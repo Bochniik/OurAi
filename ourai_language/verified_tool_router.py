@@ -10,6 +10,7 @@ import json
 import re
 import unicodedata
 
+from .forward_answers import is_forward_educational_request
 from .semantic_router import canonical_historical_question
 from trading.forward_analytics import FROZEN_SYMBOLS
 
@@ -33,6 +34,8 @@ Example: "Porovnaj historickú MAE s lineárnym modelom" =>
 historical_v3,compare,both,linear.
 Example: "Čo je paper trading?" => none,none,both,both.
 Example: "Môžeš mi vysvetliť, ako funguje shadow model?" => none,none,both,both.
+Example: "Prosím, vysvetli mi, čo znamená MAE vo forward denníku." => none,none,both,both.
+Example: "Vysvetli mi výsledky vo forward denníku." => forward_v2,performance,both,both.
 """
 
 
@@ -56,34 +59,6 @@ _CURRENT_TRADE = (
     "kupi", "kup ", "predaj", "nakup", "kupit", "predat", "zobchoduj",
     "order", "obchodny prikaz", "garantuj", "zaruc",
 )
-_DEFINITIONS = ("co je ", "co znamena ", "what is ", "define ", "vysvetli pojem ")
-# Educational requests must never open an evidence reader simply because they
-# mention a forward model, report, or historical validation.
-_EDUCATIONAL_OPENINGS = (
-    "vysvetli mi ", "vysvetli mi, ", "vysvetli prosim ", "vysvetli prosim, ", "vysvetli, ",
-    "ako funguje ", "ako vlastne funguje ", "na co sluzi ",
-    "aky je rozdiel medzi ", "aky je vyznam ",
-    "can you explain ", "explain what ", "how does ",
-    "what does ", "what is the difference between ",
-)
-
-
-def _educational_request(text: str) -> bool:
-    if text.startswith(_DEFINITIONS + _EDUCATIONAL_OPENINGS):
-        return True
-    # Natural Slovak polite questions may contain a definition *after* the
-    # preface. Match only an explicit educational clause; "ako sa ti darí"
-    # remains an evidence request rather than a definition.
-    return bool(re.match(
-        r"^(?:mozes|vies|dokazes)(?: mi)?(?: prosim)? vysvetlit(?: mi)?[, ]+"
-        r"(?:co je |co znamena |ako funguje |ako vlastne funguje "
-        r"|aky je rozdiel medzi |na co sluzi )",
-        text,
-    ))
-
-
-
-
 def _plain(text: str) -> str:
     folded = unicodedata.normalize("NFKD", text.casefold())
     return "".join(character for character in folded if not unicodedata.combining(character))
@@ -91,7 +66,7 @@ def _plain(text: str) -> str:
 
 def _user_forward_evidence(question: str) -> bool:
     text = _plain(question).strip(" .?!„“\"")
-    if not text or len(text) > 500 or _educational_request(text):
+    if not text or len(text) > 500 or is_forward_educational_request(question):
         return False
     if not any(anchor in text for anchor in _FORWARD_ANCHORS):
         return False

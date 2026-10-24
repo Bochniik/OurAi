@@ -7,6 +7,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
+from ourai_language.forward_answers import forward_question_kind
 from ourai_language.historical_answers import historical_question_kind
 from ourai_language.ollama_runtime import LocalOllamaChatRuntime
 from ourai_language.verified_tool_router import select_verified_tool
@@ -115,6 +116,67 @@ class VerifiedToolSelectionTests(unittest.TestCase):
             ),
             ("forward_v2", "Aká je presnosť predikcií vo forward denníku?"),
         )
+
+    def test_forward_definitions_do_not_open_deterministic_or_opt_in_reader(self):
+        # The deterministic reader runs before the optional Qwen tool router.
+        # Both must enforce the same educational boundary.
+        proposal = choice("forward_v2", "performance")
+        for question in (
+            "Čo znamená MAE vo forward denníku?",
+            "Ako funguje forward model?",
+            "Prosím, vysvetli mi, čo je forward model.",
+            "Môžeš mi vysvetliť, ako funguje forward model?",
+            "Vieš mi prosím vysvetliť, na čo slúži forward denník?",
+            "Explain what forward model means.",
+            "Vysvetli prosím forward predikcie OurAI.",
+            "Can you explain forward model performance?",
+        ):
+            with self.subTest(question=question):
+                self.assertIsNone(forward_question_kind(question))
+                self.assertIsNone(select_verified_tool(
+                    question, proposal,
+                    historical_available=True, forward_available=True,
+                ))
+
+    def test_explanation_of_observed_forward_results_is_not_definition(self):
+        proposal = choice("forward_v2", "performance")
+        for question in (
+            "Vysvetli mi výsledky vo forward denníku.",
+            "Môžeš mi vysvetliť, ako sa ti darí v shadow režime?",
+        ):
+            with self.subTest(question=question):
+                self.assertEqual(
+                    select_verified_tool(
+                        question, proposal,
+                        historical_available=True, forward_available=True,
+                    )[0],
+                    "forward_v2",
+                )
+        self.assertEqual(
+            forward_question_kind("Vysvetli mi výsledky vo forward denníku."),
+            "performance",
+        )
+        self.assertEqual(
+            forward_question_kind("Aká je MAE vo forward denníku?"),
+            "performance",
+        )
+
+    def test_educational_question_does_not_touch_missing_forward_journal(self):
+        with tempfile.TemporaryDirectory() as temp:
+            missing = Path(temp) / "missing.jsonl"
+            runtime = LocalOllamaChatRuntime(
+                forward_journal=missing, semantic_tool_routing=True,
+                knowledge_enabled=False,
+            )
+            with patch.object(runtime, "_generate", side_effect=[
+                choice("forward_v2", "performance"),
+                "MAE je priemerná absolútna chyba.",
+            ]) as generated:
+                result = runtime.respond("Čo znamená MAE vo forward denníku?")
+            self.assertEqual(result.answer_source, "model")
+            self.assertIn("priemerná absolútna chyba", result.text)
+            self.assertEqual(generated.call_count, 2)
+            self.assertFalse(missing.exists())
 
     def test_historical_source_never_steals_shadow_and_requires_report_config(self):
         classification = choice("historical_v3", "compare", "validation", "linear")
