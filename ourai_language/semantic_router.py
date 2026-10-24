@@ -165,8 +165,8 @@ def _explicit_comparison_baseline(text: str) -> str | None:
     This only constrains comparisons. With no explicitly named baseline the
     existing classifier behavior is retained for backward compatibility.
     """
-    linear = bool(re.search(r"(?<!\\w)(?:linearn|linear)\\w*", text))
-    null = bool(re.search(r"(?<!\\w)(?:nulov\\w*|null\\b)", text))
+    linear = bool(re.search(r"(?<!\w)(?:linearn|linear)\w*", text))
+    null = bool(re.search(r"(?<!\w)(?:nulov\w*|null\b)", text))
     if linear and null:
         return "both"
     if linear:
