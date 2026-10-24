@@ -244,6 +244,48 @@ class OurAILanguageTests(unittest.TestCase):
             [item["content"] for item in messages],
         )
 
+    def test_short_followup_does_not_inherit_different_tagged_ticker(self) -> None:
+        snapshot = self.snapshot()
+        history = [
+            {"role": "user", "content": "Prečo je AAPL bullish?",
+             "mode": ANALYSIS_QA, "analysis_ticker": "AAPL"},
+            {"role": "assistant", "content": "Analýza AAPL.",
+             "mode": ANALYSIS_QA, "analysis_ticker": "AAPL"},
+        ]
+        self.assertEqual(
+            select_conversation_mode("Prečo?", analysis=snapshot, history=history),
+            GENERAL_CHAT,
+        )
+        messages = build_messages("Prečo?", analysis=snapshot, history=history)
+        self.assertNotIn("CANONICAL_ANALYSIS_FACTS", messages[0]["content"])
+        self.assertNotIn("Analýza AAPL.", [item["content"] for item in messages])
+
+    def test_short_followup_keeps_matching_tagged_ticker(self) -> None:
+        snapshot = self.snapshot()
+        history = [
+            {"role": "user", "content": "Prečo je NVDA bullish?",
+             "mode": ANALYSIS_QA, "analysis_ticker": " nvda "},
+            {"role": "assistant", "content": "Podľa snapshotu.",
+             "mode": ANALYSIS_QA, "analysis_ticker": "NVDA"},
+        ]
+        self.assertEqual(
+            select_conversation_mode("Prečo?", analysis=snapshot, history=history),
+            ANALYSIS_QA,
+        )
+        messages = build_messages("Prečo?", analysis=snapshot, history=history)
+        self.assertIn("CANONICAL_ANALYSIS_FACTS", messages[0]["content"])
+
+    def test_short_followup_preserves_untagged_legacy_mode(self) -> None:
+        snapshot = self.snapshot()
+        history = [
+            {"role": "user", "content": "Prečo je to bullish?", "mode": ANALYSIS_QA},
+            {"role": "assistant", "content": "Podľa snapshotu.", "mode": ANALYSIS_QA},
+        ]
+        self.assertEqual(
+            select_conversation_mode("Prečo?", analysis=snapshot, history=history),
+            ANALYSIS_QA,
+        )
+
     def test_grounding_guard_accepts_only_snapshot_percentages(self) -> None:
         snapshot = self.snapshot()
         self.assertEqual(
