@@ -82,6 +82,10 @@ class VerifiedToolSelectionTests(unittest.TestCase):
                     )
                     # Standalone requests cannot use a historical reader.
                     self.assertIsNone(historical_question_kind(question))
+                    self.assertIsNone(select_verified_tool(
+                        question, choice("historical_v3", "compare"),
+                        historical_available=True, forward_available=True,
+                    ))
                     for invalid_history in (
                         [], history[:-1],
                         [history[0], {**history[1], "source": "model"}],
