@@ -116,6 +116,27 @@ class OurAILanguageTests(unittest.TestCase):
             GENERAL_CHAT,
         )
 
+    def test_thanks_prefixed_analytical_question_is_not_suppressed(self) -> None:
+        snapshot = self.snapshot()
+        for question in (
+            "Ďakujem, ale prečo je NVDA bullish?",
+            "Dakujem, aké sú riziká tejto predikcie?",
+            "Thanks, vysvetli analýzu NVDA.",
+        ):
+            with self.subTest(question=question):
+                self.assertEqual(select_conversation_mode(question, analysis=snapshot), ANALYSIS_QA)
+                self.assertIn(
+                    "CANONICAL_ANALYSIS_FACTS",
+                    build_messages(question, analysis=snapshot)[0]["content"],
+                )
+        for question in ("Ďakujem!", "Ďakujem, ako sa máš?", "Thanks, povedz vtip."):
+            with self.subTest(question=question):
+                self.assertEqual(select_conversation_mode(question, analysis=snapshot), GENERAL_CHAT)
+        self.assertEqual(
+            select_conversation_mode("Ďakujem, ale aká je predikcia pre AAPL?", analysis=snapshot),
+            GENERAL_CHAT,
+        )
+
     def test_short_followup_can_inherit_analysis_mode_but_social_overrides(self) -> None:
         snapshot = self.snapshot()
         history = [
