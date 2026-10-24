@@ -163,6 +163,16 @@ def historical_followup_question(
         )):
             return None
 
+    # An explicit new comparison target must refer to known model evidence.
+    # "A oproti minulému roku?" is not a request for historical v3 metrics.
+    if text.startswith(("a oproti ", "oproti ", "a v porovnani s ", "v porovnani s ")):
+        if not any(cue in text for cue in (
+            "linearn", "linear", "nulov", "null", "baseline", "model",
+            "v3", "mae", "validac", "lockbox", "vysledk",
+            "tomu", "tymto", "predchadzajucim vysledk",
+        )):
+            return None
+
     comparative = prior_kind is not None and prior_kind.startswith("compare")
     comparable_prompt = any(term in text for term in (
         "o kolko", "oproti", "v porovnani", "porovnaj", "kolko leps",
