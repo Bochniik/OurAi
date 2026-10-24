@@ -78,7 +78,14 @@ def historical_followup_question(
     else:
         target = "lineárnym a nulovým baseline"
 
-    why = text.startswith(("a preco", "preco", "a z akeho dovodu", "z akeho dovodu"))
+    # A verified earlier answer does not make unrelated new questions about
+    # Python, markets or financial concepts into historical follow-ups.
+    # Only genuinely elliptical "why" prompts may inherit the report.
+    why = text in (
+        "a preco", "preco", "a z akeho dovodu", "z akeho dovodu",
+        "a preco to tak je", "preco to tak je",
+        "preco su tie vysledky rozdielne", "a preco su tie vysledky rozdielne",
+    )
     if why:
         return "Prečo sa líšia historické výsledky modelu v3?"
     simple = text.startswith((
@@ -86,6 +93,17 @@ def historical_followup_question(
         "a co z toho", "co z toho", "co to znamena pre model",
     ))
     if simple:
+        # Preserve referential summaries, not new standalone education requests.
+        referential = (
+            text in ("jednoducho", "zhrn", "vysvetli", "a vysvetli")
+            or text.startswith((
+                "vysvetli to", "a vysvetli to", "zhrn to",
+                "zhrn vysledky", "vysvetli tie vysledky",
+                "a co z toho", "co z toho", "co to znamena pre model",
+            ))
+        )
+        if not referential:
+            return None
         if split == "lockbox teste":
             return "Zhrň historické výsledky lockbox testu v3 jednoducho."
         if split == "validácii":
