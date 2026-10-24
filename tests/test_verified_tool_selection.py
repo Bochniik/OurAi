@@ -92,6 +92,30 @@ class VerifiedToolSelectionTests(unittest.TestCase):
             historical_available=True, forward_available=False,
         ))
 
+    def test_polite_educational_forward_questions_never_open_reader(self):
+        # The model's tool proposal cannot turn a definition into recorded
+        # forward evidence just because the user mentions "shadow"/"model".
+        proposal = choice("forward_v2", "performance")
+        for question in (
+            "Môžeš mi vysvetliť, čo je shadow model?",
+            "Vieš mi vysvetliť, ako funguje forward model?",
+            "Dokážeš vysvetliť, čo znamená paper trading model?",
+            "Môžeš mi prosím vysvetliť, na čo slúži forward denník?",
+        ):
+            with self.subTest(question=question):
+                self.assertIsNone(select_verified_tool(
+                    question, proposal,
+                    historical_available=True, forward_available=True,
+                ))
+        # A question about observed performance is different from a definition.
+        self.assertEqual(
+            select_verified_tool(
+                "Vieš mi vysvetliť, ako sa ti darí v shadow režime?",
+                proposal, historical_available=True, forward_available=True,
+            ),
+            ("forward_v2", "Aká je presnosť predikcií vo forward denníku?"),
+        )
+
     def test_historical_source_never_steals_shadow_and_requires_report_config(self):
         classification = choice("historical_v3", "compare", "validation", "linear")
         result = select_verified_tool(
