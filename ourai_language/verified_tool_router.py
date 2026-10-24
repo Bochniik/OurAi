@@ -32,6 +32,7 @@ Example: "Ako sa ti darí v shadow režime?" => forward_v2,performance,both,both
 Example: "Porovnaj historickú MAE s lineárnym modelom" =>
 historical_v3,compare,both,linear.
 Example: "Čo je paper trading?" => none,none,both,both.
+Example: "Môžeš mi vysvetliť, ako funguje shadow model?" => none,none,both,both.
 """
 
 
@@ -68,7 +69,17 @@ _EDUCATIONAL_OPENINGS = (
 
 
 def _educational_request(text: str) -> bool:
-    return text.startswith(_DEFINITIONS + _EDUCATIONAL_OPENINGS)
+    if text.startswith(_DEFINITIONS + _EDUCATIONAL_OPENINGS):
+        return True
+    # Natural Slovak polite questions may contain a definition *after* the
+    # preface. Match only an explicit educational clause; "ako sa ti darí"
+    # remains an evidence request rather than a definition.
+    return bool(re.match(
+        r"^(?:mozes|vies|dokazes)(?: mi)?(?: prosim)? vysvetlit(?: mi)?[, ]+"
+        r"(?:co je |co znamena |ako funguje |ako vlastne funguje "
+        r"|aky je rozdiel medzi |na co sluzi )",
+        text,
+    ))
 
 
 
