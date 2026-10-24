@@ -143,9 +143,10 @@ def _explicit_report_split(text: str) -> str | None:
     one split by a classifier. Return "ambiguous" so it fails closed.
     """
     validation = "validac" in text or "validation" in text
+    # "unseen"/"nevidené dáta" can also describe a validation set.
+    # Only an explicitly named lockbox/test split overrides model choice.
     heldout = any(marker in text for marker in (
-        "lockbox", "held-out", "out-of-sample", "unseen",
-        "neviden", "nevidel", "testovac",
+        "lockbox", "testovac",
     ))
     if validation and heldout:
         return "ambiguous"
