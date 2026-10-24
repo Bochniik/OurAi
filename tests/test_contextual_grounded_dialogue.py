@@ -165,6 +165,29 @@ class ContextualHistoricalDialogueTests(unittest.TestCase):
             with self.subTest(question=question):
                 self.assertIsNotNone(historical_followup_question(question, history))
 
+    def test_independent_difference_and_price_questions_do_not_inherit_report(self):
+        history = [
+            {"role": "user", "content": "Porovnaj historickú validáciu v3."},
+            {
+                "role": "assistant", "content": "Overené výsledky.",
+                "source": "historical_v3_reports",
+                "evidence_question": "Porovnaj výsledky modelu v3 v historickej validácii s lineárnym modelom.",
+            },
+        ]
+        for question in (
+            "Aký rozdiel medzi Pythonom a Javou?",
+            "A aký rozdiel medzi dlhopismi a akciami?",
+            "O koľko stojí nový notebook?",
+        ):
+            with self.subTest(question=question):
+                self.assertIsNone(historical_followup_question(question, history))
+        self.assertIsNotNone(historical_followup_question(
+            "Aký rozdiel medzi modelom v3 a lineárnym baseline?", history
+        ))
+        self.assertIsNotNone(historical_followup_question(
+            "O koľko je to lepšie?", history
+        ))
+
     def test_social_break_clears_context(self):
         history = [
             {"role": "user", "content": "Ako dopadla historická validácia?"},

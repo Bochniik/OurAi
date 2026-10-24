@@ -128,6 +128,18 @@ def historical_followup_question(
         if not (referential_comparison or grounded_comparison):
             return None
 
+    # Comparison-like vocabulary can also introduce an independent question.
+    # Do not turn prices or a comparison between unrelated subjects into
+    # retrospective model metrics merely because history contained a report.
+    if text.startswith(("o kolko stoji ", "a o kolko stoji ", "kolko stoji ")):
+        return None
+    if text.startswith(("aky rozdiel medzi ", "a aky rozdiel medzi ")):
+        if not any(term in text for term in (
+            "vysled", "model", "baseline", "mae", "lockbox",
+            "validac", "histor", "nulov", "linearn",
+        )):
+            return None
+
     comparative = prior_kind is not None and prior_kind.startswith("compare")
     comparable_prompt = any(term in text for term in (
         "o kolko", "oproti", "v porovnani", "porovnaj", "kolko leps",
