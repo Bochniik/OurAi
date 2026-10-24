@@ -84,6 +84,21 @@ def historical_source_correction_target(message: str) -> str | None:
     return "validation" if match.group(1).startswith("validac") else "test"
 
 
+def is_bare_baseline_followup(message: str) -> bool:
+    """Only a verified historical conversation may resolve this elliptical request.
+
+    A standalone "A teraz to porovnaj s nulovým" has no known report split;
+    it must not open validation and lockbox reports by default.
+    """
+    text = _normalize(str(message or "")).strip().strip('.?!„“"')
+    return bool(re.fullmatch(
+        r"(?:a )?teraz (?:to )?porovnaj (?:to )?(?:s|so) "
+        r"(?:nulov\w*|null|linearn\w*|linear)"
+        r"(?: (?:baseline|modelom))?",
+        text,
+    ))
+
+
 def historical_question_kind(message: str) -> str | None:
     """Classify only model-performance requests, never finance definitions.
 
@@ -92,7 +107,7 @@ def historical_question_kind(message: str) -> str | None:
     another context, so historical markers take precedence there.
     """
     text = _normalize(str(message or "").strip())
-    if not text or is_historical_educational_request(message):
+    if not text or is_historical_educational_request(message) or is_bare_baseline_followup(message):
         return None
     # A bare "Nie, myslel som validáciu" needs a verified preceding source.
     # The standalone deterministic reader must never assume that context.
