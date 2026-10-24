@@ -239,6 +239,34 @@ class ContextualHistoricalDialogueTests(unittest.TestCase):
             self.assertEqual(answer.text, "Ide o samostatnú otázku.")
             generated.assert_called_once()
 
+    def test_referential_verb_must_not_import_unrelated_new_subject(self):
+        history = [
+            {"role": "user", "content": "Ako dopadla historická validácia v3?"},
+            {
+                "role": "assistant",
+                "source": "historical_v3_reports",
+                "content": "Overené historické výsledky.",
+                "evidence_question": "Ako dopadla historická validácia v3?",
+            },
+        ]
+        for question in (
+            "Vysvetli to na príklade s Pythonom.",
+            "Zhrň to pre môj nový školský projekt.",
+            "Porovnaj to s Teslou.",
+            "A porovnaj ich s našimi autami.",
+        ):
+            with self.subTest(question=question):
+                self.assertIsNone(historical_followup_question(question, history))
+        for question in (
+            "Vysvetli to.",
+            "Vysvetli to jednoducho.",
+            "Zhrň to.",
+            "A porovnaj ich.",
+            "Porovnaj to s lineárnym modelom.",
+        ):
+            with self.subTest(question=question):
+                self.assertIsNotNone(historical_followup_question(question, history))
+
     def test_social_break_clears_context(self):
         history = [
             {"role": "user", "content": "Ako dopadla historická validácia?"},

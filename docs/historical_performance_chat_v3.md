@@ -158,3 +158,5 @@ produced by the verified report reader; this routing does not invent metrics.
 
 These rules are covered by `tests/test_history_topic_boundaries.py` and do not
 constitute a local Qwen or Ollama language-quality benchmark.
+
+Anaphoric verbs such as `Vysvetli to` and `Porovnaj to` preserve historical context only when the whole request remains referential or explicitly names the verified model/baseline. Adding an unrelated new subject (for example, `Porovnaj to s Teslou`) is not permission to redirect the query to historical results. The focused regression cases are included in `tests/test_contextual_grounded_dialogue.py`.
