@@ -256,6 +256,56 @@ class OurAILanguageTests(unittest.TestCase):
             GENERAL_CHAT,
         )
 
+    def test_referential_paraphrases_require_same_recent_topic(self) -> None:
+        snapshot = self.snapshot()
+        analysis_history = [
+            {"role": "user", "content": "Prečo je NVDA bullish?",
+             "mode": ANALYSIS_QA, "analysis_ticker": "NVDA"},
+            {"role": "assistant", "content": "Zo snapshotu.",
+             "mode": ANALYSIS_QA, "analysis_ticker": "NVDA"},
+        ]
+        general_history = [
+            {"role": "user", "content": "Vysvetli mi Python.",
+             "mode": GENERAL_CHAT},
+        ]
+        other_ticker_history = [
+            {"role": "user", "content": "Prečo je AAPL bullish?",
+             "mode": ANALYSIS_QA, "analysis_ticker": "AAPL"},
+        ]
+        for question in (
+            "Môžeš mi to vysvetliť inak?",
+            "Vieš to vysvetliť jednoduchšie?",
+            "Dokážeš mi to vysvetliť prosím inak?",
+            "A čo z toho teda vyplýva?",
+        ):
+            with self.subTest(question=question):
+                self.assertEqual(
+                    select_conversation_mode(
+                        question, analysis=snapshot, history=analysis_history,
+                    ), ANALYSIS_QA,
+                )
+                self.assertIn(
+                    "CANONICAL_ANALYSIS_FACTS",
+                    build_messages(
+                        question, analysis=snapshot, history=analysis_history,
+                    )[0]["content"],
+                )
+                for unrelated in (general_history, other_ticker_history):
+                    self.assertEqual(
+                        select_conversation_mode(
+                            question, analysis=snapshot, history=unrelated,
+                        ), GENERAL_CHAT,
+                    )
+        for question in (
+            "Môžeš mi vysvetliť Python inak?",
+            "Môžeš mi to vysvetliť inak pre Python?",
+        ):
+            self.assertEqual(
+                select_conversation_mode(
+                    question, analysis=snapshot, history=analysis_history,
+                ), GENERAL_CHAT,
+            )
+
     def test_multiturn_topic_break_does_not_inherit_old_analysis(self) -> None:
         snapshot = self.snapshot()
         history = [

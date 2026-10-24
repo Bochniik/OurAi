@@ -196,7 +196,15 @@ def _is_short_referential_followup(message: str) -> bool:
         "a čo z toho vyplýva", "a co z toho vyplyva",
         "čo z toho vyplýva", "co z toho vyplyva",
         "vieš mi to vysvetliť jednoduchšie", "vies mi to vysvetlit jednoduchsie",
-    }
+    } or bool(re.fullmatch(
+        # Deliberately require the referent "to" and the entire utterance:
+        # "vysvetli mi Python" must never inherit a stock snapshot.
+        r"(?:môžeš|mozes|vieš|vies|dokážeš|dokazes)"
+        r"(?: mi)? to vysvetliť(?: prosím)? (?:inak|jednoduchšie|jednoduchsie)"
+        r"|(?:a )?čo z toho teda vyplýva"
+        r"|(?:a )?co z toho teda vyplyva",
+        text,
+    ))
 
 
 def select_conversation_mode(
@@ -250,7 +258,7 @@ def select_conversation_mode(
         return ANALYSIS_QA
 
     tokens = message.split()
-    if len(tokens) <= 6 and _is_short_referential_followup(message):
+    if len(tokens) <= 9 and _is_short_referential_followup(message):
         for item in reversed(list(history or ())):
             if str(item.get("role", "")).strip().lower() != "user":
                 continue
