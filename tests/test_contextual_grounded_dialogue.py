@@ -188,6 +188,57 @@ class ContextualHistoricalDialogueTests(unittest.TestCase):
             "O koľko je to lepšie?", history
         ))
 
+    def test_symbol_followups_keep_historical_context_only_for_errors(self):
+        history = [
+            {"role": "user", "content": "Ako dopadla historická validácia v3?"},
+            {
+                "role": "assistant", "content": "Overené historické výsledky.",
+                "source": "historical_v3_reports",
+                "evidence_question": "Ako dopadla historická validácia v3?",
+            },
+        ]
+        for question in (
+            "A pri ktorej?",
+            "A pri ktorých akciách?",
+            "A ktorá akcia?",
+            "A pri ktorej akcii má model najväčšiu chybu?",
+            "A ktoré akcie majú najhoršie výsledky?",
+        ):
+            with self.subTest(question=question):
+                self.assertEqual(
+                    historical_followup_question(question, history),
+                    "Pri ktorých akciách robí historický model v3 najväčšie chyby?",
+                )
+        for question in (
+            "A pri ktorej akcii je najvyššia dividenda?",
+            "A ktorá akcia má najvyššiu cenu?",
+            "A pri ktorých akciách je najväčší objem obchodov?",
+            "A ktorá akcia mala najvyšší zisk?",
+        ):
+            with self.subTest(question=question):
+                self.assertIsNone(historical_followup_question(question, history))
+
+    def test_new_symbol_topic_reaches_general_chat(self):
+        with tempfile.TemporaryDirectory() as temp:
+            runtime = LocalOllamaChatRuntime(historical_reports_dir=Path(temp))
+            history = [
+                {"role": "user", "content": "Ako dopadla historická validácia v3?"},
+                {
+                    "role": "assistant", "content": "Overené historické výsledky.",
+                    "source": "historical_v3_reports",
+                    "evidence_question": "Ako dopadla historická validácia v3?",
+                },
+            ]
+            with patch.object(
+                runtime, "_generate", return_value="Ide o samostatnú otázku."
+            ) as generated:
+                answer = runtime.respond(
+                    "A ktorá akcia má najvyššiu dividendu?", history=history
+                )
+            self.assertEqual(answer.answer_source, "model")
+            self.assertEqual(answer.text, "Ide o samostatnú otázku.")
+            generated.assert_called_once()
+
     def test_social_break_clears_context(self):
         history = [
             {"role": "user", "content": "Ako dopadla historická validácia?"},

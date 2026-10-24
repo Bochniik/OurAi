@@ -110,7 +110,20 @@ def historical_followup_question(
             return "Zhrň výsledky historickej validácie v3 jednoducho."
         return "Zhrň historické výsledky modelu v3 jednoducho."
     if text.startswith(("a pri ktorej", "a pri ktorych", "a ktora akcia", "a ktore akcie")):
-        return "Pri ktorých akciách robí historický model v3 najväčšie chyby?"
+        # "A ktorá akcia má najvyššiu dividendu?" changes the subject.
+        # Only a short elliptical reference or an explicit error/performance
+        # question may inherit the previous historical report.
+        elliptical = text in (
+            "a pri ktorej", "a pri ktorych",
+            "a pri ktorej akcii", "a pri ktorych akciach",
+            "a ktora akcia", "a ktore akcie",
+        )
+        historical_error = any(cue in text for cue in (
+            "chyb", "mae", "odchyl", "nepresn", "presn", "vysledk",
+        ))
+        if elliptical or historical_error:
+            return "Pri ktorých akciách robí historický model v3 najväčšie chyby?"
+        return None
 
     # A fresh comparison of unrelated subjects is not a request to compare
     # historical model evidence. Keep only an explicit result/baseline target
