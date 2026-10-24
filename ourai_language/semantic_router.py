@@ -11,7 +11,7 @@ import json
 import re
 import unicodedata
 
-from .historical_answers import is_historical_educational_request
+from .historical_answers import explicit_comparison_baseline, is_historical_educational_request
 
 
 SYSTEM_PROMPT = """Classify the user's question for a strictly READ-ONLY historical
@@ -30,7 +30,9 @@ performance differs; "simple" when asked to summarize historical performance.
 For compare, set split and baseline from the question when given; otherwise
 "both". Explicit validation versus lockbox wording from the user overrides
 a model-suggested split. Explicit linear/null baseline names in the user's
-question override a model-suggested baseline; if both are named, use both. Do not produce numbers, user-supplied text,
+question override a model-suggested baseline. For explicit "not X, but Y"
+contrasts, use only Y; for unresolved exclusions, choose none. If both
+baselines are affirmatively named, use both. Do not produce numbers, user-supplied text,
 explanations or file paths.
 Examples:
 'How did you do on unseen historical data?' => test
@@ -159,23 +161,6 @@ def _explicit_report_split(text: str) -> str | None:
     return None
 
 
-def _explicit_comparison_baseline(text: str) -> str | None:
-    """Preserve the user's named baseline; a model may not silently replace it.
-
-    This only constrains comparisons. With no explicitly named baseline the
-    existing classifier behavior is retained for backward compatibility.
-    """
-    linear = bool(re.search(r"(?<!\w)(?:linearn|linear)\w*", text))
-    null = bool(re.search(r"(?<!\w)(?:nulov\w*|null\b)", text))
-    if linear and null:
-        return "both"
-    if linear:
-        return "linear"
-    if null:
-        return "null"
-    return None
-
-
 def canonical_historical_question(
     original_question: str,
     model_response: str,
@@ -212,6 +197,8 @@ def canonical_historical_question(
         return None
     if intent == "none":
         return None
+    if explicit_comparison_baseline(user_text) == "ambiguous":
+        return None
     # The classifier may suggest the wrong report split. A named validation
     # or lockbox in the user's question is authoritative; never silently
     # substitute the other source or a two-report overview.
@@ -225,7 +212,7 @@ def canonical_historical_question(
     # A classifier must not silently swap the user's requested comparison
     # baseline. Keep the original behavior when the user named neither.
     if intent == "compare":
-        named_baseline = _explicit_comparison_baseline(user_text)
+        named_baseline = explicit_comparison_baseline(user_text)
         if named_baseline is not None:
             baseline = named_baseline
     if intent == "overview":

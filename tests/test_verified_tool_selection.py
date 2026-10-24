@@ -326,6 +326,69 @@ class VerifiedToolSelectionTests(unittest.TestCase):
         self.assertIsNotNone(unspecified)
         self.assertIn("lineárnym modelom", unspecified[1])
 
+    def test_negated_baseline_contrast_never_includes_excluded_model(self):
+        # Synthetic validation fixture only; this does not test local Qwen.
+        with tempfile.TemporaryDirectory() as directory:
+            validation_fixture(Path(directory))
+            cases = (
+                ("Neporovnávaj historickú validáciu v3 s lineárnym modelom, ale s nulovým baseline.",
+                 "linear", "nulový baseline", "lineárny baseline"),
+                ("Porovnaj historickú MAE v3 nie s nulovým baseline, ale s lineárnym modelom.",
+                 "null", "lineárny baseline", "nulový baseline"),
+            )
+            for question, wrong_proposal, expected, excluded in cases:
+                with self.subTest(question=question):
+                    # Deterministic reader runs before optional tool selection.
+                    self.assertEqual(historical_question_kind(question), "compare_validation"
+                                     if "validáciu" in question else "compare")
+                    deterministic = maybe_historical_answer(question, directory)
+                    self.assertIsNotNone(deterministic)
+                    self.assertIn(expected, deterministic)
+                    self.assertNotIn(excluded, deterministic)
+                    for tool in ("historical_v3",):
+                        selected = select_verified_tool(
+                            question, choice(tool, "compare", "validation", wrong_proposal),
+                            historical_available=True, forward_available=True,
+                        )
+                        self.assertIsNotNone(selected)
+                        self.assertEqual(selected[0], "historical_v3")
+                        self.assertIn(
+                            "nulovým baseline" if expected == "nulový baseline"
+                            else "lineárnym modelom",
+                            selected[1],
+                        )
+                        self.assertNotIn(
+                            "lineárnym aj nulovým baseline", selected[1],
+                        )
+                        answer = maybe_historical_answer(selected[1], directory)
+                        self.assertIn(expected, answer)
+                        self.assertNotIn(excluded, answer)
+
+    def test_ambiguous_baseline_exclusions_fail_closed(self):
+        for question in (
+            "Neporovnávaj historickú MAE v3 s lineárnym baseline.",
+            "Neporovnávaj historickú MAE v3 s lineárnym ani s nulovým baseline.",
+            "Porovnaj historickú MAE v3 nie s lineárnym, ale s lineárnym.",
+        ):
+            with self.subTest(question=question):
+                self.assertIsNone(historical_question_kind(question))
+                self.assertIsNone(canonical_historical_question(
+                    question, json.dumps({
+                        "intent": "compare", "split": "validation",
+                        "baseline": "both",
+                    }),
+                ))
+                self.assertIsNone(select_verified_tool(
+                    question, choice("historical_v3", "compare", "validation", "both"),
+                    historical_available=True, forward_available=True,
+                ))
+        # Positive requests for both baselines must remain unchanged.
+        both = "Porovnaj historickú MAE v3 s lineárnym aj nulovým baseline."
+        self.assertIn("lineárnym aj nulovým baseline", select_verified_tool(
+            both, choice("historical_v3", "compare", "both", "linear"),
+            historical_available=True, forward_available=True,
+        )[1])
+
     def test_named_baseline_is_honored_by_existing_read_only_report(self):
         # Synthetic fixture only: no real measured historical/forward values.
         with tempfile.TemporaryDirectory() as directory:
