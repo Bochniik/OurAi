@@ -94,6 +94,38 @@ class OurAILanguageTests(unittest.TestCase):
             GENERAL_CHAT,
         )
 
+    def test_explicit_other_ticker_never_uses_active_snapshot(self) -> None:
+        snapshot = self.snapshot()
+        for question in (
+            "Prečo je AAPL bullish?",
+            "Aká je predikcia pre TSLA?",
+            "Čo hovoríš o MSFT?",
+            "Vysvetli riziká pri JPM.",
+        ):
+            with self.subTest(question=question):
+                self.assertEqual(
+                    select_conversation_mode(question, analysis=snapshot), GENERAL_CHAT,
+                )
+                self.assertNotIn(
+                    "CANONICAL_ANALYSIS_FACTS",
+                    build_messages(question, analysis=snapshot)[0]["content"],
+                )
+
+    def test_matching_ticker_and_general_prose_remain_supported(self) -> None:
+        snapshot = self.snapshot()
+        self.assertEqual(
+            select_conversation_mode("Prečo je NVDA bullish?", analysis=snapshot),
+            ANALYSIS_QA,
+        )
+        self.assertEqual(
+            select_conversation_mode("Aké riziká vidíš pri NVDA?", analysis=snapshot),
+            ANALYSIS_QA,
+        )
+        self.assertEqual(
+            select_conversation_mode("Čo je to cena?", analysis=snapshot),
+            ANALYSIS_QA,
+        )
+
     def test_short_followup_can_inherit_analysis_mode_but_social_overrides(self) -> None:
         snapshot = self.snapshot()
         history = [
