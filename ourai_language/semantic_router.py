@@ -28,7 +28,9 @@ phrasing without the word 'compare'; "symbols" for which stocks historically
 have the largest/smallest errors; "causes" when asked *why* measured historical
 performance differs; "simple" when asked to summarize historical performance.
 For compare, set split and baseline from the question when given; otherwise
-"both". Do not produce numbers, user-supplied text, explanations or file paths.
+"both". Explicit validation versus lockbox wording from the user overrides
+a model-suggested split. Do not produce numbers, user-supplied text,
+explanations or file paths.
 Examples:
 'How did you do on unseen historical data?' => test
 'Ako sa ti darilo na dátach, ktoré si predtým nevidel?' => test
@@ -134,6 +136,26 @@ def explicit_heldout_performance_question(original_question: str) -> str | None:
     return "Aký bol historický lockbox test v3?"
 
 
+def _explicit_report_split(text: str) -> str | None:
+    """Source scope comes from user wording, never from model-proposed JSON.
+
+    An explicit request for both validation and lockbox cannot be narrowed to
+    one split by a classifier. Return "ambiguous" so it fails closed.
+    """
+    validation = "validac" in text or "validation" in text
+    heldout = any(marker in text for marker in (
+        "lockbox", "held-out", "out-of-sample", "unseen",
+        "neviden", "nevidel", "testovac",
+    ))
+    if validation and heldout:
+        return "ambiguous"
+    if validation:
+        return "validation"
+    if heldout:
+        return "test"
+    return None
+
+
 def canonical_historical_question(
     original_question: str,
     model_response: str,
@@ -170,6 +192,16 @@ def canonical_historical_question(
         return None
     if intent == "none":
         return None
+    # The classifier may suggest the wrong report split. A named validation
+    # or lockbox in the user's question is authoritative; never silently
+    # substitute the other source or a two-report overview.
+    requested_split = _explicit_report_split(user_text)
+    if requested_split == "ambiguous":
+        return None
+    if requested_split is not None:
+        split = requested_split
+        if intent in {"overview", "validation", "test"}:
+            intent = requested_split
     if intent == "overview":
         return "Ako presný bol historicky model v3?"
     if intent == "validation":
