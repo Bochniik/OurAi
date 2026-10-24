@@ -188,6 +188,26 @@ class ContextualHistoricalDialogueTests(unittest.TestCase):
             "O koľko je to lepšie?", history
         ))
 
+    def test_independent_how_much_question_does_not_inherit_report(self):
+        history = [
+            {"role": "user", "content": "Ako dopadla historická validácia v3?"},
+            {"role": "assistant", "content": "Overené výsledky.",
+             "source": "historical_v3_reports",
+             "evidence_question": "Ako dopadla historická validácia v3?"},
+        ]
+        for question in (
+            "O koľko je drahší notebook oproti tabletu?",
+            "A o koľko sa líši cena benzínu?",
+        ):
+            with self.subTest(question=question):
+                self.assertIsNone(historical_followup_question(question, history))
+        for question in (
+            "O koľko je to lepšie?",
+            "A o koľko sa líši MAE modelu v3?",
+        ):
+            with self.subTest(question=question):
+                self.assertIsNotNone(historical_followup_question(question, history))
+
     def test_social_break_clears_context(self):
         history = [
             {"role": "user", "content": "Ako dopadla historická validácia?"},
