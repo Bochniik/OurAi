@@ -128,6 +128,8 @@ class VerifiedToolSelectionTests(unittest.TestCase):
             "Môžeš mi vysvetliť, ako funguje forward model?",
             "Vieš mi prosím vysvetliť, na čo slúži forward denník?",
             "Explain what forward model means.",
+            "Vysvetli prosím forward predikcie OurAI.",
+            "Can you explain forward model performance?",
         ):
             with self.subTest(question=question):
                 self.assertIsNone(forward_question_kind(question))
