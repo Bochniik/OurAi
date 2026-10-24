@@ -13,7 +13,10 @@ from .forward_answers import maybe_forward_answer
 from .historical_answers import maybe_historical_answer
 from .conversation_followups import historical_followup_question
 from .grounding import find_unsupported_percentages, grounded_fallback
-from .prompting import ANALYSIS_QA, GENERAL_CHAT, build_messages, select_conversation_mode
+from .prompting import (
+    ANALYSIS_QA, GENERAL_CHAT, build_messages, select_conversation_mode,
+    explicit_snapshot_ticker_mismatch,
+)
 
 
 DEFAULT_MODEL_ID = "Qwen/Qwen3-0.6B"
@@ -28,6 +31,40 @@ class ChatResult:
     mode: str = "GENERAL_CHAT"
     answer_source: str = "model"
     evidence_question: str | None = None
+
+
+def snapshot_mismatch_result(
+    message: str, analysis: AnalysisSnapshot | None,
+) -> ChatResult | None:
+    """Refuse to substitute the active stock's figures for a named other stock."""
+    ticker = explicit_snapshot_ticker_mismatch(message, analysis)
+    if ticker is None or analysis is None:
+        return None
+    english = bool(re.search(
+        r"\b(?:what|why|for|about|stock|prediction|forecast|risks)\b",
+        message, flags=re.IGNORECASE,
+    )) and not bool(re.search(
+        r"\b(?:pre|pri|aké|ako|čo|predikcia|riziká|akcie|prečo)\b",
+        message, flags=re.IGNORECASE,
+    ))
+    if english:
+        answer = (
+            f"No verified analysis snapshot for {ticker} was supplied. "
+            f"The available snapshot is for {analysis.ticker}, so its forecast "
+            f"and probabilities cannot be used for {ticker}. "
+            f"Select {ticker} and refresh its analysis in Orion."
+        )
+    else:
+        answer = (
+            f"Nemám dodaný overený analytický snapshot pre {ticker}. "
+            f"Dostupný snapshot patrí akcii {analysis.ticker}; jej predikciu "
+            f"a pravdepodobnosti nemôžem použiť pre {ticker}. "
+            f"Vyber {ticker} v Orione a obnov analýzu."
+        )
+    return ChatResult(
+        text=answer, used_grounding_fallback=False,
+        mode=GENERAL_CHAT, answer_source="snapshot_ticker_mismatch",
+    )
 
 
 class OurAIChatRuntime:
@@ -166,6 +203,12 @@ class OurAIChatRuntime:
                     text=forward, used_grounding_fallback=False,
                     mode=ANALYSIS_QA, answer_source="verified_forward_journal",
                 )
+
+        # Verified historical/forward readers above retain priority. For other
+        # analysis questions, never use NVDA's snapshot to answer about AAPL.
+        mismatch = snapshot_mismatch_result(user_message, analysis)
+        if mismatch is not None:
+            return mismatch
 
         # Core Orion analysis questions should be maximally reliable. If the answer
         # can be constructed directly from the canonical snapshot, do that instead of
