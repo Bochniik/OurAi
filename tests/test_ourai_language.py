@@ -152,6 +152,45 @@ class OurAILanguageTests(unittest.TestCase):
             ANALYSIS_QA,
         )
 
+    def test_declared_general_mode_breaks_analysis_inheritance(self) -> None:
+        snapshot = self.snapshot()
+        # The vocabulary 'cena' is broadly finance-related, but this was
+        # explicitly routed as ordinary chat (e.g. price of a textbook).
+        history = [
+            {"role": "user", "content": "Aká je cena učebnice?", "mode": GENERAL_CHAT},
+            {"role": "assistant", "content": "Neviem bez aktuálneho cenníka.", "mode": GENERAL_CHAT},
+        ]
+        self.assertEqual(
+            select_conversation_mode("Prečo?", analysis=snapshot, history=history),
+            GENERAL_CHAT,
+        )
+        messages = build_messages("Prečo?", analysis=snapshot, history=history)
+        self.assertNotIn("CANONICAL_ANALYSIS_FACTS", messages[0]["content"])
+
+    def test_recorded_analytical_mode_supports_short_followup(self) -> None:
+        snapshot = self.snapshot()
+        # Not every meaningful analytical question uses a keyword from the
+        # heuristic list. Recorded mode retains source continuity.
+        history = [
+            {"role": "user", "content": "Čím to vysvetľuješ?", "mode": ANALYSIS_QA},
+            {"role": "assistant", "content": "Podľa snapshotu.", "mode": ANALYSIS_QA},
+        ]
+        self.assertEqual(
+            select_conversation_mode("Prečo?", analysis=snapshot, history=history),
+            ANALYSIS_QA,
+        )
+
+    def test_unlabelled_history_keeps_conservative_legacy_fallback(self) -> None:
+        snapshot = self.snapshot()
+        history = [
+            {"role": "user", "content": "Aké sú riziká tejto predikcie?"},
+            {"role": "assistant", "content": "Riziká existujú."},
+        ]
+        self.assertEqual(
+            select_conversation_mode("Prečo?", analysis=snapshot, history=history),
+            ANALYSIS_QA,
+        )
+
     def test_history_is_filtered_by_mode(self) -> None:
         snapshot = self.snapshot()
         history = [
