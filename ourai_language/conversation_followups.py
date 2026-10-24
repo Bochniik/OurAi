@@ -95,9 +95,12 @@ def historical_followup_question(
     if simple:
         # Preserve referential summaries, not new standalone education requests.
         referential = (
-            text in ("jednoducho", "zhrn", "vysvetli", "a vysvetli")
-            or text.startswith((
+            text in (
+                "jednoducho", "zhrn", "vysvetli", "a vysvetli",
                 "vysvetli to", "a vysvetli to", "zhrn to",
+            )
+            or text.startswith((
+                "vysvetli to jednoducho", "a vysvetli to jednoducho",
                 "zhrn vysledky", "vysvetli tie vysledky",
                 "a co z toho", "co z toho", "co to znamena pre model",
             ))
@@ -130,10 +133,11 @@ def historical_followup_question(
     # or a short reference back to the immediately preceding report.
     if text.startswith(("porovnaj ", "a porovnaj ")):
         referential_comparison = text.startswith((
-            "porovnaj to", "a porovnaj to", "porovnaj ich",
-            "a porovnaj ich", "porovnaj tie vysledky",
-            "a porovnaj tie vysledky",
+            "porovnaj tie vysledky", "a porovnaj tie vysledky",
         ))
+        referential_comparison = referential_comparison or text in (
+            "porovnaj to", "a porovnaj to", "porovnaj ich", "a porovnaj ich",
+        )
         grounded_comparison = any(term in text for term in (
             "vysledk", "baseline", "nulov", "linearn", "linear",
             "lockbox", "validac", "model v3", "mae",
