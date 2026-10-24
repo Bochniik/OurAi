@@ -73,7 +73,7 @@ _PERFORMANCE_CUES = (
 )
 _DEFINITION_STARTS = (
     "co je ", "co znamena ", "what is ", "define ", "vysvetli pojem ",
-    "vysvetli mi ", "vysvetli prosim ", "ako funguje ",
+    "vysvetli mi ", "vysvetli mi, ", "vysvetli prosim ", "vysvetli prosim, ", "ako funguje ",
     "na co sluzi ", "aky je rozdiel medzi ",
 )
 
@@ -82,7 +82,14 @@ def _is_retrospective_performance_request(text: str) -> bool:
     historical = any(cue in text for cue in _HISTORICAL_CUES)
     model = any(cue in text for cue in _MODEL_CUES)
     performance = any(cue in text for cue in _PERFORMANCE_CUES)
-    if text.startswith(_DEFINITION_STARTS):
+    # Asking for the *value* of a named historical metric is a result request,
+    # even when phrased "What is the historical MAE of model v3?".
+    # Definitions like "What is MAE?" remain general education.
+    if text.startswith(_DEFINITION_STARTS) and not (
+        historical and model and any(
+            metric in text for metric in ("mae", "accuracy", "presnost", "brier", "error rate")
+        )
+    ):
         return False
     return performance and (historical or model)
 
