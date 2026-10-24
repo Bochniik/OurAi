@@ -205,6 +205,12 @@ def select_conversation_mode(
             if prior_mode == GENERAL_CHAT:
                 return GENERAL_CHAT
             if prior_mode == ANALYSIS_QA:
+                # A new active ticker must not inherit an elliptical question
+                # from a different, explicitly tagged analysis. Otherwise a
+                # bare "Prečo?" can silently describe the wrong instrument.
+                previous_ticker = str(item.get("analysis_ticker", "")).strip().upper()
+                if previous_ticker and previous_ticker != analysis.ticker:
+                    return GENERAL_CHAT
                 return ANALYSIS_QA
             # Backward-compatible fallback for histories without mode metadata.
             previous = str(item.get("content", "")).strip()
