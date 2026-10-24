@@ -44,8 +44,8 @@ def is_historical_educational_request(message: str) -> bool:
     # value; generic "what is historical MAE" remains a definition.
     if text.startswith("what is "):
         return not bool(re.search(
-            r"\\b(?:mae|accuracy|error rate)\\b.*\\b(?:of|for)\\b"
-            r".*\\b(?:ourai|model|v3)\\b",
+            r"\b(?:mae|accuracy|error rate)\b.*\b(?:of|for)\b"
+            r".*\b(?:ourai|model|v3)\b",
             text,
         ))
     preface = re.match(
@@ -56,9 +56,10 @@ def is_historical_educational_request(message: str) -> bool:
     if preface and text[preface.end():].startswith(definitions):
         return True
     if text.startswith("can you explain "):
-        return text[len("can you explain "):].startswith((
+        subject = text[len("can you explain "):]
+        return subject.startswith((
             "what does ", "what is ", "how does ", "the meaning of ",
-        ))
+        )) or bool(re.match(r"^what .+ means(?: |$)", subject))
     return False
 
 
