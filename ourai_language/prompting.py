@@ -193,6 +193,9 @@ def _is_short_referential_followup(message: str) -> bool:
         "čo to znamená", "co to znamena",
         "a čo ďalej", "a co dalej",
         "a potom", "čo tým myslíš", "co tym myslis",
+        "a čo z toho vyplýva", "a co z toho vyplyva",
+        "čo z toho vyplýva", "co z toho vyplyva",
+        "vieš mi to vysvetliť jednoduchšie", "vies mi to vysvetlit jednoduchsie",
     }
 
 
@@ -234,7 +237,7 @@ def select_conversation_mode(
         return ANALYSIS_QA
 
     tokens = message.split()
-    if len(tokens) <= 4 and _is_short_referential_followup(message):
+    if len(tokens) <= 6 and _is_short_referential_followup(message):
         for item in reversed(list(history or ())):
             if str(item.get("role", "")).strip().lower() != "user":
                 continue
