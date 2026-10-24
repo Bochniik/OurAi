@@ -38,7 +38,7 @@ def is_forward_educational_request(message: str) -> bool:
     Keep performance requests such as "vysvetli mi výsledky forward denníka"
     eligible: only an explicit definition clause is educational.
     """
-    text = _normalize(str(message or "")).strip(" \\t\\r\\n.?!„“\\\"")
+    text = _normalize(str(message or "")).strip().strip('.?!„“"')
     text = re.sub(r"^prosim[, ]+", "", text)
     if text.startswith(_DEFINITION_CLAUSES + (
         "define ", "vysvetli pojem ", "explain what ",
