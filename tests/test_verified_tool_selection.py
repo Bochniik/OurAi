@@ -51,6 +51,55 @@ def validation_fixture(directory: Path):
 
 
 class VerifiedToolSelectionTests(unittest.TestCase):
+    def test_now_baseline_followup_preserves_verified_historical_split(self):
+        # "Teraz" is a discourse connector here, not a live-data request.
+        for prior_question, expected_split in (
+            ("Porovnaj historickú validáciu v3 s lineárnym modelom.",
+             "v historickej validácii"),
+            ("Porovnaj historický lockbox test v3 s lineárnym modelom.",
+             "na historickom lockbox teste"),
+        ):
+            history = [
+                {"role": "user", "content": prior_question},
+                {"role": "assistant", "content": "Overené historické výsledky.",
+                 "source": "historical_v3_reports",
+                 "evidence_question": prior_question},
+            ]
+            for question, baseline in (
+                ("A teraz to porovnaj s nulovým.", "nulovým baseline"),
+                ("A teraz to porovnaj s nulovým baseline.", "nulovým baseline"),
+                ("Teraz to porovnaj s lineárnym modelom.", "lineárnym modelom"),
+            ):
+                with self.subTest(prior=prior_question, question=question):
+                    canonical = historical_followup_question(question, history)
+                    self.assertIsNotNone(canonical)
+                    self.assertIn(expected_split, canonical)
+                    self.assertIn(baseline, canonical)
+                    self.assertEqual(
+                        historical_question_kind(canonical),
+                        "compare_validation" if "validácii" in expected_split
+                        else "compare_test",
+                    )
+                    # Standalone requests cannot use a historical reader.
+                    self.assertIsNone(historical_question_kind(question))
+                    for invalid_history in (
+                        [], history[:-1],
+                        [history[0], {**history[1], "source": "model"}],
+                        [history[0], {**history[1], "source": "verified_forward_journal"}],
+                        history + [{"role": "user", "content": "A čo Python?"}],
+                    ):
+                        self.assertIsNone(historical_followup_question(
+                            question, invalid_history,
+                        ))
+            for question in (
+                "A teraz to porovnaj s nulovým na forward dátach.",
+                "A teraz to porovnaj s nulovým pre live obchodovanie.",
+                "A teraz ukáž aktuálnu cenu.",
+                "A teraz to neporovnávaj s nulovým.",
+            ):
+                with self.subTest(rejected=question):
+                    self.assertIsNone(historical_followup_question(question, history))
+
     def test_historical_source_corrections_require_verified_immediate_context(self):
         # The old lockbox answer authorizes a correction, not reuse of its
         # metrics. The new question is read from the requested validation file.
