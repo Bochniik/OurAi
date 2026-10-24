@@ -6,11 +6,12 @@ into numerical evidence or infer a new source from conversational prose.
 """
 from __future__ import annotations
 
-import re
 import unicodedata
 from typing import Iterable, Mapping
 
-from .historical_answers import historical_question_kind, historical_source_correction_target
+from .historical_answers import (
+    historical_question_kind, historical_source_correction_target, is_bare_baseline_followup,
+)
 
 
 def _norm(value: str) -> str:
@@ -58,12 +59,7 @@ def historical_followup_question(
     # retrospective report, not current market data. Accept only this
     # tightly scoped discourse transition; other uses of "teraz" remain
     # excluded along with forward/live/trading requests.
-    discourse_baseline_comparison = bool(re.fullmatch(
-        r"(?:a )?teraz (?:to )?porovnaj (?:to )?(?:s|so) "
-        r"(?:nulov\w*|null|linearn\w*|linear)"
-        r"(?: (?:baseline|modelom))?",
-        text,
-    ))
+    discourse_baseline_comparison = is_bare_baseline_followup(raw)
     if any(term in text for term in (
         "forward", "posledn", "najnov", "aktualn", "journal", "dennik",
         "zajtra", "dnes", "live", "obchod", "nakup", "predaj",
