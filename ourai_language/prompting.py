@@ -190,6 +190,15 @@ def select_conversation_mode(
         for item in reversed(list(history or ())):
             if str(item.get("role", "")).strip().lower() != "user":
                 continue
+            # When a prior turn carries a recorded routing mode, it is more
+            # authoritative than broad vocabulary such as "cena" or "trend".
+            # An explicitly general turn must break analytical inheritance.
+            prior_mode = str(item.get("mode", "")).strip().upper()
+            if prior_mode == GENERAL_CHAT:
+                return GENERAL_CHAT
+            if prior_mode == ANALYSIS_QA:
+                return ANALYSIS_QA
+            # Backward-compatible fallback for histories without mode metadata.
             previous = str(item.get("content", "")).strip()
             if _is_social_message(previous):
                 return GENERAL_CHAT
