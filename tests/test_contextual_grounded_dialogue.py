@@ -141,6 +141,30 @@ class ContextualHistoricalDialogueTests(unittest.TestCase):
         self.assertIsNotNone(historical_followup_question("A prečo?", prior))
         self.assertIsNotNone(historical_followup_question("Vysvetli to jednoducho.", prior))
 
+    def test_unrelated_comparisons_do_not_inherit_verified_report(self):
+        history = [
+            {"role": "user", "content": "Ako dopadla historická validácia v3?"},
+            {
+                "role": "assistant", "content": "Overené výsledky.",
+                "source": "historical_v3_reports",
+                "evidence_question": "Ako dopadla historická validácia v3?",
+            },
+        ]
+        for question in (
+            "Porovnaj Python a Java.",
+            "A porovnaj autá Toyota a Honda.",
+            "Porovnaj tieto dve knihy.",
+        ):
+            with self.subTest(question=question):
+                self.assertIsNone(historical_followup_question(question, history))
+        for question in (
+            "Porovnaj to s lineárnym modelom.",
+            "Porovnaj výsledky s nulovým baseline.",
+            "A porovnaj ich.",
+        ):
+            with self.subTest(question=question):
+                self.assertIsNotNone(historical_followup_question(question, history))
+
     def test_social_break_clears_context(self):
         history = [
             {"role": "user", "content": "Ako dopadla historická validácia?"},
