@@ -60,6 +60,11 @@ def historical_followup_question(
     text = _norm(raw).strip(" .?!„“\"")
     if not text or len(raw) > 110 or len(text.split()) > 13:
         return None
+    # An abbreviated follow-up naming both report splits has no unique
+    # source transition. Do not let generic comparison routing choose one.
+    if (("lockbox" in text or "testovac" in text)
+            and "validac" in text):
+        return None
     # A short "A pri nulovom?" changes only the baseline of an immediately
     # preceding verified day-win *percentage*. Never infer the metric from
     # assistant prose, a generic MAE answer or a day-win count.
