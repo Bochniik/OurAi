@@ -76,6 +76,26 @@ class UnsupportedForwardTickerTests(unittest.TestCase):
                         historical_available=True, forward_available=True,
                     ))
 
+    def test_long_company_names_after_stock_cues_fail_closed(self):
+        # Names longer than five letters used to bypass the ticker-cue
+        # scanner, producing an unrelated overall or NVDA-only report.
+        # Company names are NOT verified aliases in this opt-in selector.
+        questions = (
+            "Aké máš výsledky shadow pre akcie Nvidia?",
+            "Aká je presnosť forward predikcií pre akciu Microsoft?",
+            "Zhrň predikcie vo forward denníku pre ticker NVIDIA.",
+            "Aké máš výsledky shadow pre stock Nvidia a NVDA?",
+            "Aké máš výsledky shadow pre symbol Microsoft?",
+            "Aké máš výsledky shadow pre akcie Nvidia a TSLA?",
+        )
+        for question in questions:
+            for action in ("summary", "performance", "latest"):
+                with self.subTest(question=question, action=action):
+                    self.assertIsNone(select_verified_tool(
+                        question, _proposal(action),
+                        historical_available=True, forward_available=True,
+                    ))
+
     def test_lowercase_supported_tickers_and_unmarked_prose_still_work(self):
         for question, ticker in (
             ("Aké máš výsledky shadow pre ticker nvda?", "NVDA"),
