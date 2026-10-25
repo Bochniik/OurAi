@@ -228,3 +228,26 @@ These rules are covered by `tests/test_history_topic_boundaries.py` and do not
 constitute a local Qwen or Ollama language-quality benchmark.
 
 Anaphoric verbs such as `Vysvetli to` and `Porovnaj to` preserve historical context only when the whole request remains referential or explicitly names the verified model/baseline. Adding an unrelated new subject (for example, `Porovnaj to s Teslou`) is not permission to redirect the query to historical results. The focused regression cases are included in `tests/test_contextual_grounded_dialogue.py`.
+
+
+### Ordinal baseline references (October 2026)
+
+After an **immediately preceding verified, single-split historical day-win
+percentage**, the short Slovak question `A oproti druhému baseline?` (or
+`A čo pri druhom baseline?`) means the *other* of the two supported
+comparison baselines, **linear** and **null**. The split and percentage metric
+are retained, and the target report is re-read; no number is copied from
+conversation prose. This is deliberately narrower than general pronoun
+resolution or a claim that OurAI understands arbitrary ordinal references.
+
+`A ako to dopadlo oproti druhému modelu?` is **not** equivalent: the
+champion v3 is also a model, so the reference is ambiguous. An unqualified
+`A oproti druhému?`, an extra forward/trading clause, a previous MAE or
+day-count answer, and an unverified/interrupted history must not select a
+historical tool. Standalone ordinal requests cannot use deterministic or
+opt-in semantic tool routing to open reports.
+
+Offline regression checks:
+`python -m unittest tests.test_ordinal_baseline_followups -v`.
+These tests use synthetic report files and do not constitute a local Qwen
+benchmark.

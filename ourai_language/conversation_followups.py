@@ -15,7 +15,7 @@ from .historical_answers import (
     bare_day_wins_followup_target, historical_day_wins_count_context,
     is_bare_day_wins_share_followup,
     bare_day_wins_baseline_share_target, historical_day_wins_share_context,
-    bare_day_wins_split_share_target,
+    bare_day_wins_split_share_target, ordinal_other_comparison_kind,
 )
 
 
@@ -60,6 +60,31 @@ def historical_followup_question(
     text = _norm(raw).strip(" .?!„“\"")
     if not text or len(raw) > 110 or len(text.split()) > 13:
         return None
+    # 'The other baseline' is resolvable only from a verified single-split
+    # historical day-win percentage. 'The other model' is ambiguous because
+    # the v3 champion is also a model; never silently reuse the old baseline.
+    ordinal_other = ordinal_other_comparison_kind(raw)
+    if ordinal_other == "baseline":
+        share_context = historical_day_wins_share_context(prior)
+        if share_context is None:
+            return None
+        split, old_baseline = share_context
+        new_baseline = "nulový" if old_baseline == "linear" else "lineárny"
+        scope = (
+            "v historickej validácii" if split == "validation"
+            else "na historickom lockbox teste"
+        )
+        return (
+            f"Koľko percent trhových dní model v3 prekonal "
+            f"{new_baseline} baseline {scope}?"
+        )
+    # Prevent malformed ordinal requests from falling into the generic
+    # comparison path, including added clauses or omitted baseline names.
+    if ordinal_other is not None or any(
+        term in text for term in ("druhemu", "druhom")
+    ):
+        return None
+
     # An abbreviated follow-up naming both report splits has no unique
     # source transition. Do not let generic comparison routing choose one.
     if (("lockbox" in text or "testovac" in text)

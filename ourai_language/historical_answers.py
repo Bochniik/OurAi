@@ -192,6 +192,25 @@ def bare_day_wins_split_share_target(message: str) -> str | None:
     return "test" if "lockbox" in text else "validation"
 
 
+def ordinal_other_comparison_kind(message: str) -> str | None:
+    """Parse a bounded 'other baseline/model' reference without selecting data.
+
+    Only an explicit 'baseline' can refer to the other member of the known
+    linear/null baseline pair. 'Other model' and omitted nouns are ambiguous:
+    v3 itself is also a model. The verified prior answer is checked elsewhere.
+    """
+    text = _normalize(str(message or "")).strip().strip('.?!„“"')
+    match = re.fullmatch(
+        r"(?:a\s+)?(?:(?:co\s+)?(?:oproti|v\s+porovnani\s+s|pri)\s+"
+        r"(?:tomu\s+)?|ako\s+to\s+dopadlo\s+oproti\s+)"
+        r"druh(?:emu|om)(?:\s+(baseline|modelu|modelom))?",
+        text,
+    )
+    if match is None:
+        return None
+    return "baseline" if match.group(1) == "baseline" else "ambiguous"
+
+
 def historical_day_wins_share_context(message: str) -> tuple[str, str] | None:
     """Identify a single split and baseline in an explicit day-win share query.
 
@@ -246,7 +265,9 @@ def historical_question_kind(message: str) -> str | None:
             or bare_day_wins_followup_target(message) is not None
             or is_bare_day_wins_share_followup(message)
             or bare_day_wins_baseline_share_target(message) is not None
-            or bare_day_wins_split_share_target(message) is not None):
+            or bare_day_wins_split_share_target(message) is not None
+            or ordinal_other_comparison_kind(message) is not None
+            or re.search(r"\bdruh(?:emu|om)\s+(?:baseline|modelu|modelom)\b", text)):
         return None
     # A bare "Nie, myslel som validáciu" needs a verified preceding source.
     # The standalone deterministic reader must never assume that context.
