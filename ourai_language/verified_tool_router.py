@@ -146,9 +146,9 @@ def _mentions_unsupported_forward_symbol(question: str) -> bool:
     # must not be dropped when the other side is a known frozen ticker.
     # Require whole-word tokens: "shadow" must not be split at its "a".
     mixed_pair = (
-        r"(?=(?<!\\w)([A-Za-z]{2,5})(?!\\w)\\s*"
-        r"(?i:vs\\.?|versus|oproti|a|aj|/|,)\\s*"
-        r"(?<!\\w)([A-Za-z]{2,5})(?!\\w))"
+        r"(?=(?<!\w)([A-Za-z]{2,5})(?!\w)\s*"
+        r"(?i:vs\.?|versus|oproti|a|aj|/|,)\s*"
+        r"(?<!\w)([A-Za-z]{2,5})(?!\w))"
     )
     for match in re.finditer(mixed_pair, question):
         if any(token.upper() in FROZEN_SYMBOLS for token in match.groups()):
