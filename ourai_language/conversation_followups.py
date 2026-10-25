@@ -16,7 +16,7 @@ from .historical_answers import (
     is_bare_day_wins_share_followup,
     bare_day_wins_baseline_share_target, historical_day_wins_share_context,
     bare_day_wins_split_share_target, ordinal_other_comparison_kind,
-    bare_clarification_baseline_target,
+    bare_clarification_baseline_target, historical_day_wins_missing_split,
 )
 
 
@@ -41,6 +41,22 @@ def _context(history: Iterable[Mapping[str, str]] | None) -> str | None:
         return None
     return question
 
+
+
+def historical_missing_split_clarification(message: str) -> str | None:
+    """Request the historical split before any day-win report is opened.
+
+    No history, model-proposed tool choice or assistant prose supplies the
+    missing validation/lockbox selection. A full question is needed next.
+    """
+    if not historical_day_wins_missing_split(message):
+        return None
+    return (
+        "Na overenie počtu alebo podielu úspešných trhových dní potrebujem "
+        "vedieť, ktorý historický zdroj chceš. Myslíš historickú validáciu "
+        "alebo historický lockbox test? Upresni zdroj v celej otázke; "
+        "bez toho nevyberiem report."
+    )
 
 
 def historical_ambiguity_clarification(
