@@ -79,12 +79,20 @@ as stock names. Explicit stock cues such as `ticker ibm`, `symbol ibm`,
 letter candidates, rather than silently selecting an overall or NVDA-only
 report. The broad Slovak preposition `pre` remains **uppercase-only** for
 unsupported candidates to avoid mistaking ordinary lowercase words for
-tickers. A company name such as `akcie Tesla`, `akcie Nvidia`, or
-`akciu Microsoft` is **not** silently mapped to a ticker by this opt-in
-selector; without a verified alias it fails closed. The explicit stock-cue
+tickers. A company name such as `akcie Tesla` or `akciu Microsoft` is
+**not** silently mapped to a ticker by this opt-in selector; without a
+verified alias it fails closed. A narrow, manually curated exception now
+recognizes the unambiguous Slovak name forms `Nvidia`, `Nvidie`,
+`Nvidii`, `Nvidiu` and `Nvidiou` as **NVDA**, a ticker already present
+in the frozen journal universe. This applies to the opt-in tool selector
+only: it neither adds a ticker nor changes any evidence reader. When that
+alias is joined to another named company/ticker (including unsupported
+names in either order), the selector rejects the proposal instead of
+silently narrowing a comparison to NVDA. Other company names remain
+unverified, and ambiguous or unrecognized names must not be guessed. The explicit stock-cue
 scanner checks names up to 30 ASCII letters, rather than silently treating
 longer names as an overall forward-journal question. This remains a bounded
-fail-closed guard, **not** a company-name-to-ticker resolver.
+fail-closed guard, **not** a general company-name-to-ticker resolver.
 This intentionally bounded syntax does **not** detect every possible
 unmarked or lowercase ticker reference and does not extend the supported
 universe. Unknown tickers are never passed as reader arguments. A rejected proposal falls through to ordinary conversation,
@@ -92,4 +100,4 @@ not a fabricated per-stock statistic. Tests use synthetic JSON proposals;
 no local Qwen benchmark was performed.
 
 Offline regression:
-`python -m unittest tests.test_verified_forward_multi_symbol_selection tests.test_verified_forward_unsupported_ticker_selection -v`.
+`python -m unittest tests.test_verified_forward_multi_symbol_selection tests.test_verified_forward_unsupported_ticker_selection tests.test_verified_forward_nvidia_alias -v`.
