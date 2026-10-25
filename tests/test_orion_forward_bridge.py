@@ -315,6 +315,45 @@ class OrionForwardBridgeTests(unittest.TestCase):
                 server.server_close()
                 runner.join(timeout=5)
 
+    def test_disconnected_loopback_reader_does_not_crash_handler_or_poison_next_get(self):
+        # A short Orion timeout can close the socket after verification but
+        # before HTTP headers are sent. Simulate the write failure reliably,
+        # without touching a real journal or creating any forward evidence.
+        with patch(
+            "scripts.serve_orion_forward_bridge.read_forward_report",
+            return_value=self.fake_report(),
+        ) as read_report:
+            handler = make_handler("mock-journal.jsonl")
+            original_end_headers = handler.end_headers
+            disconnected = Event()
+
+            def disconnected_first_reader(self):
+                if not disconnected.is_set():
+                    disconnected.set()
+                    raise BrokenPipeError("synthetic closed loopback socket")
+                return original_end_headers(self)
+
+            server = ThreadingHTTPServer((HOST, 0), handler)
+            runner = threading.Thread(target=server.serve_forever, daemon=True)
+            runner.start()
+            opener = build_opener(ProxyHandler({}))
+            url = f"http://127.0.0.1:{server.server_port}{ROUTE}"
+            try:
+                with patch.object(handler, "end_headers", disconnected_first_reader), \
+                        patch.object(server, "handle_error") as unhandled_error:
+                    with self.assertRaises(OSError):
+                        opener.open(url, timeout=5)
+                    self.assertTrue(disconnected.is_set())
+                    with opener.open(url, timeout=5) as response:
+                        self.assertEqual(response.status, 200)
+                        self.assertEqual(json.load(response)["resolution_count"], 1)
+                    unhandled_error.assert_not_called()
+                self.assertEqual(read_report.call_count, 2)
+            finally:
+                server.shutdown()
+                server.server_close()
+                runner.join(timeout=5)
+
     def test_http_unavailable_never_leaks_exception(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "missing.jsonl"
