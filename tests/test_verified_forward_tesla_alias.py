@@ -75,7 +75,7 @@ class VerifiedTeslaAliasTests(unittest.TestCase):
         for question in (
             "Čo je Tesla?",
             "Aké máš výsledky shadow pre Tesla a nakúp akcie.",
-            "Aké máš výsledky shadow pre akcie Microsoft?",
+            "Aké máš výsledky shadow pre akcie Alphabet?",
         ):
             with self.subTest(question=question):
                 self.assertIsNone(_select(question))

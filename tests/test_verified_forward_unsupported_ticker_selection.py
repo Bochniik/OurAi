@@ -66,7 +66,7 @@ class UnsupportedForwardTickerTests(unittest.TestCase):
             "Zhrň predikcie vo forward denníku pre akciu ibm.",
             "Aké máš výsledky shadow pre stock ibm a NVDA?",
             "Aké máš výsledky shadow pre ticker nvda a symbol ibm?",
-            "Aké máš výsledky shadow pre akcie Microsoft?",
+            "Aké máš výsledky shadow pre akcie Alphabet?",
         )
         for question in questions:
             for action in ("summary", "performance", "latest"):
@@ -78,10 +78,10 @@ class UnsupportedForwardTickerTests(unittest.TestCase):
 
     def test_long_company_names_after_stock_cues_fail_closed(self):
         # Long, unverified company names still fail closed. Curated
-        # Nvidia forms are now tested separately as a bounded NVDA alias.
+        # Nvidia, Tesla and Microsoft forms have separate alias tests.
         questions = (
-            "Aká je presnosť forward predikcií pre akciu Microsoft?",
-            "Aké máš výsledky shadow pre symbol Microsoft?",
+            "Aká je presnosť forward predikcií pre akciu Alphabet?",
+            "Aké máš výsledky shadow pre symbol Alphabet?",
             "Aké máš výsledky shadow pre akcie Nvidia a TSLA?",
         )
         for question in questions:

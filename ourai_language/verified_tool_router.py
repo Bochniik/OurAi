@@ -89,6 +89,8 @@ _VERIFIED_NVDA_ALIASES = frozenset(("NVIDIA", "NVIDIE", "NVIDII", "NVIDIU", "NVI
 _NVDA_ALIAS_PATTERN = r"(?<!\w)(?:nvidia|nvidie|nvidii|nvidiu|nvidiou)(?!\w)"
 _VERIFIED_TSLA_ALIASES = frozenset(("TESLA", "TESLY", "TESLE", "TESLU", "TESLOU"))
 _TSLA_ALIAS_PATTERN = r"(?<!\w)(?:tesla|tesly|tesle|teslu|teslou)(?!\w)"
+_VERIFIED_MSFT_ALIASES = frozenset(("MICROSOFT", "MICROSOFTU", "MICROSOFTE", "MICROSOFTOM"))
+_MSFT_ALIAS_PATTERN = r"(?<!\w)(?:microsoft|microsoftu|microsofte|microsoftom)(?!\w)"
 
 
 def _mentioned_symbols(question: str) -> tuple[str, ...]:
@@ -101,6 +103,8 @@ def _mentioned_symbols(question: str) -> tuple[str, ...]:
         mentioned.add("NVDA")
     if re.search(_TSLA_ALIAS_PATTERN, question, re.I):
         mentioned.add("TSLA")
+    if re.search(_MSFT_ALIAS_PATTERN, question, re.I):
+        mentioned.add("MSFT")
     return tuple(symbol for symbol in FROZEN_SYMBOLS if symbol in mentioned)
 
 
@@ -143,7 +147,7 @@ def _mentions_unsupported_forward_symbol(question: str) -> bool:
     # orders and overlapping pairs in longer lists, including repeated aliases.
     join = r"\s*(?i:vs\.?|versus|oproti|a|aj|/|,)\s*"
     name = r"([A-Za-z]{2,30})(?!\w)"
-    for alias_pattern in (_NVDA_ALIAS_PATTERN, _TSLA_ALIAS_PATTERN):
+    for alias_pattern in (_NVDA_ALIAS_PATTERN, _TSLA_ALIAS_PATTERN, _MSFT_ALIAS_PATTERN):
         for pattern in (
             r"(?=" + alias_pattern + join + name + r")",
             r"(?=(?<!\w)([A-Za-z]{2,30})" + join + alias_pattern + r")",
@@ -156,6 +160,7 @@ def _mentions_unsupported_forward_symbol(question: str) -> bool:
         and candidate.upper() not in _NON_TICKER_ABBREVIATIONS
         and candidate.upper() not in _VERIFIED_NVDA_ALIASES
         and candidate.upper() not in _VERIFIED_TSLA_ALIASES
+        and candidate.upper() not in _VERIFIED_MSFT_ALIASES
         for candidate in candidates
     )
 
