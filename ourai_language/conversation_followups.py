@@ -15,6 +15,7 @@ from .historical_answers import (
     bare_day_wins_followup_target, historical_day_wins_count_context,
     is_bare_day_wins_share_followup,
     bare_day_wins_baseline_share_target, historical_day_wins_share_context,
+    bare_day_wins_split_share_target,
 )
 
 
@@ -75,6 +76,24 @@ def historical_followup_question(
         baseline = (
             "lineárny baseline" if share_baseline == "linear"
             else "nulový baseline"
+        )
+        return f"Koľko percent trhových dní model v3 prekonal {baseline} {scope}?"
+
+    # An elliptical split change after a verified day-win percentage keeps
+    # the metric and baseline, but re-reads the *other* historical report.
+    # Neither generated answer prose nor a prior MAE/count supplies evidence.
+    share_split = bare_day_wins_split_share_target(raw)
+    if share_split is not None:
+        share_context = historical_day_wins_share_context(prior)
+        if share_context is None or share_context[0] == share_split:
+            return None
+        baseline = (
+            "lineárny baseline" if share_context[1] == "linear"
+            else "nulový baseline"
+        )
+        scope = (
+            "v historickej validácii" if share_split == "validation"
+            else "na historickom lockbox teste"
         )
         return f"Koľko percent trhových dní model v3 prekonal {baseline} {scope}?"
 
