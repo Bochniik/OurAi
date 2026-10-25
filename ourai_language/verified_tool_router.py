@@ -91,6 +91,42 @@ def _mentioned_symbols(question: str) -> tuple[str, ...]:
     )
 
 
+# These are metric/source abbreviations, not stock tickers. Only consider
+# unsupported symbols in explicit ticker syntax; never treat every acronym
+# in a financial question as a stock name.
+_NON_TICKER_ABBREVIATIONS = frozenset((
+    "MAE", "RMSE", "MSE", "BPS", "USD", "EUR", "UTC", "RSI",
+    "SIP", "IEX", "NYSE", "ETF", "API", "JSON", "UP", "DOWN",
+))
+
+
+def _mentions_unsupported_forward_symbol(question: str) -> bool:
+    """Fail closed on explicit unsupported ticker syntax in opt-in routing.
+
+    This intentionally does not guess that arbitrary unmarked words or
+    lowercase prose are stock symbols. It recognizes cashtags, uppercase
+    symbols after explicit stock/ticker cues, and uppercase symbol pairs.
+    """
+    candidates: list[str] = []
+    for pattern in (
+        r"(?<!\w)\$([A-Za-z]{2,5})(?!\w)",
+        r"(?<!\w)(?i:pre|ticker|symbol|akci\w*|stock)\s+([A-Z]{2,5})(?!\w)",
+    ):
+        candidates.extend(match.group(1) for match in re.finditer(pattern, question))
+    pair = (
+        r"(?<!\w)([A-Z]{2,5})\s*"
+        r"(?i:vs\.?|versus|oproti|a|aj|/|,)\s*"
+        r"([A-Z]{2,5})(?!\w)"
+    )
+    for match in re.finditer(pair, question):
+        candidates.extend(match.groups())
+    return any(
+        candidate.upper() not in FROZEN_SYMBOLS
+        and candidate.upper() not in _NON_TICKER_ABBREVIATIONS
+        for candidate in candidates
+    )
+
+
 def select_verified_tool(
     user_question: str,
     model_response: str,
@@ -136,7 +172,7 @@ def select_verified_tool(
         symbols = _mentioned_symbols(user_question)
         # A single-ticker journal query cannot faithfully answer a question
         # naming several stocks. Never silently pick the first ticker.
-        if len(symbols) > 1:
+        if len(symbols) > 1 or _mentions_unsupported_forward_symbol(user_question):
             return None
         ticker = symbols[0] if symbols else None
         if action == "performance":
