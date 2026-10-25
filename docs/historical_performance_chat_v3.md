@@ -69,6 +69,25 @@ historical prediction error, separate per-symbol diagnostics must be generated
 under an explicit evaluation protocol. No such ranking is inferred from daily
 or aggregate MAE.
 
+### Day-level MAE wins versus prediction accuracy
+
+The verified v3 report stores **how many market days** the model had lower
+daily MAE than a named baseline. For an explicitly requested share, the
+reader computes `100 × market_date_wins_vs_baseline / market_date_count`
+from validated counts (a positive day count is required). Example Slovak
+questions:
+
+- `Koľko dní model v3 prekonal lineárny baseline v historickej validácii?`
+- `Koľko percent trhových dní model v3 prekonal lineárny baseline v historickej validácii?`
+- `Aké percento dní model v3 prekonal nulový baseline v historickej validácii?`
+
+This is a **share of observed historical market days with lower daily MAE**,
+not the proportion of correct UP/DOWN predictions, not the probability of
+beating the baseline tomorrow, and not forward performance. The reader uses
+the requested validation or lockbox split and baseline, without inventing
+values if the local report is missing. Generic "success rate" questions
+must not be silently converted into a directional hit rate.
+
 ## Local testing
 
 ```powershell
