@@ -74,9 +74,16 @@ example `pre IBM`, `$IBM`, `NVDA oproti IBM`, `NVDA a IBM`, or
 unsupported third ticker cannot be silently skipped. It does not silently discard
 an unknown stock and answer for the remaining known ticker or overall
 journal. Recognized metric abbreviations such as MAE and BPS are not treated
-as stock names. This intentionally bounded syntax does **not** detect every
-possible unmarked or lowercase ticker reference and does not extend the
-supported universe. Unknown tickers are never passed as reader arguments. A rejected proposal falls through to ordinary conversation,
+as stock names. Explicit stock cues such as `ticker ibm`, `symbol ibm`,
+`akciu ibm`, or `stock ibm` now also check **lowercase/mixed-case** 2–5
+letter candidates, rather than silently selecting an overall or NVDA-only
+report. The broad Slovak preposition `pre` remains **uppercase-only** for
+unsupported candidates to avoid mistaking ordinary lowercase words for
+tickers. A company name such as `akcie Tesla` is **not** silently mapped to
+TSLA by this opt-in selector; without a verified alias it fails closed.
+This intentionally bounded syntax does **not** detect every possible
+unmarked or lowercase ticker reference and does not extend the supported
+universe. Unknown tickers are never passed as reader arguments. A rejected proposal falls through to ordinary conversation,
 not a fabricated per-stock statistic. Tests use synthetic JSON proposals;
 no local Qwen benchmark was performed.
 
