@@ -243,6 +243,42 @@ class OrionForwardBridgeTests(unittest.TestCase):
                 server.server_close()
                 runner.join(timeout=5)
 
+    def test_unserializable_snapshot_returns_safe_503_then_recovers(self):
+        # Corrupt/non-JSON analytics must be classified as unavailable, not
+        # streamed partially or surfaced as an unexplained broken connection.
+        invalid_number = self.fake_report()
+        invalid_number["champion_mae_bps"] = float("nan")
+        invalid_object = self.fake_report()
+        invalid_object["symbols"]["NVDA"]["champion_mae_bps"] = object()
+
+        with patch(
+            "scripts.serve_orion_forward_bridge.read_forward_report",
+            side_effect=[invalid_number, invalid_object, self.fake_report()],
+        ) as read_report:
+            server = ThreadingHTTPServer((HOST, 0), make_handler("mock-journal.jsonl"))
+            runner = threading.Thread(target=server.serve_forever, daemon=True)
+            runner.start()
+            opener = build_opener(ProxyHandler({}))
+            url = f"http://127.0.0.1:{server.server_port}{ROUTE}"
+            try:
+                for _ in range(2):
+                    with self.assertRaises(HTTPError) as caught:
+                        opener.open(url, timeout=5)
+                    self.assertEqual(caught.exception.code, 503)
+                    self.assertEqual(caught.exception.headers["Cache-Control"], "no-store")
+                    self.assertEqual(
+                        json.load(caught.exception),
+                        {"status": "forward_evidence_unavailable"},
+                    )
+                with opener.open(url, timeout=5) as response:
+                    self.assertEqual(response.status, 200)
+                    self.assertEqual(json.load(response)["resolution_count"], 1)
+                self.assertEqual(read_report.call_count, 3)
+            finally:
+                server.shutdown()
+                server.server_close()
+                runner.join(timeout=5)
+
     def test_http_unavailable_never_leaks_exception(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "missing.jsonl"
