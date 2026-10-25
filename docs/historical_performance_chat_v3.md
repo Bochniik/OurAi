@@ -106,6 +106,15 @@ answer, or unrelated intervening turn does not authorize this transition.
 Standalone abbreviated baseline questions cannot open either verified reader.
 No Qwen benchmark was performed for this change.
 
+The colloquial variants `A čo pri nulovom?` and `A čo pri lineárnom?`
+are also recognized as **baseline-only** transitions after the same verified
+single-split historical day-win percentage. The words `čo pri` do not grant
+standalone report access: without the immediately preceding source-tagged
+percentage, or after a count, MAE answer, forward answer, or unrelated turn,
+the transition fails closed. The target percentage is re-read from the
+validated report, not copied from conversational text. Offline synthetic
+regressions exercise both targets; no local Qwen benchmark was run.
+
 A verified day-win **percentage** may also be followed by a short split change,
 such as `A na lockboxe?` after a validation percentage or `A vo validácii?`
 after a lockbox percentage. Only the immediately preceding source-tagged

@@ -165,7 +165,7 @@ def bare_day_wins_baseline_share_target(message: str) -> str | None:
     """
     text = _normalize(str(message or "")).strip().strip('.?!„“"')
     match = re.fullmatch(
-        r"(?:a\s+)?pri\s+(nulov\w*|null|linearn\w*|linear)"
+        r"(?:a\s+)?(?:co\s+)?pri\s+(nulov\w*|null|linearn\w*|linear)"
         r"(?:\s+(?:baseline|modeli))?",
         text,
     )

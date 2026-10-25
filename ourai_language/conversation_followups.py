@@ -84,6 +84,16 @@ def historical_followup_question(
         )
         return f"Koľko percent trhových dní model v3 prekonal {baseline} {scope}?"
 
+    # Do not let a malformed "A čo pri <baseline> ..." fragment fall
+    # through to the generic MAE comparison route. A valid whole-utterance
+    # variant was already resolved above; added clauses must fail closed.
+    if text.startswith((
+        "a co pri nulov", "a co pri null", "a co pri linearn",
+        "a co pri linear", "co pri nulov", "co pri null",
+        "co pri linearn", "co pri linear",
+    )):
+        return None
+
     # An elliptical split change after a verified day-win percentage keeps
     # the metric and baseline, but re-reads the *other* historical report.
     # Neither generated answer prose nor a prior MAE/count supplies evidence.
