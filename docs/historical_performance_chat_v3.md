@@ -407,8 +407,23 @@ The answer is tagged `conversation_clarification`, without an evidence
 question, and cannot authorize abbreviated historical follow-ups.
 
 This is deliberately a narrow grammar, not a general interpretation of all
-underspecified questions. To continue, ask the **complete** question with
-the intended split; a one-word reply is not yet a verified source selection.
-Questions already naming validation or lockbox retain their existing
-read-only behavior. Tests use synthetic/missing report paths and do not
-run or benchmark local Qwen.
+underspecified questions. Questions already naming validation or lockbox
+retain their existing read-only behavior. Tests use synthetic/missing report
+paths and do not run or benchmark local Qwen.
+
+### Reply to the missing historical split (October 2026)
+
+After **exactly** the immediately preceding supported day-win question and
+deterministic `conversation_clarification`, a short reply such as
+`Validáciu.`, `Historickú validáciu.`, `Lockbox.` or `Lockbox test.`
+selects the requested report split. The system reconstructs the original
+count/percentage and linear/null baseline, then re-reads the selected
+validated historical report. It does not treat the clarification as evidence,
+reuse generated numbers, or infer a source from other conversation turns.
+
+A standalone source word, altered clarification, interrupted dialogue,
+unrecognized reply or reply with additional forward/trading instructions
+does **not** authorize this contextual rewrite. Such bare source words
+cannot independently invoke the deterministic historical reader or opt-in
+verified tool selection. This is not a general multi-turn source-selection
+mechanism. No local Qwen benchmark was performed.

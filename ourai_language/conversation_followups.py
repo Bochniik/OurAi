@@ -17,6 +17,7 @@ from .historical_answers import (
     bare_day_wins_baseline_share_target, historical_day_wins_share_context,
     bare_day_wins_split_share_target, ordinal_other_comparison_kind,
     bare_clarification_baseline_target, historical_day_wins_missing_split,
+    historical_day_wins_missing_split_context, bare_historical_split_reply_target,
 )
 
 
@@ -57,6 +58,49 @@ def historical_missing_split_clarification(message: str) -> str | None:
         "alebo historický lockbox test? Upresni zdroj v celej otázke; "
         "bez toho nevyberiem report."
     )
+
+
+def historical_missing_split_reply_question(
+    message: str,
+    history: Iterable[Mapping[str, str]] | None,
+) -> str | None:
+    """Resolve an explicit split only after our exact preceding clarification.
+
+    The clarification is not evidence. Require the immediately preceding user
+    question to specify a supported day-win metric and baseline, and require
+    the assistant turn to match our deterministic clarification byte-for-byte.
+    The resulting full question must be read afresh by the verified report
+    reader; no answer or numerical value is copied from conversation history.
+    """
+    split = bare_historical_split_reply_target(message)
+    if split is None:
+        return None
+    rows = list(history or ())
+    if len(rows) < 2:
+        return None
+    previous_user, clarification = rows[-2:]
+    if (previous_user.get("role") != "user"
+            or clarification.get("role") != "assistant"
+            or clarification.get("source") != "conversation_clarification"
+            or clarification.get("evidence_question") not in (None, "")):
+        return None
+    previous_question = str(previous_user.get("content") or "")
+    context = historical_day_wins_missing_split_context(previous_question)
+    if context is None or clarification.get("content") != (
+        historical_missing_split_clarification(previous_question)
+    ):
+        return None
+    metric, baseline = context
+    metric_label = (
+        "Koľko percent trhových dní" if metric == "share"
+        else "Koľko trhových dní"
+    )
+    baseline_label = "lineárny" if baseline == "linear" else "nulový"
+    scope = (
+        "v historickej validácii" if split == "validation"
+        else "na historickom lockbox teste"
+    )
+    return f"{metric_label} model v3 prekonal {baseline_label} baseline {scope}?"
 
 
 def historical_ambiguity_clarification(
@@ -149,6 +193,11 @@ def historical_followup_question(
     The returned question must still go through the report reader and all
     of its provenance and numeric checks before any result is displayed.
     """
+    # A bare source choice can complete only our immediately preceding
+    # deterministic missing-split clarification, never an arbitrary report.
+    source_reply = historical_missing_split_reply_question(message, history)
+    if source_reply is not None:
+        return source_reply
     # A single baseline word is meaningful only as the immediate reply to
     # our exact clarification after a verified historical day-win result.
     clarified = historical_clarification_reply_question(message, history)

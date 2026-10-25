@@ -24,23 +24,46 @@ def _normalize(message: str) -> str:
     return "".join(c for c in folded if not unicodedata.combining(c))
 
 
-def historical_day_wins_missing_split(message: str) -> bool:
-    """Identify a bounded historical day-win question missing its report split.
+def historical_day_wins_missing_split_context(
+    message: str,
+) -> tuple[str, str] | None:
+    """Parse only an explicit day-win metric and baseline with no report split.
 
-    A baseline name alone does not identify validation versus lockbox.
-    This recognizer does not authorize any reader and rejects added clauses.
+    Returns (count/share, linear/null); never grants report access by itself.
     """
     text = _normalize(str(message or "")).strip().strip(' .?!„“"')
     if len(text) > 180:
-        return False
-    return re.fullmatch(
-        r"(?:kolko (?:percent )?(?:trhovych )?dni|"
+        return None
+    match = re.fullmatch(
+        r"(kolko (?:percent )?(?:trhovych )?dni|"
         r"ake percento (?:trhovych )?dni)"
         r"\s+model(?:\s+v3)?\s+prekonal\s+"
-        r"(?:linearn\w*|linear|nulov\w*|null)\s+"
+        r"(linearn\w*|linear|nulov\w*|null)\s+"
         r"(?:baseline|model)",
         text,
-    ) is not None
+    )
+    if match is None:
+        return None
+    metric = "share" if "percent" in match.group(1) else "count"
+    baseline = (
+        "linear" if match.group(2).startswith(("linearn", "linear")) else "null"
+    )
+    return metric, baseline
+
+
+def historical_day_wins_missing_split(message: str) -> bool:
+    """A baseline alone does not select historical validation or lockbox."""
+    return historical_day_wins_missing_split_context(message) is not None
+
+
+def bare_historical_split_reply_target(message: str) -> str | None:
+    """Parse only a bare source choice, never a standalone report request."""
+    text = _normalize(str(message or "")).strip().strip(' .?!„“"')
+    if text in {"validaciu", "historicku validaciu"}:
+        return "validation"
+    if text in {"lockbox", "lockbox test", "historicky lockbox test"}:
+        return "test"
+    return None
 
 
 def is_historical_educational_request(message: str) -> bool:
@@ -313,6 +336,7 @@ def historical_question_kind(message: str) -> str | None:
     """
     text = _normalize(str(message or "").strip())
     if (not text or historical_day_wins_missing_split(message)
+            or bare_historical_split_reply_target(message) is not None
             or is_historical_educational_request(message)
             or is_bare_baseline_followup(message)
             or bare_day_wins_followup_target(message) is not None
