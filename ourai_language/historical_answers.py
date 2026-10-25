@@ -165,8 +165,8 @@ def bare_day_wins_baseline_share_target(message: str) -> str | None:
     """
     text = _normalize(str(message or "")).strip().strip('.?!„“"')
     match = re.fullmatch(
-        r"(?:a\\s+)?pri\\s+(nulov\\w*|null|linearn\\w*|linear)"
-        r"(?:\\s+(?:baseline|modeli))?",
+        r"(?:a\s+)?pri\s+(nulov\w*|null|linearn\w*|linear)"
+        r"(?:\s+(?:baseline|modeli))?",
         text,
     )
     if match is None:
@@ -184,7 +184,7 @@ def historical_day_wins_share_context(message: str) -> tuple[str, str] | None:
     text = _normalize(str(message or "")).strip().strip('.?!„“"')
     match = re.fullmatch(
         r"(?:kolko percent trhovych dni|ake percento dni) model v3 prekonal "
-        r"(linearn\\w*|linear|nulov\\w*|null) baseline "
+        r"(linearn\w*|linear|nulov\w*|null) baseline "
         r"(v historickej validacii|na historickom lockbox teste)",
         text,
     )
