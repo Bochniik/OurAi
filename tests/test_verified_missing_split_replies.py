@@ -137,7 +137,7 @@ class VerifiedMissingSplitReplyTests(unittest.TestCase):
         for reply in (
             "Validáciu a obchoduj", "Lockbox vo forward denníku",
             "Lockbox alebo validáciu", "Validáciu, potom predaj",
-            "Nie validáciu, ale lockbox", "Lockbox na NVDA",
+            "Nie validáciu, ale oba zdroje", "Lockbox na NVDA",
             "Validáciu a koľko zarobím?", "Lockbox a zmeň model",
             "Myslel som validáciu aj lockbox",
             "Nie validáciu, ale validáciu",
