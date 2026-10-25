@@ -77,14 +77,10 @@ class UnsupportedForwardTickerTests(unittest.TestCase):
                     ))
 
     def test_long_company_names_after_stock_cues_fail_closed(self):
-        # Names longer than five letters used to bypass the ticker-cue
-        # scanner, producing an unrelated overall or NVDA-only report.
-        # Company names are NOT verified aliases in this opt-in selector.
+        # Long, unverified company names still fail closed. Curated
+        # Nvidia forms are now tested separately as a bounded NVDA alias.
         questions = (
-            "Aké máš výsledky shadow pre akcie Nvidia?",
             "Aká je presnosť forward predikcií pre akciu Microsoft?",
-            "Zhrň predikcie vo forward denníku pre ticker NVIDIA.",
-            "Aké máš výsledky shadow pre stock Nvidia a NVDA?",
             "Aké máš výsledky shadow pre symbol Microsoft?",
             "Aké máš výsledky shadow pre akcie Nvidia a TSLA?",
         )
