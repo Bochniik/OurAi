@@ -57,6 +57,48 @@ class UnsupportedForwardTickerTests(unittest.TestCase):
                         historical_available=True, forward_available=True,
                     ))
 
+    def test_lowercase_unsupported_symbols_after_explicit_ticker_cues(self):
+        # The old uppercase-only capture silently answered overall or for
+        # NVDA when a user explicitly named an unsupported lowercase ticker.
+        questions = (
+            "Aké máš výsledky shadow pre ticker ibm?",
+            "Aká je presnosť forward predikcií pre symbol ibm?",
+            "Zhrň predikcie vo forward denníku pre akciu ibm.",
+            "Aké máš výsledky shadow pre stock ibm a NVDA?",
+            "Aké máš výsledky shadow pre ticker nvda a symbol ibm?",
+            "Aké máš výsledky shadow pre akcie Tesla?",
+        )
+        for question in questions:
+            for action in ("summary", "performance", "latest"):
+                with self.subTest(question=question, action=action):
+                    self.assertIsNone(select_verified_tool(
+                        question, _proposal(action),
+                        historical_available=True, forward_available=True,
+                    ))
+
+    def test_lowercase_supported_tickers_and_unmarked_prose_still_work(self):
+        for question, ticker in (
+            ("Aké máš výsledky shadow pre ticker nvda?", "NVDA"),
+            ("Aké máš výsledky shadow pre symbol tsla?", "TSLA"),
+            ("Aké máš výsledky shadow pre akcie meta?", "META"),
+            ("Aké máš výsledky shadow pre nvda?", "NVDA"),
+            ("Aká je MAE vo forward denníku pre symbol usd a NVDA?", "NVDA"),
+            ("Ako sa ti darí v shadow režime?", None),
+        ):
+            with self.subTest(question=question):
+                result = select_verified_tool(
+                    question, _proposal("performance"),
+                    historical_available=False, forward_available=True,
+                )
+                self.assertIsNotNone(result)
+                self.assertEqual(result[0], "forward_v2")
+                if ticker:
+                    self.assertIn(ticker, result[1])
+                else:
+                    self.assertFalse(any(
+                        symbol in result[1] for symbol in FROZEN_SYMBOLS
+                    ))
+
     def test_repeated_supported_tickers_and_metric_words_still_work(self):
         for question in (
             "Aké máš výsledky shadow pre NVDA, NVDA, NVDA?",
