@@ -89,13 +89,19 @@ def make_handler(journal_path: str | Path):
                 # response without exposing internal data or exception text.
                 code = 503
                 encoded = b'{"status":"forward_evidence_unavailable"}'
-            self.send_response(code)
-            self.send_header("Content-Type", "application/json; charset=utf-8")
-            self.send_header("Cache-Control", "no-store")
-            self.send_header("X-Content-Type-Options", "nosniff")
-            self.send_header("Content-Length", str(len(encoded)))
-            self.end_headers()
-            self.wfile.write(encoded)
+            try:
+                self.send_response(code)
+                self.send_header("Content-Type", "application/json; charset=utf-8")
+                self.send_header("Cache-Control", "no-store")
+                self.send_header("X-Content-Type-Options", "nosniff")
+                self.send_header("Content-Length", str(len(encoded)))
+                self.end_headers()
+                self.wfile.write(encoded)
+            except (BrokenPipeError, ConnectionResetError, ConnectionAbortedError):
+                # Orion can time out and disconnect while a full journal
+                # verification is running. A closed client socket is not a
+                # model/journal failure; the next request verifies afresh.
+                return
 
         def do_GET(self) -> None:
             # Does not allow remote exposure or browser CORS. HTTP Host
