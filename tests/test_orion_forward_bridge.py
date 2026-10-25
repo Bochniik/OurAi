@@ -243,6 +243,42 @@ class OrionForwardBridgeTests(unittest.TestCase):
                 server.server_close()
                 runner.join(timeout=5)
 
+    def test_verification_exhaustion_returns_safe_503_then_recovers(self):
+        # Deeply nested or oversized journal data can exhaust parser limits.
+        # A failed verification is an unavailable snapshot, not a broken socket,
+        # and it must release the gate for the next legitimate refresh.
+        with patch(
+            "scripts.serve_orion_forward_bridge.read_forward_report",
+            side_effect=[
+                RecursionError("synthetic nested journal"),
+                OverflowError("synthetic oversized numeric value"),
+                self.fake_report(),
+            ],
+        ) as read_report:
+            server = ThreadingHTTPServer((HOST, 0), make_handler("mock-journal.jsonl"))
+            runner = threading.Thread(target=server.serve_forever, daemon=True)
+            runner.start()
+            opener = build_opener(ProxyHandler({}))
+            url = f"http://127.0.0.1:{server.server_port}{ROUTE}"
+            try:
+                for _ in range(2):
+                    with self.assertRaises(HTTPError) as caught:
+                        opener.open(url, timeout=5)
+                    self.assertEqual(caught.exception.code, 503)
+                    self.assertEqual(caught.exception.headers["Cache-Control"], "no-store")
+                    self.assertEqual(
+                        json.load(caught.exception),
+                        {"status": "forward_evidence_unavailable"},
+                    )
+                with opener.open(url, timeout=5) as response:
+                    self.assertEqual(response.status, 200)
+                    self.assertEqual(json.load(response)["resolution_count"], 1)
+                self.assertEqual(read_report.call_count, 3)
+            finally:
+                server.shutdown()
+                server.server_close()
+                runner.join(timeout=5)
+
     def test_unserializable_snapshot_returns_safe_503_then_recovers(self):
         # Corrupt/non-JSON analytics must be classified as unavailable, not
         # streamed partially or surfaced as an unexplained broken connection.
