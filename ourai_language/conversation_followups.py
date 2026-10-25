@@ -15,7 +15,7 @@ from .historical_answers import (
     bare_day_wins_followup_target, historical_day_wins_count_context,
     is_bare_day_wins_share_followup,
     bare_day_wins_baseline_share_target, historical_day_wins_share_context,
-    bare_day_wins_split_share_target,
+    bare_day_wins_split_share_target, ordinal_other_comparison_kind,
 )
 
 
