@@ -15,6 +15,7 @@ from .historical_answers import (
     bare_day_wins_followup_target, historical_day_wins_count_context,
     is_bare_day_wins_share_followup,
     bare_day_wins_baseline_share_target, historical_day_wins_share_context,
+    bare_day_wins_split_share_target,
 )
 
 
@@ -59,6 +60,11 @@ def historical_followup_question(
     text = _norm(raw).strip(" .?!„“\"")
     if not text or len(raw) > 110 or len(text.split()) > 13:
         return None
+    # An abbreviated follow-up naming both report splits has no unique
+    # source transition. Do not let generic comparison routing choose one.
+    if (("lockbox" in text or "testovac" in text)
+            and "validac" in text):
+        return None
     # A short "A pri nulovom?" changes only the baseline of an immediately
     # preceding verified day-win *percentage*. Never infer the metric from
     # assistant prose, a generic MAE answer or a day-win count.
@@ -77,6 +83,31 @@ def historical_followup_question(
             else "nulový baseline"
         )
         return f"Koľko percent trhových dní model v3 prekonal {baseline} {scope}?"
+
+    # An elliptical split change after a verified day-win percentage keeps
+    # the metric and baseline, but re-reads the *other* historical report.
+    # Neither generated answer prose nor a prior MAE/count supplies evidence.
+    share_split = bare_day_wins_split_share_target(raw)
+    if share_split is not None:
+        share_context = historical_day_wins_share_context(prior)
+        if share_context is not None:
+            if share_context[0] == share_split:
+                return None
+            baseline = (
+                "lineárny baseline" if share_context[1] == "linear"
+                else "nulový baseline"
+            )
+            scope = (
+                "v historickej validácii" if share_split == "validation"
+                else "na historickom lockbox teste"
+            )
+            return f"Koľko percent trhových dní model v3 prekonal {baseline} {scope}?"
+        # Do not silently convert a day-win *count* into an MAE comparison.
+        # Other verified MAE/summary split follow-ups retain existing routing.
+        if (historical_day_wins_count_context(prior) is not None
+                or "kolko percent" in _norm(prior)
+                or "ake percento" in _norm(prior)):
+            return None
 
     # "A koľko je to percent?" refers to the *immediately preceding*
     # verified day-win count, not to generic MAE or prediction hit rate.

@@ -174,6 +174,24 @@ def bare_day_wins_baseline_share_target(message: str) -> str | None:
     return "linear" if match.group(1).startswith(("linearn", "linear")) else "null"
 
 
+
+def bare_day_wins_split_share_target(message: str) -> str | None:
+    """Recognize an elliptical historical split change, never a standalone read.
+
+    Only an immediately preceding verified *day-win percentage* may supply
+    the baseline and metric. This parser provides no evidence by itself.
+    """
+    text = _normalize(str(message or "")).strip().strip('.?!„“"')
+    match = re.fullmatch(
+        r"(?:a\s+)?(?:na\s+lockboxe|na\s+historickom\s+lockbox\s+teste|"
+        r"vo?\s+validacii|v\s+historickej\s+validacii)",
+        text,
+    )
+    if match is None:
+        return None
+    return "test" if "lockbox" in text else "validation"
+
+
 def historical_day_wins_share_context(message: str) -> tuple[str, str] | None:
     """Identify a single split and baseline in an explicit day-win share query.
 
@@ -227,7 +245,8 @@ def historical_question_kind(message: str) -> str | None:
             or is_bare_baseline_followup(message)
             or bare_day_wins_followup_target(message) is not None
             or is_bare_day_wins_share_followup(message)
-            or bare_day_wins_baseline_share_target(message) is not None):
+            or bare_day_wins_baseline_share_target(message) is not None
+            or bare_day_wins_split_share_target(message) is not None):
         return None
     # A bare "Nie, myslel som validáciu" needs a verified preceding source.
     # The standalone deterministic reader must never assume that context.

@@ -51,6 +51,139 @@ def validation_fixture(directory: Path):
 
 
 class VerifiedToolSelectionTests(unittest.TestCase):
+    def test_day_win_share_split_switch_is_verified_and_context_bound(self):
+        cases = (
+            ("v historickej validácii", "A na lockboxe?",
+             "na historickom lockbox teste", "compare_test"),
+            ("na historickom lockbox teste", "A vo validácii?",
+             "v historickej validácii", "compare_validation"),
+        )
+        for old_scope, question, new_scope, kind in cases:
+            for baseline in ("lineárny", "nulový"):
+                previous = (
+                    f"Koľko percent trhových dní model v3 prekonal "
+                    f"{baseline} baseline {old_scope}?"
+                )
+                history = [
+                    {"role": "user", "content": previous},
+                    {"role": "assistant", "content": "Overená historická odpoveď.",
+                     "source": "historical_v3_reports",
+                     "evidence_question": previous},
+                ]
+                with self.subTest(question=question, baseline=baseline):
+                    canonical = historical_followup_question(question, history)
+                    self.assertEqual(
+                        canonical,
+                        f"Koľko percent trhových dní model v3 prekonal "
+                        f"{baseline} baseline {new_scope}?",
+                    )
+                    self.assertEqual(historical_question_kind(canonical), kind)
+                    # Neither deterministic nor opt-in semantic selection may
+                    # open a report from an isolated elliptical question.
+                    self.assertIsNone(historical_question_kind(question))
+                    self.assertIsNone(maybe_historical_answer(question, "missing"))
+                    self.assertIsNone(canonical_historical_question(
+                        question, json.dumps({
+                            "intent": "compare", "split": "test",
+                            "baseline": "linear",
+                        }),
+                    ))
+                    self.assertIsNone(select_verified_tool(
+                        question, choice("historical_v3", "compare", "test", "linear"),
+                        historical_available=True, forward_available=True,
+                    ))
+                    for invalid in (
+                        [], history[:-1],
+                        [history[0], {**history[1], "source": "model"}],
+                        [history[0], {**history[1],
+                                      "source": "verified_forward_journal"}],
+                        history + [{"role": "user", "content": "Iná otázka."}],
+                    ):
+                        self.assertIsNone(historical_followup_question(question, invalid))
+                    for unsafe in (
+                        question[:-1] + " a obchoduj?",
+                        question[:-1] + " vo forward denníku?",
+                        "A na lockboxe aj vo validácii?",
+                    ):
+                        self.assertIsNone(historical_followup_question(unsafe, history))
+                    # No redundant split switch and no inferred share after
+                    # a prior day count (or a two-split percentage).
+                    self.assertIsNone(historical_followup_question(
+                        "A vo validácii?" if "validácii" in old_scope
+                        else "A na lockboxe?", history,
+                    ))
+                    count = previous.replace("Koľko percent trhových dní", "Koľko dní")
+                    count_history = [
+                        {"role": "user", "content": count},
+                        {**history[1], "evidence_question": count},
+                    ]
+                    self.assertIsNone(historical_followup_question(
+                        question, count_history,
+                    ))
+                    both = previous.replace(old_scope, "v historickej validácii a lockboxe")
+                    self.assertIsNone(historical_followup_question(
+                        question, [
+                            {"role": "user", "content": both},
+                            {**history[1], "evidence_question": both},
+                        ],
+                    ))
+
+    def test_day_win_share_split_switch_rereads_target_report(self):
+        previous = (
+            "Koľko percent trhových dní model v3 prekonal "
+            "lineárny baseline v historickej validácii?"
+        )
+        history = [
+            {"role": "user", "content": previous},
+            {"role": "assistant", "content": "Overený podiel.",
+             "source": "historical_v3_reports", "evidence_question": previous},
+        ]
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            validation_fixture(root)
+            source = json.loads(
+                (root / "nonlinear_magnitude_validation_v1.json").read_text(
+                    encoding="utf-8"
+                )
+            )
+            test = {
+                **source, "test_lockbox_accessed": True,
+                "post_test_tuning_allowed": False, "test_supported": True,
+                "test": {
+                    **source["validation"], "market_date_count": 5,
+                    "market_date_wins_vs_linear": 1,
+                    "market_date_wins_vs_null": 4,
+                },
+            }
+            test.pop("validation")
+            (root / "nonlinear_magnitude_test_lockbox_v1.json").write_text(
+                json.dumps(test), encoding="utf-8",
+            )
+            runtime = LocalOllamaChatRuntime(
+                historical_reports_dir=root, semantic_tool_routing=True,
+                knowledge_enabled=False,
+            )
+            with patch.object(runtime, "_generate",
+                              side_effect=AssertionError("model must not run")):
+                answer = runtime.respond("A na lockboxe?", history=history)
+            self.assertEqual(answer.answer_source, "historical_v3_reports")
+            self.assertIn("20,00 % sledovaných trhových dní", answer.text)
+            self.assertIn("v 1 z 5 trhových dní", answer.text)
+            self.assertNotIn("V historickej validácii", answer.text)
+            self.assertNotIn("nulovému baseline", answer.text)
+            self.assertIn("nie je presnosť smeru UP/DOWN", answer.text)
+            self.assertIn("na historickom lockbox teste", answer.evidence_question)
+
+            missing = LocalOllamaChatRuntime(
+                historical_reports_dir=root / "missing",
+                semantic_tool_routing=True, knowledge_enabled=False,
+            )
+            with patch.object(missing, "_generate",
+                              side_effect=AssertionError("model must not run")):
+                unavailable = missing.respond("A na lockboxe?", history=history)
+            self.assertEqual(unavailable.answer_source, "historical_v3_reports")
+            self.assertIn("nie je dostupný", unavailable.text)
+
     def test_day_wins_metric_switch_preserves_verified_historical_split(self):
         cases = (
             ("Dobre, ale teraz mi namiesto MAE ukáž, koľko dní model prekonal lineárny baseline.",

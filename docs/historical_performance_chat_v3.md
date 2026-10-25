@@ -106,6 +106,19 @@ answer, or unrelated intervening turn does not authorize this transition.
 Standalone abbreviated baseline questions cannot open either verified reader.
 No Qwen benchmark was performed for this change.
 
+A verified day-win **percentage** may also be followed by a short split change,
+such as `A na lockboxe?` after a validation percentage or `A vo validácii?`
+after a lockbox percentage. Only the immediately preceding source-tagged
+historical percentage with one explicit baseline and split can supply context.
+The baseline and observed-day-share metric are retained, while the *target*
+validation/lockbox report is re-read and its daily-win counts revalidated.
+A standalone split fragment cannot open historical reports, even when an
+optional semantic classifier suggests one. Missing reports are reported rather
+than replaced by values from earlier answers. Previous day-win **counts** and
+ambiguous/two-split percentage questions cannot silently become a different
+metric. Existing verified MAE split follow-ups retain their earlier behavior.
+This is covered by synthetic regression tests, not a local Qwen benchmark.
+
 ## Local testing
 
 ```powershell
