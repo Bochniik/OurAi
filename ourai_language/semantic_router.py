@@ -12,8 +12,8 @@ import re
 import unicodedata
 
 from .historical_answers import (
-    explicit_comparison_baseline, historical_source_correction_target,
-    is_historical_educational_request,
+    bare_day_wins_followup_target, explicit_comparison_baseline,
+    historical_source_correction_target, is_historical_educational_request,
 )
 
 
@@ -182,6 +182,7 @@ def canonical_historical_question(
         or _mentions_current_or_forward(user_text)
         or is_historical_educational_request(original_question)
         or historical_source_correction_target(original_question) is not None
+        or bare_day_wins_followup_target(original_question) is not None
         or not _is_retrospective_performance_request(user_text)
     ):
         return None
