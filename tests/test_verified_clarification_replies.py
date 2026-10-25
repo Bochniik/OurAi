@@ -157,6 +157,70 @@ class VerifiedClarificationReplyTests(unittest.TestCase):
             with self.subTest(reply=unsafe):
                 self.assertIsNone(historical_followup_question(unsafe, good))
 
+    def test_contrast_corrections_require_verified_clarification(self):
+        """The negated baseline is not the target; contradictory pairs fail."""
+        for metric in ("Koľko trhových dní", "Koľko percent trhových dní"):
+            for scope in ("v historickej validácii", "na historickom lockbox teste"):
+                for excluded, requested in (
+                    ("lineárny", "nulový"), ("nulový", "lineárny")
+                ):
+                    previous = (
+                        f"{metric} model v3 prekonal {excluded} baseline {scope}?"
+                    )
+                    history = _history(previous)
+                    expected = (
+                        f"{metric} model v3 prekonal {requested} baseline {scope}?"
+                    )
+                    for reply in (
+                        f"Nie {excluded}, ale {requested}.",
+                        f"Nie {excluded} ale {requested}.",
+                        f"Nie ten {excluded} model, ale ten {requested} baseline, prosím.",
+                    ):
+                        with self.subTest(reply=reply, scope=scope, metric=metric):
+                            self.assertEqual(
+                                historical_followup_question(reply, history), expected
+                            )
+                            self.assertIsNone(historical_question_kind(reply))
+                            self.assertIsNone(canonical_historical_question(
+                                reply, json.dumps({
+                                    "intent": "compare", "split": "test",
+                                    "baseline": "null",
+                                }),
+                            ))
+                            self.assertIsNone(select_verified_tool(
+                                reply, json.dumps({
+                                    "tool": "historical_v3", "action": "compare",
+                                    "split": "test", "baseline": "null",
+                                }), historical_available=True, forward_available=True,
+                            ))
+                            self.assertIsNone(historical_followup_question(reply, []))
+                            self.assertIsNone(
+                                historical_followup_question(reply, history[:2])
+                            )
+        good = _history(
+            "Koľko trhových dní model v3 prekonal lineárny baseline "
+            "v historickej validácii?"
+        )
+        for unsafe in (
+            "Nie lineárny, ale lineárny.",
+            "Nie lineárny, ale nulový alebo lineárny.",
+            "Nie lineárny, ale nulový a obchoduj.",
+            "Nie lineárny, ale nulový na lockboxe.",
+            "Nie lineárny, ale nulový vo forward denníku.",
+            "Nie lineárny, ale nulový, prosím obchoduj.",
+        ):
+            with self.subTest(unsafe=unsafe):
+                self.assertIsNone(historical_followup_question(unsafe, good))
+        for history in (
+            good[:3],
+            [*good, {"role": "user", "content": "Iná téma."}],
+            [good[0], {**good[1], "source": "model"}, *good[2:]],
+            [*good[:3], {**good[3], "content": "Upravené spresnenie."}],
+        ):
+            self.assertIsNone(
+                historical_followup_question("Nie lineárny, ale nulový.", history)
+            )
+
     def test_both_runtimes_reread_verified_report_without_qwen(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
@@ -203,12 +267,19 @@ class VerifiedClarificationReplyTests(unittest.TestCase):
                                  "source": clarify.answer_source,
                                  "evidence_question": clarify.evidence_question or ""},
                             ]
-                            result = runtime.respond("Nie, ten nulový model, prosím.", history=history)
-                        self.assertEqual(result.answer_source, "historical_v3_reports")
-                        self.assertIn(f"v {count} z 3 trhových dní", result.text)
-                        self.assertIn("nulový baseline", result.evidence_question)
-                        self.assertIn(scope, result.evidence_question)
-                        self.assertEqual("%" in result.text, "percent" in metric)
+                            results = [
+                                runtime.respond(reply, history=history)
+                                for reply in (
+                                    "Nie, ten nulový model, prosím.",
+                                    "Nie lineárny, ale nulový.",
+                                )
+                            ]
+                        for result in results:
+                            self.assertEqual(result.answer_source, "historical_v3_reports")
+                            self.assertIn(f"v {count} z 3 trhových dní", result.text)
+                            self.assertIn("nulový baseline", result.evidence_question)
+                            self.assertIn(scope, result.evidence_question)
+                            self.assertEqual("%" in result.text, "percent" in metric)
                         self.assertIsNone(historical_followup_question("Nulový.", []))
 
 

@@ -193,13 +193,26 @@ def bare_day_wins_split_share_target(message: str) -> str | None:
 
 
 def bare_clarification_baseline_target(message: str) -> str | None:
-    """Parse an answer to a baseline clarification, not a report request.
+    """Parse a bounded baseline clarification reply, never a report request.
 
-    These fragments must never independently select the historical reader.
-    A trailing polite `, prosím` is permitted, but no additional request.
-    The follow-up layer separately validates the complete verified dialogue.
+    A contrast such as 'Nie lineárny, ale nulový' selects only the second
+    baseline, and only if the two named baselines differ. The follow-up layer
+    must still verify the exact four-turn historical clarification chain.
     """
     text = _normalize(str(message or "")).strip().strip(" .?!„“\"")
+    contrast = re.fullmatch(
+        r"nie\s+(?:ten\s+)?(nulovy|linearny)"
+        r"(?:\s+(?:baseline|model))?\s*,?\s+ale\s+"
+        r"(?:ten\s+)?(nulovy|linearny)"
+        r"(?:\s+(?:baseline|model))?"
+        r"(?:\s*,\s*prosim)?",
+        text,
+    )
+    if contrast is not None:
+        excluded, requested = contrast.groups()
+        if excluded == requested:
+            return None
+        return "null" if requested == "nulovy" else "linear"
     match = re.fullmatch(
         r"(?:(?:nie\s*,\s*)?(?:myslel som(?:\s+ten)?|ten)\s+)?"
         r"(nulovy|linearny)"
