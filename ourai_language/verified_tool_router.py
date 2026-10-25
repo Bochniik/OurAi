@@ -157,7 +157,7 @@ def _mentions_unsupported_forward_symbol(question: str) -> bool:
         # Do not exempt "NVDA, len ibm" or an unrelated follow-up.
         if right.casefold() == "len" and left.upper() in FROZEN_SYMBOLS:
             if re.match(
-                r"\\s+" + re.escape(left) + r"(?!\\w)",
+                r"\s+" + re.escape(left) + r"(?!\w)",
                 question[match.end(2):], re.I,
             ):
                 continue
