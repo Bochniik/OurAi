@@ -83,13 +83,11 @@ def _user_forward_evidence(question: str) -> bool:
     return True
 
 
-def _mentioned_symbol(question: str) -> str | None:
-    return next(
-        (
-            symbol for symbol in FROZEN_SYMBOLS
-            if re.search(r"(?<!\w)" + re.escape(symbol) + r"(?!\w)", question, re.I)
-        ),
-        None,
+def _mentioned_symbols(question: str) -> tuple[str, ...]:
+    """Read only exact frozen-universe ticker tokens from the user's words."""
+    return tuple(
+        symbol for symbol in FROZEN_SYMBOLS
+        if re.search(r"(?<!\w)" + re.escape(symbol) + r"(?!\w)", question, re.I)
     )
 
 
@@ -135,7 +133,12 @@ def select_verified_tool(
             return None
         if split != "both" or baseline != "both" or not _user_forward_evidence(user_question):
             return None
-        ticker = _mentioned_symbol(user_question)
+        symbols = _mentioned_symbols(user_question)
+        # A single-ticker journal query cannot faithfully answer a question
+        # naming several stocks. Never silently pick the first ticker.
+        if len(symbols) > 1:
+            return None
+        ticker = symbols[0] if symbols else None
         if action == "performance":
             question = "Aká je presnosť predikcií "
             question += f"{ticker} " if ticker else ""

@@ -52,3 +52,25 @@ historical results. `Čo je paper trading?` remains a general question.
 This mode never initiates live acquisition, executes trades, opens a
 locked dataset, retunes a forecast, or promotes a model. Verified journal
 performance cannot be equated with directional accuracy or profitability.
+
+
+## Ambiguous multi-ticker forward questions
+
+The opt-in forward tool selector builds a **single-ticker** verified-journal
+query (or an overall query if no ticker is named). If the user's original
+question names two or more **distinct symbols from the frozen universe**
+(e.g. `Aké máš výsledky shadow pre NVDA a TSLA?`), it now rejects the
+model-proposed forward tool choice rather than silently selecting the first
+symbol. A repeated mention of the *same* ticker remains a single-ticker
+request. A general shadow-performance question without a named ticker still
+uses the existing overall read-only query.
+
+This guard applies to the **optional model-proposed tool selection path**;
+it does not change the deterministic forward reader or implement a multi-stock
+comparison. Unsupported or unrecognized tickers are not interpreted by this
+narrow check. A rejected proposal falls through to ordinary conversation,
+not a fabricated per-stock statistic. Tests use synthetic JSON proposals;
+no local Qwen benchmark was performed.
+
+Offline regression:
+`python -m unittest tests.test_verified_forward_multi_symbol_selection -v`.
