@@ -115,7 +115,7 @@ def _mentions_unsupported_forward_symbol(question: str) -> bool:
         candidates.extend(match.group(1) for match in re.finditer(pattern, question))
     pair = (
         r"(?<!\w)([A-Z]{2,5})\s*"
-        r"(?i:vs\.?|versus|oproti|a|aj|/)\s*"
+        r"(?i:vs\.?|versus|oproti|a|aj|/|,)\s*"
         r"([A-Z]{2,5})(?!\w)"
     )
     for match in re.finditer(pair, question):
