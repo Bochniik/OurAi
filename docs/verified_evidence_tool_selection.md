@@ -69,7 +69,12 @@ This guard applies to the **optional model-proposed tool selection path**;
 it does not change the deterministic forward reader or implement a multi-stock
 comparison. A follow-up guard also rejects **explicit unsupported ticker syntax** (for
 example `pre IBM`, `$IBM`, `NVDA oproti IBM`, `NVDA a IBM`, or
-`NVDA, IBM`) in this opt-in tool selector. The pair scanner also checks
+`NVDA, IBM`) in this opt-in tool selector. The pair scanner also rejects **mixed/lowercase unknown tickers next to a
+recognized frozen ticker** in stock comparisons, such as `NVDA a ibm`,
+`ibm oproti NVDA`, or `NVDA, NVDA, ibm`. This is conservative:
+ambiguous short words next to known tickers may also cause the optional
+tool proposal to be rejected rather than risking an incorrect answer.
+The pair scanner also checks
 **overlapping pairs in longer lists** (such as `NVDA, NVDA, IBM`), so an
 unsupported third ticker cannot be silently skipped. It does not silently discard
 an unknown stock and answer for the remaining known ticker or overall
