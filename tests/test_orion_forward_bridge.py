@@ -54,6 +54,39 @@ class OrionForwardBridgeTests(unittest.TestCase):
         self.assertNotIn("signal", result)
         self.assertIsInstance(result["symbols"], dict)
 
+    def test_nested_report_metadata_is_not_exported(self):
+        # The analytics report can gain private or research-only fields.
+        # Neither nested symbol metrics nor latest forecasts may leak them.
+        report = self.fake_report()
+        report["symbols"]["NVDA"]["raw_credential"] = "synthetic-private-value"
+        report["symbols"]["NVDA"]["p_up"] = 0.99
+        report["latest_by_symbol"]["NVDA"]["raw_journal_record"] = {
+            "local_path": "synthetic-private-value",
+        }
+        report["latest_by_symbol"]["NVDA"]["p_down"] = 0.01
+        with patch("scripts.serve_orion_forward_bridge.read_forward_report", return_value=report):
+            snapshot = forward_evidence_snapshot("not-opened-in-mock.jsonl")
+        self.assertEqual(set(snapshot["symbols"]["NVDA"]), {
+            "predictions", "resolved", "pending", "overdue_pending",
+            "champion_mae_bps", "linear_mae_bps", "null_mae_bps",
+        })
+        self.assertEqual(set(snapshot["latest_by_symbol"]["NVDA"]), {
+            "symbol", "predicted_at", "sample_timestamp", "target_due_at",
+            "expected_magnitude_bps", "resolved",
+        })
+        encoded = json.dumps(snapshot)
+        self.assertNotIn("synthetic-private-value", encoded)
+        self.assertNotIn("raw_journal_record", encoded)
+        self.assertNotIn("p_up", encoded)
+        self.assertNotIn("p_down", encoded)
+
+    def test_missing_required_nested_field_fails_closed(self):
+        report = self.fake_report()
+        del report["symbols"]["NVDA"]["predictions"]
+        with patch("scripts.serve_orion_forward_bridge.read_forward_report", return_value=report):
+            with self.assertRaises(KeyError):
+                forward_evidence_snapshot("not-opened-in-mock.jsonl")
+
     def test_missing_journal_fails_closed(self):
         report = self.fake_report()
         report["journal_exists"] = False
