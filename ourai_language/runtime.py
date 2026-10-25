@@ -13,6 +13,7 @@ from .forward_answers import maybe_forward_answer
 from .historical_answers import maybe_historical_answer
 from .conversation_followups import (
     historical_ambiguity_clarification, historical_followup_question,
+    historical_missing_split_clarification,
 )
 from .grounding import find_unsupported_percentages, grounded_fallback
 from .prompting import (
@@ -175,6 +176,14 @@ class OurAIChatRuntime:
                 )
 
         if getattr(self, "historical_reports_dir", None) is not None:
+            # A named baseline without a report split cannot select a source.
+            # This clarification reads no report and calls no local model.
+            missing_split = historical_missing_split_clarification(user_message)
+            if missing_split is not None:
+                return ChatResult(
+                    text=missing_split, used_grounding_fallback=False,
+                    mode=ANALYSIS_QA, answer_source="conversation_clarification",
+                )
             # A source-tagged answer can justify a clarification, never an
             # invented interpretation of "the other model". No report is read.
             clarification = historical_ambiguity_clarification(
