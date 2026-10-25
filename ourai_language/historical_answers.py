@@ -84,12 +84,41 @@ def historical_source_correction_target(message: str) -> str | None:
     return "validation" if match.group(1).startswith("validac") else "test"
 
 
+def corrected_baseline_followup_target(message: str) -> str | None:
+    """Parse a bounded 'only X, not Y' correction, without using history.
+
+    This is not a standalone report request. Callers may resolve it only
+    after an immediately preceding verified historical answer. Reject a
+    contradictory exclusion or any extra clause rather than guessing.
+    """
+    text = _normalize(str(message or "")).strip().strip('.?!„“"')
+    match = re.fullmatch(
+        r"(?:nie,\\s*)?(?:a\\s+)?teraz\\s+to\\s+porovnaj\\s+"
+        r"(?:iba|len)\\s+(?:s|so)\\s+"
+        r"(nulov\\w*|null|linearn\\w*|linear)"
+        r"(?:\\s+(?:baseline|modelom))?\\s*,\\s*"
+        r"(?:a\\s+)?nie\\s+(?:s|so)\\s+"
+        r"(nulov\\w*|null|linearn\\w*|linear)"
+        r"(?:\\s+(?:baseline|modelom))?",
+        text,
+    )
+    if match is None:
+        return None
+    requested, excluded = (
+        "linear" if word.startswith(("linearn", "linear")) else "null"
+        for word in match.groups()
+    )
+    return requested if requested != excluded else None
+
+
 def is_bare_baseline_followup(message: str) -> bool:
     """Only a verified historical conversation may resolve this elliptical request.
 
     A standalone "A teraz to porovnaj s nulovým" has no known report split;
     it must not open validation and lockbox reports by default.
     """
+    if corrected_baseline_followup_target(message) is not None:
+        return True
     text = _normalize(str(message or "")).strip().strip('.?!„“"')
     return bool(re.fullmatch(
         r"(?:a )?teraz (?:to )?porovnaj (?:to )?(?:s|so) "
