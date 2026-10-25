@@ -187,6 +187,8 @@ def canonical_historical_question(
         or bare_day_wins_followup_target(original_question) is not None
         or bare_day_wins_baseline_share_target(original_question) is not None
         or bare_day_wins_split_share_target(original_question) is not None
+        or ordinal_other_comparison_kind(original_question) is not None
+        or re.search(r"\\bdruh(?:emu|om)\\s+(?:baseline|modelu|modelom)\\b", user_text)
         or not _is_retrospective_performance_request(user_text)
     ):
         return None
