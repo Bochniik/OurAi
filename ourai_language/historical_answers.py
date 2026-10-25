@@ -357,8 +357,8 @@ def _day_wins_comparison(
 def _day_wins_metric_request(message: str) -> tuple[bool, bool]:
     """Identify explicit daily-win count/share questions, not generic accuracy.
 
-    Both variants require a comparison and the user's named historical scope
-    to be selected by the existing deterministic report router.
+    The existing deterministic router must first classify the question as
+    retrospective comparison; this helper never opens a report on its own.
     """
     text = _normalize(message)
     if not re.search(r"\bprekonal\b", text):
