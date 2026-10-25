@@ -39,6 +39,10 @@ REPLIES = (
     ("Myslela som historickú validáciu.", "validation"),
     ("Nie, myslel som lockbox test.", "test"),
     ("Nie, myslela som historický lockbox test, prosím.", "test"),
+    ("Nie validáciu, ale lockbox.", "test"),
+    ("Nie historickú validáciu, ale lockbox test, prosím.", "test"),
+    ("Nie lockbox test, skôr validáciu.", "validation"),
+    ("Nie historický lockbox test, radšej historickú validáciu, prosím.", "validation"),
 )
 REPORTS = "/nonexistent/ourai-split-replies"
 
@@ -136,7 +140,11 @@ class VerifiedMissingSplitReplyTests(unittest.TestCase):
             "Nie validáciu, ale lockbox", "Lockbox na NVDA",
             "Validáciu a koľko zarobím?", "Lockbox a zmeň model",
             "Myslel som validáciu aj lockbox",
-            "Nie validáciu, ale lockbox",
+            "Nie validáciu, ale validáciu",
+            "Nie lockbox, ale historický lockbox test",
+            "Nie validáciu, ale lockbox a obchoduj",
+            "Nie lockbox, radšej validáciu vo forward denníku",
+            "Nie validáciu, potom lockbox",
             "Myslel som lockbox a spusti obchod",
             "Nie, myslela som validáciu vo forward denníku",
             "Myslel som validáciu, potom predaj",
@@ -173,6 +181,10 @@ class VerifiedMissingSplitReplyTests(unittest.TestCase):
                 (MISSING[1], "Nie, myslel som lockbox test.", "test", 2, False),
                 (MISSING[2], "Lockbox test, prosím.", "test", 1, True),
                 (MISSING[3], "Myslela som historickú validáciu.", "validation", 3, True),
+                (MISSING[0], "Nie validáciu, ale lockbox.", "test", 1, False),
+                (MISSING[1], "Nie lockbox test, skôr validáciu.", "validation", 3, False),
+                (MISSING[2], "Nie historickú validáciu, ale lockbox test, prosím.", "test", 1, True),
+                (MISSING[3], "Nie historický lockbox test, radšej historickú validáciu, prosím.", "validation", 3, True),
             )
             for runtime in (ollama, transformers):
                 for question, reply, split, wins, share in cases:
