@@ -16,6 +16,7 @@ from .contracts import AnalysisSnapshot
 from .general_answers import deterministic_social_answer
 from .financial_knowledge import lookup_financial_knowledge
 from .forward_answers import maybe_forward_answer
+from .forward_followups import forward_ticker_followup_question
 from .historical_answers import maybe_historical_answer
 from .semantic_router import (
     SYSTEM_PROMPT as SEMANTIC_ROUTER_PROMPT,
@@ -221,7 +222,33 @@ class LocalOllamaChatRuntime:
                 return ChatResult(
                     text=answer, used_grounding_fallback=False,
                     mode=ANALYSIS_QA, answer_source="verified_forward_journal",
+                    evidence_question=user_message,
                 )
+
+        # A short ticker switch may inherit only the metric of the immediately
+        # preceding verified forward answer. Re-read the journal for the new
+        # symbol; never copy figures or trust generated assistant prose.
+        if self.forward_journal is not None:
+            contextual_forward = forward_ticker_followup_question(
+                user_message, history_rows,
+            )
+            if contextual_forward is not None:
+                try:
+                    answer = maybe_forward_answer(
+                        contextual_forward, self.forward_journal,
+                    )
+                except (ValueError, OSError, KeyError, TypeError) as exc:
+                    raise RuntimeError(
+                        "Forward denník je neplatný alebo dočasne nedostupný; "
+                        "odmietam odhadovať nevykázané výsledky."
+                    ) from exc
+                if answer is not None:
+                    return ChatResult(
+                        text=answer, used_grounding_fallback=False,
+                        mode=ANALYSIS_QA,
+                        answer_source="verified_forward_journal",
+                        evidence_question=contextual_forward,
+                    )
 
         # Keep the verified readers above authoritative, but do not ask the
         # local model to interpret one ticker using another ticker's snapshot.
@@ -278,7 +305,7 @@ class LocalOllamaChatRuntime:
                             "historical_v3_reports" if source == "historical_v3"
                             else "verified_forward_journal"
                         ),
-                        evidence_question=canonical if source == "historical_v3" else None,
+                        evidence_question=canonical,
                     )
 
         # Experimental local-language semantic router. It proposes only an
