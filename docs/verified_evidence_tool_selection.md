@@ -117,3 +117,25 @@ no local Qwen benchmark was performed.
 
 Offline regression:
 `python -m unittest tests.test_verified_forward_multi_symbol_selection tests.test_verified_forward_unsupported_ticker_selection tests.test_verified_forward_nvidia_alias tests.test_verified_forward_tesla_alias tests.test_verified_forward_microsoft_alias tests.test_verified_forward_company_cues -v`.
+
+## Slovak alternative-stock questions
+
+The opt-in forward selector now also treats the Slovak alternatives
+`alebo` and `či` as potential multi-stock requests. A question such as
+`Aké máš výsledky shadow pre Nvidia alebo Alphabet?` or
+`Aké máš výsledky shadow pre NVDA alebo Alphabet?` must **not** be
+silently narrowed to NVDA, because Alphabet is not a verified alias or
+frozen-universe ticker. The same applies with reversed ordering and
+lowercase unknown symbols. Questions naming two distinct verified
+companies remain unsupported by the single-stock selector.
+
+Equivalent aliases for the **same** frozen ticker (for example
+`Nvidia alebo NVDA`) remain eligible, as do metric abbreviations such
+as `NVDA alebo MAE`. This is a conservative lexical guard, not
+a general natural-language entity resolver; unknown symbols are never
+passed to the journal reader. The historical reader and all trading
+or forward-journal operations are unchanged.
+
+Offline regression:
+`python -m unittest tests.test_verified_forward_disjunction -v`.
+These tests use synthetic model proposals, **not** a local Qwen run.
