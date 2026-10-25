@@ -65,17 +65,26 @@ def historical_followup_question(
     # the v3 champion is also a model; never silently reuse the old baseline.
     ordinal_other = ordinal_other_comparison_kind(raw)
     if ordinal_other == "baseline":
+        # The previous verified answer must identify one historical split,
+        # one baseline and an explicit day-win metric. Preserve *count* or
+        # *share* instead of silently changing the metric to percentage.
         share_context = historical_day_wins_share_context(prior)
-        if share_context is None:
+        count_context = historical_day_wins_count_context(prior)
+        if share_context is not None:
+            split, old_baseline = share_context
+            metric = "Koľko percent trhových dní"
+        elif count_context is not None:
+            split, old_baseline = count_context
+            metric = "Koľko trhových dní"
+        else:
             return None
-        split, old_baseline = share_context
         new_baseline = "nulový" if old_baseline == "linear" else "lineárny"
         scope = (
             "v historickej validácii" if split == "validation"
             else "na historickom lockbox teste"
         )
         return (
-            f"Koľko percent trhových dní model v3 prekonal "
+            f"{metric} model v3 prekonal "
             f"{new_baseline} baseline {scope}?"
         )
     # Prevent malformed ordinal requests from falling into the generic
