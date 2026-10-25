@@ -366,3 +366,22 @@ language improvement, not a claim of unrestricted Slovak understanding.
 
 Offline regression: `python -m unittest tests.test_verified_clarification_replies -v`.
 No local Qwen benchmark was performed for this change.
+
+### Contrast corrections after verified baseline clarification (October 2026)
+
+The exact verified four-turn clarification chain also accepts a bounded
+contrast such as `Nie lineárny, ale nulový.` or
+`Nie ten nulový model, ale ten lineárny baseline, prosím.`. The baseline
+after **ale** is selected only when it differs from the explicitly rejected
+baseline. The historical split and day-win count/percentage are preserved,
+and the trusted report is re-read rather than using earlier assistant prose.
+
+A standalone contrast cannot open either historical or forward tools,
+including opt-in semantic routing. A contradictory contrast (`Nie lineárny,
+ale lineárny`), an interrupted or altered clarification, and any appended
+forward/trading/split instruction fail closed. This is a narrow deterministic
+grammar improvement, not general correction understanding.
+
+Offline regression:
+`python -m unittest tests.test_verified_clarification_replies -v`.
+No local Qwen benchmark was performed.
