@@ -41,6 +41,32 @@ def _context(history: Iterable[Mapping[str, str]] | None) -> str | None:
     return question
 
 
+
+def historical_ambiguity_clarification(
+    message: str,
+    history: Iterable[Mapping[str, str]] | None,
+) -> str | None:
+    """Ask for a baseline rather than guessing what 'the other model' means.
+
+    Only an immediately preceding source-tagged, single-split historical
+    day-win answer qualifies. This returns no numerical evidence and never
+    authorizes opening a report. A clarification is not a verified result.
+    """
+    if ordinal_other_comparison_kind(message) != "ambiguous":
+        return None
+    prior = _context(history)
+    if prior is None or not (
+        historical_day_wins_share_context(prior)
+        or historical_day_wins_count_context(prior)
+    ):
+        return None
+    return (
+        "Nie je jasné, ktorý model myslíš. Chceš porovnanie s lineárnym "
+        "alebo nulovým baseline? Upresni, prosím, konkrétny baseline; "
+        "bez toho nevyberiem historický report."
+    )
+
+
 def historical_followup_question(
     message: str,
     history: Iterable[Mapping[str, str]] | None,
