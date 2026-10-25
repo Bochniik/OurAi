@@ -11,7 +11,9 @@ from .general_answers import deterministic_social_answer
 from .financial_knowledge import lookup_financial_knowledge
 from .forward_answers import maybe_forward_answer
 from .historical_answers import maybe_historical_answer
-from .conversation_followups import historical_followup_question
+from .conversation_followups import (
+    historical_ambiguity_clarification, historical_followup_question,
+)
 from .grounding import find_unsupported_percentages, grounded_fallback
 from .prompting import (
     ANALYSIS_QA, GENERAL_CHAT, build_messages, select_conversation_mode,
@@ -173,6 +175,16 @@ class OurAIChatRuntime:
                 )
 
         if getattr(self, "historical_reports_dir", None) is not None:
+            # A source-tagged answer can justify a clarification, never an
+            # invented interpretation of "the other model". No report is read.
+            clarification = historical_ambiguity_clarification(
+                user_message, history_rows,
+            )
+            if clarification is not None:
+                return ChatResult(
+                    text=clarification, used_grounding_fallback=False,
+                    mode=ANALYSIS_QA, answer_source="conversation_clarification",
+                )
             try:
                 contextual = historical_followup_question(user_message, history_rows)
                 historical = maybe_historical_answer(
