@@ -6,7 +6,6 @@ into numerical evidence or infer a new source from conversational prose.
 """
 from __future__ import annotations
 
-import re
 import unicodedata
 from typing import Iterable, Mapping
 
@@ -17,6 +16,7 @@ from .historical_answers import (
     is_bare_day_wins_share_followup,
     bare_day_wins_baseline_share_target, historical_day_wins_share_context,
     bare_day_wins_split_share_target, ordinal_other_comparison_kind,
+    bare_clarification_baseline_target,
 )
 
 
@@ -80,13 +80,8 @@ def historical_clarification_reply_question(
     the deterministic clarification. Never accept arbitrary assistant prose
     or use the clarification itself as a historical report authorization.
     """
-    text = _norm(str(message or "")).strip().strip(" .?!„“\"")
-    match = re.fullmatch(
-        r"(?:(?:myslel som|ten)\s+)?(nulovy|linearny)"
-        r"(?:\s+(?:baseline|model))?",
-        text,
-    )
-    if match is None:
+    target = bare_clarification_baseline_target(message)
+    if target is None:
         return None
     rows = list(history or ())
     if len(rows) < 4:
@@ -118,7 +113,7 @@ def historical_clarification_reply_question(
         metric = "Koľko trhových dní"
     else:
         return None
-    baseline = "nulový" if match.group(1) == "nulovy" else "lineárny"
+    baseline = "nulový" if target == "null" else "lineárny"
     scope = (
         "v historickej validácii" if split == "validation"
         else "na historickom lockbox teste"
