@@ -6,6 +6,7 @@ import json
 from pathlib import Path
 import tempfile
 import threading
+from threading import Event
 import unittest
 from unittest.mock import patch
 from urllib.error import HTTPError
@@ -156,6 +157,87 @@ class OrionForwardBridgeTests(unittest.TestCase):
                             {"status": "forbidden_browser_origin"},
                         )
                 read_report.assert_not_called()
+            finally:
+                server.shutdown()
+                server.server_close()
+                runner.join(timeout=5)
+
+
+    def test_concurrent_refresh_does_not_duplicate_journal_verification(self):
+        # Two loopback readers must not cause simultaneous full hash-chain
+        # verification. The second fails closed while the first is blocked.
+        started, release = Event(), Event()
+        results = {}
+        def slow_report(_path):
+            started.set()
+            if not release.wait(timeout=5):
+                raise TimeoutError("synthetic blocked journal verification")
+            return self.fake_report()
+
+        with patch(
+            "scripts.serve_orion_forward_bridge.read_forward_report",
+            side_effect=slow_report,
+        ) as read_report:
+            server = ThreadingHTTPServer((HOST, 0), make_handler("mock-journal.jsonl"))
+            runner = threading.Thread(target=server.serve_forever, daemon=True)
+            runner.start()
+            url = f"http://127.0.0.1:{server.server_port}{ROUTE}"
+
+            def first_reader():
+                try:
+                    with build_opener(ProxyHandler({})).open(url, timeout=5) as response:
+                        results["first_status"] = response.status
+                        results["first_body"] = json.load(response)
+                except Exception as error:
+                    results["first_error"] = repr(error)
+
+            first = threading.Thread(target=first_reader, daemon=True)
+            try:
+                first.start()
+                self.assertTrue(started.wait(timeout=3), "first verification did not start")
+                with self.assertRaises(HTTPError) as busy:
+                    build_opener(ProxyHandler({})).open(url, timeout=5)
+                self.assertEqual(busy.exception.code, 503)
+                self.assertEqual(
+                    json.load(busy.exception),
+                    {"status": "forward_evidence_unavailable"},
+                )
+                read_report.assert_called_once()
+            finally:
+                release.set()
+                first.join(timeout=5)
+                server.shutdown()
+                server.server_close()
+                runner.join(timeout=5)
+            self.assertFalse(first.is_alive())
+            self.assertNotIn("first_error", results)
+            self.assertEqual(results["first_status"], 200)
+            self.assertEqual(results["first_body"]["resolution_count"], 1)
+            read_report.assert_called_once()
+
+    def test_failed_verification_releases_gate_for_next_refresh(self):
+        # A bad/missing journal cannot permanently block later requests.
+        with patch(
+            "scripts.serve_orion_forward_bridge.read_forward_report",
+            side_effect=[FileNotFoundError("synthetic missing"), self.fake_report()],
+        ) as read_report:
+            server = ThreadingHTTPServer((HOST, 0), make_handler("mock-journal.jsonl"))
+            runner = threading.Thread(target=server.serve_forever, daemon=True)
+            runner.start()
+            url = f"http://127.0.0.1:{server.server_port}{ROUTE}"
+            opener = build_opener(ProxyHandler({}))
+            try:
+                with self.assertRaises(HTTPError) as unavailable:
+                    opener.open(url, timeout=5)
+                self.assertEqual(unavailable.exception.code, 503)
+                self.assertEqual(
+                    json.load(unavailable.exception),
+                    {"status": "forward_evidence_unavailable"},
+                )
+                with opener.open(url, timeout=5) as response:
+                    self.assertEqual(response.status, 200)
+                    self.assertEqual(json.load(response)["resolution_count"], 1)
+                self.assertEqual(read_report.call_count, 2)
             finally:
                 server.shutdown()
                 server.server_close()
