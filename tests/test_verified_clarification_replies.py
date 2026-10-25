@@ -67,7 +67,10 @@ class VerifiedClarificationReplyTests(unittest.TestCase):
                     history = _history(previous)
                     expected = f"{metric} model v3 prekonal {target} baseline {scope}?"
                     for reply in (target, f"{target} baseline",
-                                  f"Myslel som {target}.", f"Ten {target}."):
+                                  f"Myslel som {target}.", f"Ten {target}.",
+                                  f"Myslel som ten {target} model.",
+                                  f"Myslel som ten {target} baseline.",
+                                  f"Ten {target} model."):
                         with self.subTest(metric=metric, scope=scope,
                                           target=target, reply=reply):
                             self.assertEqual(
@@ -121,6 +124,9 @@ class VerifiedClarificationReplyTests(unittest.TestCase):
                 self.assertIsNone(historical_followup_question("Nulový", history))
         for unsafe in (
             "Nulový a obchoduj", "Nulový vo forward denníku",
+            "Myslel som ten nulový model a obchoduj",
+            "Myslel som ten nulový model vo forward denníku",
+            "Myslel som ten nulový model na lockboxe",
             "Nulový na lockboxe", "Nulový alebo lineárny",
             "Nulový, kúp akcie", "Nulový a vo validácii",
         ):
