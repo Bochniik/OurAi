@@ -92,11 +92,12 @@ class UnsupportedForwardTickerTests(unittest.TestCase):
                 )
                 self.assertIsNotNone(result)
                 self.assertEqual(result[0], "forward_v2")
-                self.assertEqual(
-                    ticker in result[1] if ticker else not any(
+                if ticker:
+                    self.assertIn(ticker, result[1])
+                else:
+                    self.assertFalse(any(
                         symbol in result[1] for symbol in FROZEN_SYMBOLS
-                    ), True,
-                )
+                    ))
 
     def test_repeated_supported_tickers_and_metric_words_still_work(self):
         for question in (
