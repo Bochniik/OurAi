@@ -50,6 +50,7 @@ class UnsupportedForwardTickerTests(unittest.TestCase):
             "Zhrň forward predikcie NVDA/ibm.",
             "Aké máš výsledky shadow pre NVDA, NVDA, ibm?",
             "Aké máš výsledky shadow pre nvda, ibm?",
+            "Aké máš výsledky shadow pre NVDA, len ibm?",
         )
         for question in questions:
             for action in ("summary", "performance", "latest"):
