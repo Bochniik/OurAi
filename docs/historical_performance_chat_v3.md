@@ -430,3 +430,26 @@ does **not** authorize this contextual rewrite. Such bare source words
 cannot independently invoke the deterministic historical reader or opt-in
 verified tool selection. This is not a general multi-turn source-selection
 mechanism. No local Qwen benchmark was performed.
+
+### Explicit contrasts when clarifying the historical source (October 2026)
+
+After OurAI has asked its **exact deterministic** question about the missing
+historical validation/lockbox split, a user may correct the choice explicitly:
+`Nie validáciu, ale lockbox.`, `Nie lockbox test, skôr validáciu.`, or
+`Nie historický lockbox test, radšej historickú validáciu, prosím.`.
+The source after `ale`, `skôr` or `radšej` is selected only when the
+rejected source is **different**. A repeated source, an incomplete negation,
+a second request, or any appended trading/forward instruction is rejected.
+
+This parser is **not** an independent permission to read evidence. The
+immediately preceding user question must explicitly specify the day-win
+count/share metric and linear/null baseline, and the immediately preceding
+assistant response must be the unmodified, provenance-tagged
+`conversation_clarification` for that question. Only then is a fully scoped
+question reconstructed and the selected **historical** report re-read. Bare
+contrast replies cannot invoke deterministic, opt-in semantic, or verified
+tools. Historical validation and lockbox remain distinct from forward results.
+
+Offline synthetic regressions:
+`python -m unittest tests.test_verified_missing_split_replies -v`.
+No local Qwen benchmark was run.
