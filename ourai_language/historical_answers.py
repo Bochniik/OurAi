@@ -199,13 +199,13 @@ def bare_clarification_baseline_target(message: str) -> str | None:
     baseline, and only if the two named baselines differ. The follow-up layer
     must still verify the exact four-turn historical clarification chain.
     """
-    text = _normalize(str(message or "")).strip().strip(" .?!„“\\\"")
+    text = _normalize(str(message or "")).strip().strip(" .?!„“\"")
     contrast = re.fullmatch(
-        r"nie\\s+(?:ten\\s+)?(nulovy|linearny)"
-        r"(?:\\s+(?:baseline|model))?\\s*,?\\s+ale\\s+"
-        r"(?:ten\\s+)?(nulovy|linearny)"
-        r"(?:\\s+(?:baseline|model))?"
-        r"(?:\\s*,\\s*prosim)?",
+        r"nie\s+(?:ten\s+)?(nulovy|linearny)"
+        r"(?:\s+(?:baseline|model))?\s*,?\s+ale\s+"
+        r"(?:ten\s+)?(nulovy|linearny)"
+        r"(?:\s+(?:baseline|model))?"
+        r"(?:\s*,\s*prosim)?",
         text,
     )
     if contrast is not None:
@@ -214,10 +214,10 @@ def bare_clarification_baseline_target(message: str) -> str | None:
             return None
         return "null" if requested == "nulovy" else "linear"
     match = re.fullmatch(
-        r"(?:(?:nie\\s*,\\s*)?(?:myslel som(?:\\s+ten)?|ten)\\s+)?"
+        r"(?:(?:nie\s*,\s*)?(?:myslel som(?:\s+ten)?|ten)\s+)?"
         r"(nulovy|linearny)"
-        r"(?:\\s+(?:baseline|model))?"
-        r"(?:\\s*,\\s*prosim)?",
+        r"(?:\s+(?:baseline|model))?"
+        r"(?:\s*,\s*prosim)?",
         text,
     )
     if match is None:
