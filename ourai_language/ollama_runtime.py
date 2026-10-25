@@ -24,6 +24,7 @@ from .semantic_router import (
 )
 from .conversation_followups import (
     historical_ambiguity_clarification, historical_followup_question,
+    historical_missing_split_clarification,
 )
 from .verified_tool_router import (
     SYSTEM_PROMPT as VERIFIED_TOOL_ROUTER_PROMPT, select_verified_tool,
@@ -173,6 +174,14 @@ class LocalOllamaChatRuntime:
                 )
 
         if self.historical_reports_dir is not None:
+            # A named baseline without a report split cannot select a source.
+            # This clarification reads no report and calls no local model.
+            missing_split = historical_missing_split_clarification(user_message)
+            if missing_split is not None:
+                return ChatResult(
+                    text=missing_split, used_grounding_fallback=False,
+                    mode=ANALYSIS_QA, answer_source="conversation_clarification",
+                )
             # A source-tagged answer can justify a clarification, never an
             # invented interpretation of "the other model". No report is read.
             clarification = historical_ambiguity_clarification(

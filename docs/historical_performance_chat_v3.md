@@ -393,3 +393,22 @@ grammar improvement, not general correction understanding.
 Offline regression:
 `python -m unittest tests.test_verified_clarification_replies -v`.
 No local Qwen benchmark was performed.
+
+
+### Missing historical day-win source (October 2026)
+
+An explicit day-win question naming a baseline but **not** a report split,
+such as `Koľko dní model v3 prekonal lineárny baseline?` or
+`Koľko percent trhových dní model v3 prekonal nulový baseline?`,
+now receives a deterministic Slovak clarification asking for **historical
+validation or historical lockbox**. Neither report is opened, and no model
+classification can silently select a split for this bounded wording.
+The answer is tagged `conversation_clarification`, without an evidence
+question, and cannot authorize abbreviated historical follow-ups.
+
+This is deliberately a narrow grammar, not a general interpretation of all
+underspecified questions. To continue, ask the **complete** question with
+the intended split; a one-word reply is not yet a verified source selection.
+Questions already naming validation or lockbox retain their existing
+read-only behavior. Tests use synthetic/missing report paths and do not
+run or benchmark local Qwen.

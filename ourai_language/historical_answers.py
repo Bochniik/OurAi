@@ -24,6 +24,25 @@ def _normalize(message: str) -> str:
     return "".join(c for c in folded if not unicodedata.combining(c))
 
 
+def historical_day_wins_missing_split(message: str) -> bool:
+    """Identify a bounded historical day-win question missing its report split.
+
+    A baseline name alone does not identify validation versus lockbox.
+    This recognizer does not authorize any reader and rejects added clauses.
+    """
+    text = _normalize(str(message or "")).strip().strip(' .?!„“"')
+    if len(text) > 180:
+        return False
+    return re.fullmatch(
+        r"(?:kolko (?:percent )?(?:trhovych )?dni|"
+        r"ake percento (?:trhovych )?dni)"
+        r"\s+model(?:\s+v3)?\s+prekonal\s+"
+        r"(?:linearn\w*|linear|nulov\w*|null)\s+"
+        r"(?:baseline|model)",
+        text,
+    ) is not None
+
+
 def is_historical_educational_request(message: str) -> bool:
     """Recognize explicit definitions without opening retrospective reports.
 
@@ -293,7 +312,8 @@ def historical_question_kind(message: str) -> str | None:
     another context, so historical markers take precedence there.
     """
     text = _normalize(str(message or "").strip())
-    if (not text or is_historical_educational_request(message)
+    if (not text or historical_day_wins_missing_split(message)
+            or is_historical_educational_request(message)
             or is_bare_baseline_followup(message)
             or bare_day_wins_followup_target(message) is not None
             or is_bare_day_wins_share_followup(message)
