@@ -13,7 +13,7 @@ import unicodedata
 
 from .historical_answers import (
     bare_day_wins_followup_target, bare_day_wins_baseline_share_target,
-    bare_day_wins_split_share_target,
+    bare_day_wins_split_share_target, ordinal_other_comparison_kind,
     explicit_comparison_baseline,
     historical_source_correction_target, is_historical_educational_request,
 )
