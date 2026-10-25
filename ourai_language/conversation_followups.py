@@ -85,17 +85,22 @@ def historical_followup_question(
     share_split = bare_day_wins_split_share_target(raw)
     if share_split is not None:
         share_context = historical_day_wins_share_context(prior)
-        if share_context is None or share_context[0] == share_split:
+        if share_context is not None:
+            if share_context[0] == share_split:
+                return None
+            baseline = (
+                "lineárny baseline" if share_context[1] == "linear"
+                else "nulový baseline"
+            )
+            scope = (
+                "v historickej validácii" if share_split == "validation"
+                else "na historickom lockbox teste"
+            )
+            return f"Koľko percent trhových dní model v3 prekonal {baseline} {scope}?"
+        # Do not silently convert a day-win *count* into an MAE comparison.
+        # Other verified MAE/summary split follow-ups retain existing routing.
+        if historical_day_wins_count_context(prior) is not None:
             return None
-        baseline = (
-            "lineárny baseline" if share_context[1] == "linear"
-            else "nulový baseline"
-        )
-        scope = (
-            "v historickej validácii" if share_split == "validation"
-            else "na historickom lockbox teste"
-        )
-        return f"Koľko percent trhových dní model v3 prekonal {baseline} {scope}?"
 
     # "A koľko je to percent?" refers to the *immediately preceding*
     # verified day-win count, not to generic MAE or prediction hit rate.
