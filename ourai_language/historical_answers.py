@@ -128,6 +128,25 @@ def is_bare_baseline_followup(message: str) -> bool:
     ))
 
 
+def bare_day_wins_followup_target(message: str) -> str | None:
+    """Recognize only bounded elliptical requests to change MAE into day wins.
+
+    The target is NOT permission to open a report. A caller must first check
+    the immediately preceding verified historical source and split.
+    """
+    text = _normalize(str(message or "")).strip().strip('.?!„“"')
+    match = re.fullmatch(
+        r"(?:dobre,\\s*ale\\s+teraz\\s+mi\\s+namiesto\\s+mae\\s+ukaz,\\s*|a\\s+)"
+        r"kolko\\s+(?:trhovych\\s+)?dni\\s+model\\s+(?:v3\\s+)?prekonal\\s+"
+        r"(linearn\\w*|linear|nulov\\w*|null)"
+        r"(?:\\s+(?:baseline|model))?",
+        text,
+    )
+    if match is None:
+        return None
+    return "linear" if match.group(1).startswith(("linearn", "linear")) else "null"
+
+
 def historical_question_kind(message: str) -> str | None:
     """Classify only model-performance requests, never finance definitions.
 
@@ -136,7 +155,9 @@ def historical_question_kind(message: str) -> str | None:
     another context, so historical markers take precedence there.
     """
     text = _normalize(str(message or "").strip())
-    if not text or is_historical_educational_request(message) or is_bare_baseline_followup(message):
+    if (not text or is_historical_educational_request(message)
+            or is_bare_baseline_followup(message)
+            or bare_day_wins_followup_target(message) is not None):
         return None
     # A bare "Nie, myslel som validáciu" needs a verified preceding source.
     # The standalone deterministic reader must never assume that context.
@@ -313,6 +334,17 @@ def _baseline_comparison(split: str, report: dict[str, Any], baseline: str) -> s
     )
 
 
+def _day_wins_comparison(split: str, report: dict[str, Any], baseline: str) -> str:
+    """Report observed day-level MAE wins, never directional hit rate."""
+    label = "lineárnemu" if baseline == "linear" else "nulovému"
+    scope = "V historickej validácii" if split == "validation" else "V historickom lockbox teste"
+    wins = report[f"market_date_wins_vs_{baseline}"]
+    return (
+        f"{scope} dosiahol OurAI v3 nižšiu dennú MAE oproti {label} baseline "
+        f"v {wins} z {report['days']} trhových dní."
+    )
+
+
 def explicit_comparison_baseline(message: str) -> str | None:
     """Honor a clearly negated baseline contrast; reject unresolved exclusions.
 
@@ -430,8 +462,12 @@ def maybe_historical_answer(message: str, reports_dir: str | Path | None) -> str
         )
     if kind.startswith("compare"):
         targets = _comparison_targets(message)
+        # Explicit day-win questions use validated day counts, not MAE values
+        # or an invented direction-accuracy percentage.
+        day_wins = "kolko trhovych dni" in _normalize(message) and "prekonal" in _normalize(message)
+        formatter = _day_wins_comparison if day_wins else _baseline_comparison
         details = " ".join(
-            _baseline_comparison(split, report, baseline)
+            formatter(split, report, baseline)
             for split, report in available.items() for baseline in targets
         )
     else:
