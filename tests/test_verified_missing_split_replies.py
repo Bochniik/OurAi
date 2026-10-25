@@ -33,6 +33,12 @@ REPLIES = (
     ("Lockbox.", "test"),
     ("Lockbox test.", "test"),
     ("Historický lockbox test.", "test"),
+    ("Validáciu, prosím.", "validation"),
+    ("Lockbox test, prosím.", "test"),
+    ("Myslel som validáciu.", "validation"),
+    ("Myslela som historickú validáciu.", "validation"),
+    ("Nie, myslel som lockbox test.", "test"),
+    ("Nie, myslela som historický lockbox test, prosím.", "test"),
 )
 REPORTS = "/nonexistent/ourai-split-replies"
 
@@ -129,6 +135,12 @@ class VerifiedMissingSplitReplyTests(unittest.TestCase):
             "Lockbox alebo validáciu", "Validáciu, potom predaj",
             "Nie validáciu, ale lockbox", "Lockbox na NVDA",
             "Validáciu a koľko zarobím?", "Lockbox a zmeň model",
+            "Myslel som validáciu aj lockbox",
+            "Nie validáciu, ale lockbox",
+            "Myslel som lockbox a spusti obchod",
+            "Nie, myslela som validáciu vo forward denníku",
+            "Myslel som validáciu, potom predaj",
+            "Nie, validáciu",
         ):
             with self.subTest(reply=reply):
                 self.assertIsNone(bare_historical_split_reply_target(reply))
@@ -157,6 +169,10 @@ class VerifiedMissingSplitReplyTests(unittest.TestCase):
                 (MISSING[1], "Lockbox.", "test", 2, False),
                 (MISSING[2], "Lockbox test.", "test", 1, True),
                 (MISSING[3], "Historickú validáciu.", "validation", 3, True),
+                (MISSING[0], "Myslel som validáciu.", "validation", 2, False),
+                (MISSING[1], "Nie, myslel som lockbox test.", "test", 2, False),
+                (MISSING[2], "Lockbox test, prosím.", "test", 1, True),
+                (MISSING[3], "Myslela som historickú validáciu.", "validation", 3, True),
             )
             for runtime in (ollama, transformers):
                 for question, reply, split, wins, share in cases:
