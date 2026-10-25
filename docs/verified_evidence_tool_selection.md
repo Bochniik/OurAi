@@ -69,7 +69,9 @@ This guard applies to the **optional model-proposed tool selection path**;
 it does not change the deterministic forward reader or implement a multi-stock
 comparison. A follow-up guard also rejects **explicit unsupported ticker syntax** (for
 example `pre IBM`, `$IBM`, `NVDA oproti IBM`, `NVDA a IBM`, or
-`NVDA, IBM`) in this opt-in tool selector. It does not silently discard
+`NVDA, IBM`) in this opt-in tool selector. The pair scanner also checks
+**overlapping pairs in longer lists** (such as `NVDA, NVDA, IBM`), so an
+unsupported third ticker cannot be silently skipped. It does not silently discard
 an unknown stock and answer for the remaining known ticker or overall
 journal. Recognized metric abbreviations such as MAE and BPS are not treated
 as stock names. This intentionally bounded syntax does **not** detect every
