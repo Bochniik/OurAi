@@ -183,8 +183,8 @@ def bare_day_wins_split_share_target(message: str) -> str | None:
     """
     text = _normalize(str(message or "")).strip().strip('.?!„“"')
     match = re.fullmatch(
-        r"(?:a\\s+)?(?:na\\s+lockboxe|na\\s+historickom\\s+lockbox\\s+teste|"
-        r"vo?\\s+validacii|v\\s+historickej\\s+validacii)",
+        r"(?:a\s+)?(?:na\s+lockboxe|na\s+historickom\s+lockbox\s+teste|"
+        r"vo?\s+validacii|v\s+historickej\s+validacii)",
         text,
     )
     if match is None:
