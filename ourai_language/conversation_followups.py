@@ -12,7 +12,8 @@ from typing import Iterable, Mapping
 from .historical_answers import (
     corrected_baseline_followup_target, historical_question_kind,
     historical_source_correction_target, is_bare_baseline_followup,
-    bare_day_wins_followup_target,
+    bare_day_wins_followup_target, historical_day_wins_count_context,
+    is_bare_day_wins_share_followup,
 )
 
 
@@ -57,6 +58,23 @@ def historical_followup_question(
     text = _norm(raw).strip(" .?!„“\"")
     if not text or len(raw) > 110 or len(text.split()) > 13:
         return None
+    # "A koľko je to percent?" refers to the *immediately preceding*
+    # verified day-win count, not to generic MAE or prediction hit rate.
+    if is_bare_day_wins_share_followup(raw):
+        context = historical_day_wins_count_context(prior)
+        if context is None:
+            return None
+        source_split, source_baseline = context
+        scope = (
+            "v historickej validácii" if source_split == "validation"
+            else "na historickom lockbox teste"
+        )
+        baseline = (
+            "lineárny baseline" if source_baseline == "linear"
+            else "nulový baseline"
+        )
+        return f"Koľko percent trhových dní model v3 prekonal {baseline} {scope}?"
+
     # "A teraz to porovnaj s nulovým" refers to the previous *verified*
     # retrospective report, not current market data. Accept only this
     # tightly scoped discourse transition; other uses of "teraz" remain
