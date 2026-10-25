@@ -99,7 +99,15 @@ pairs in longer lists are also checked, including repeated names.
 Other company names remain unverified, and ambiguous or unrecognized
 names must not be guessed. The explicit stock-cue
 scanner checks names up to 30 ASCII letters, rather than silently treating
-longer names as an overall forward-journal question. This remains a bounded
+longer names as an overall forward-journal question.
+The same bounded guard now recognizes **explicit Slovak company cues**
+(`spoločnosť`, `spoločnosti`, `spoločnosťou`, their unaccented
+spellings, and inflected `firma` forms). For example, `shadow
+spoločnosti Alphabet` or `forward predikcie firmy IBM` must not
+silently select an overall journal report. Existing verified Nvidia,
+Tesla and Microsoft aliases, and frozen tickers, remain eligible after
+these cues. This is a fail-closed lexical check, **not** a new company
+resolver or permission to read additional evidence sources. This remains a bounded
 fail-closed guard, **not** a general company-name-to-ticker resolver.
 This intentionally bounded syntax does **not** detect every possible
 unmarked or lowercase ticker reference and does not extend the supported
@@ -108,4 +116,4 @@ not a fabricated per-stock statistic. Tests use synthetic JSON proposals;
 no local Qwen benchmark was performed.
 
 Offline regression:
-`python -m unittest tests.test_verified_forward_multi_symbol_selection tests.test_verified_forward_unsupported_ticker_selection tests.test_verified_forward_nvidia_alias tests.test_verified_forward_tesla_alias tests.test_verified_forward_microsoft_alias -v`.
+`python -m unittest tests.test_verified_forward_multi_symbol_selection tests.test_verified_forward_unsupported_ticker_selection tests.test_verified_forward_nvidia_alias tests.test_verified_forward_tesla_alias tests.test_verified_forward_microsoft_alias tests.test_verified_forward_company_cues -v`.
