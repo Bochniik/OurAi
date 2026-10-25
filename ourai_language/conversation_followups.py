@@ -99,7 +99,9 @@ def historical_followup_question(
             return f"Koľko percent trhových dní model v3 prekonal {baseline} {scope}?"
         # Do not silently convert a day-win *count* into an MAE comparison.
         # Other verified MAE/summary split follow-ups retain existing routing.
-        if historical_day_wins_count_context(prior) is not None:
+        if (historical_day_wins_count_context(prior) is not None
+                or "kolko percent" in _norm(prior)
+                or "ake percento" in _norm(prior)):
             return None
 
     # "A koľko je to percent?" refers to the *immediately preceding*
