@@ -137,7 +137,7 @@ def _mentions_unsupported_forward_symbol(question: str) -> bool:
     # third ticker in "NVDA, NVDA, IBM" and silently narrow the query.
     pair = (
         r"(?=(?<!\w)([A-Z]{2,5})\s*"
-        r"(?i:vs\.?|versus|oproti|a|aj|/|,)\s*"
+        r"(?i:vs\.?|versus|oproti|alebo|či|a|aj|/|,)\s*"
         r"([A-Z]{2,5})(?!\w))"
     )
     for match in re.finditer(pair, question):
@@ -147,7 +147,7 @@ def _mentions_unsupported_forward_symbol(question: str) -> bool:
     # Require whole-word tokens: "shadow" must not be split at its "a".
     mixed_pair = (
         r"(?=(?<!\w)([A-Za-z]{2,5})(?!\w)\s*"
-        r"(?i:vs\.?|versus|oproti|a|aj|/|,)\s*"
+        r"(?i:vs\.?|versus|oproti|alebo|či|a|aj|/|,)\s*"
         r"(?<!\w)([A-Za-z]{2,5})(?!\w))"
     )
     for match in re.finditer(mixed_pair, question):
@@ -163,10 +163,22 @@ def _mentions_unsupported_forward_symbol(question: str) -> bool:
                 continue
         if any(token.upper() in FROZEN_SYMBOLS for token in (left, right)):
             candidates.extend((left, right))
+    # Disjunctive questions can name a longer unknown company next to a
+    # frozen ticker ("NVDA alebo Alphabet"). Never return NVDA-only evidence.
+    # Only inspect alternatives explicitly joined by Slovak "or"/"whether".
+    disjunction = (
+        r"(?=(?<!\w)([A-Za-z]{2,30})(?!\w)\s*"
+        r"(?i:alebo|či)\s*"
+        r"(?<!\w)([A-Za-z]{2,30})(?!\w))"
+    )
+    for match in re.finditer(disjunction, question):
+        left, right = match.groups()
+        if left.upper() in FROZEN_SYMBOLS or right.upper() in FROZEN_SYMBOLS:
+            candidates.extend((left, right))
     # A recognized company alias must not silently narrow a comparison
     # with another (possibly unsupported) company or ticker. Inspect both
     # orders and overlapping pairs in longer lists, including repeated aliases.
-    join = r"\s*(?i:vs\.?|versus|oproti|a|aj|/|,)\s*"
+    join = r"\s*(?i:vs\.?|versus|oproti|alebo|či|a|aj|/|,)\s*"
     name = r"([A-Za-z]{2,30})(?!\w)"
     for alias_pattern in (_NVDA_ALIAS_PATTERN, _TSLA_ALIAS_PATTERN, _MSFT_ALIAS_PATTERN):
         for pattern in (
