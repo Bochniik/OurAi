@@ -51,6 +51,83 @@ def validation_fixture(directory: Path):
 
 
 class VerifiedToolSelectionTests(unittest.TestCase):
+    def test_day_wins_metric_switch_preserves_verified_historical_split(self):
+        cases = (
+            ("Dobre, ale teraz mi namiesto MAE ukáž, koľko dní model prekonal lineárny baseline.",
+             "lineárny baseline"),
+            ("A koľko dní model prekonal nulový baseline?", "nulový baseline"),
+        )
+        for previous, scope, kind in (
+            ("Porovnaj historickú validáciu v3 s lineárnym modelom.",
+             "v historickej validácii", "compare_validation"),
+            ("Porovnaj historický lockbox test v3 s lineárnym modelom.",
+             "na historickom lockbox teste", "compare_test"),
+        ):
+            history = [
+                {"role": "user", "content": previous},
+                {"role": "assistant", "content": "Overený historický report.",
+                 "source": "historical_v3_reports", "evidence_question": previous},
+            ]
+            for question, baseline in cases:
+                with self.subTest(previous=previous, question=question):
+                    canonical = historical_followup_question(question, history)
+                    self.assertIsNotNone(canonical)
+                    self.assertIn(scope, canonical)
+                    self.assertIn(baseline, canonical)
+                    self.assertEqual(historical_question_kind(canonical), kind)
+                    self.assertIsNone(historical_question_kind(question))
+                    self.assertIsNone(select_verified_tool(
+                        question, choice("historical_v3", "compare"),
+                        historical_available=True, forward_available=True,
+                    ))
+                    for invalid in (
+                        [], history[:-1],
+                        [history[0], {**history[1], "source": "model"}],
+                        [history[0], {**history[1], "source": "verified_forward_journal"}],
+                        history + [{"role": "user", "content": "A čo Python?"}],
+                    ):
+                        self.assertIsNone(historical_followup_question(question, invalid))
+        # A verified two-report overview is not permission to invent a split.
+        both = [
+            {"role": "user", "content": "Ako presný bol historicky model v3?"},
+            {"role": "assistant", "content": "Overené výsledky.",
+             "source": "historical_v3_reports",
+             "evidence_question": "Ako presný bol historicky model v3?"},
+        ]
+        self.assertIsNone(historical_followup_question(cases[0][0], both))
+        for unsafe in (
+            "A koľko dní model prekonal nulový baseline vo forward denníku?",
+            "Dobre, ale teraz mi namiesto MAE ukáž, koľko dní model prekonal lineárny baseline a obchoduj.",
+        ):
+            self.assertIsNone(historical_followup_question(unsafe, history))
+
+    def test_day_wins_followup_reads_observed_counts_not_directional_accuracy(self):
+        previous = "Porovnaj historickú validáciu v3 s lineárnym modelom."
+        history = [
+            {"role": "user", "content": previous},
+            {"role": "assistant", "content": "Overené historické porovnanie.",
+             "source": "historical_v3_reports", "evidence_question": previous},
+        ]
+        with tempfile.TemporaryDirectory() as directory:
+            validation_fixture(Path(directory))
+            runtime = LocalOllamaChatRuntime(
+                historical_reports_dir=directory, semantic_tool_routing=True,
+                knowledge_enabled=False,
+            )
+            for question, wins in (
+                ("Dobre, ale teraz mi namiesto MAE ukáž, koľko dní model prekonal lineárny baseline.",
+                 "v 2 z 3 trhových dní"),
+                ("A koľko dní model prekonal nulový baseline?", "v 3 z 3 trhových dní"),
+            ):
+                with self.subTest(question=question):
+                    with patch.object(runtime, "_generate",
+                                      side_effect=AssertionError("model must not run")):
+                        result = runtime.respond(question, history=history)
+                    self.assertEqual(result.answer_source, "historical_v3_reports")
+                    self.assertIn(wins, result.text)
+                    self.assertNotIn("10,00 bps", result.text)
+                    self.assertIn("nie je presnosť smeru UP/DOWN", result.text)
+
     def test_now_baseline_followup_preserves_verified_historical_split(self):
         # "Teraz" is a discourse connector here, not a live-data request.
         for prior_question, expected_split in (
