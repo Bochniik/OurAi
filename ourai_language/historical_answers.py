@@ -201,9 +201,9 @@ def ordinal_other_comparison_kind(message: str) -> str | None:
     """
     text = _normalize(str(message or "")).strip().strip('.?!„“"')
     match = re.fullmatch(
-        r"(?:a\\s+)?(?:(?:co\\s+)?(?:oproti|v\\s+porovnani\\s+s|pri)\\s+"
-        r"(?:tomu\\s+)?|ako\\s+to\\s+dopadlo\\s+oproti\\s+)"
-        r"druh(?:emu|om)(?:\\s+(baseline|modelu|modelom))?",
+        r"(?:a\s+)?(?:(?:co\s+)?(?:oproti|v\s+porovnani\s+s|pri)\s+"
+        r"(?:tomu\s+)?|ako\s+to\s+dopadlo\s+oproti\s+)"
+        r"druh(?:emu|om)(?:\s+(baseline|modelu|modelom))?",
         text,
     )
     if match is None:
@@ -267,7 +267,7 @@ def historical_question_kind(message: str) -> str | None:
             or bare_day_wins_baseline_share_target(message) is not None
             or bare_day_wins_split_share_target(message) is not None
             or ordinal_other_comparison_kind(message) is not None
-            or re.search(r"\\bdruh(?:emu|om)\\s+(?:baseline|modelu|modelom)\\b", text)):
+            or re.search(r"\bdruh(?:emu|om)\s+(?:baseline|modelu|modelom)\b", text)):
         return None
     # A bare "Nie, myslel som validáciu" needs a verified preceding source.
     # The standalone deterministic reader must never assume that context.
