@@ -96,6 +96,16 @@ numbers from conversational prose. Standalone percentage questions, prior
 MAE-only answers, two-report summaries, wrong-source history, and interruptions
 do not authorize report access. This does not test local Qwen language quality.
 
+A second, narrowly scoped follow-up such as `A pri nulovom?` can change
+the baseline **only** immediately after a verified historical **day-win
+percentage** answer naming one baseline and one validation/lockbox split.
+The same percentage metric and split are preserved, but the result is
+recomputed from the newly selected baseline's validated daily-win count.
+A prior day count, generic MAE comparison, two-report summary, unverified
+answer, or unrelated intervening turn does not authorize this transition.
+Standalone abbreviated baseline questions cannot open either verified reader.
+No Qwen benchmark was performed for this change.
+
 ## Local testing
 
 ```powershell

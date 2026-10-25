@@ -14,6 +14,7 @@ from .historical_answers import (
     historical_source_correction_target, is_bare_baseline_followup,
     bare_day_wins_followup_target, historical_day_wins_count_context,
     is_bare_day_wins_share_followup,
+    bare_day_wins_baseline_share_target, historical_day_wins_share_context,
 )
 
 
@@ -58,6 +59,25 @@ def historical_followup_question(
     text = _norm(raw).strip(" .?!„“\"")
     if not text or len(raw) > 110 or len(text.split()) > 13:
         return None
+    # A short "A pri nulovom?" changes only the baseline of an immediately
+    # preceding verified day-win *percentage*. Never infer the metric from
+    # assistant prose, a generic MAE answer or a day-win count.
+    share_baseline = bare_day_wins_baseline_share_target(raw)
+    if share_baseline is not None:
+        share_context = historical_day_wins_share_context(prior)
+        if share_context is None or share_context[1] == share_baseline:
+            return None
+        split = share_context[0]
+        scope = (
+            "v historickej validácii" if split == "validation"
+            else "na historickom lockbox teste"
+        )
+        baseline = (
+            "lineárny baseline" if share_baseline == "linear"
+            else "nulový baseline"
+        )
+        return f"Koľko percent trhových dní model v3 prekonal {baseline} {scope}?"
+
     # "A koľko je to percent?" refers to the *immediately preceding*
     # verified day-win count, not to generic MAE or prediction hit rate.
     if is_bare_day_wins_share_followup(raw):

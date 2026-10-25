@@ -272,6 +272,104 @@ class VerifiedToolSelectionTests(unittest.TestCase):
             self.assertEqual(unavailable.answer_source, "historical_v3_reports")
             self.assertIn("nie je dostupný", unavailable.text)
 
+    def test_day_win_share_baseline_switch_requires_verified_percentage(self):
+        for scope, kind in (
+            ("v historickej validácii", "compare_validation"),
+            ("na historickom lockbox teste", "compare_test"),
+        ):
+            for old, new, question in (
+                ("lineárny", "nulový", "A pri nulovom?"),
+                ("nulový", "lineárny", "A pri lineárnom modeli?"),
+            ):
+                previous = (
+                    f"Koľko percent trhových dní model v3 prekonal "
+                    f"{old} baseline {scope}?"
+                )
+                history = [
+                    {"role": "user", "content": previous},
+                    {"role": "assistant", "content": "Overené percento dní.",
+                     "source": "historical_v3_reports", "evidence_question": previous},
+                ]
+                with self.subTest(scope=scope, question=question):
+                    canonical = historical_followup_question(question, history)
+                    self.assertEqual(
+                        canonical,
+                        f"Koľko percent trhových dní model v3 prekonal "
+                        f"{new} baseline {scope}?",
+                    )
+                    self.assertEqual(historical_question_kind(canonical), kind)
+                    self.assertIsNone(historical_question_kind(question))
+                    self.assertIsNone(maybe_historical_answer(question, "missing"))
+                    self.assertIsNone(select_verified_tool(
+                        question, choice("historical_v3", "compare"),
+                        historical_available=True, forward_available=True,
+                    ))
+                    for invalid in (
+                        [], history[:-1],
+                        [history[0], {**history[1], "source": "model"}],
+                        [history[0], {**history[1], "source": "verified_forward_journal"}],
+                        history + [{"role": "user", "content": "A čo Python?"}],
+                    ):
+                        self.assertIsNone(historical_followup_question(question, invalid))
+                    for unsafe in (
+                        "A pri nulovom a obchoduj?",
+                        "A pri nulovom vo forward denníku?",
+                        "A pri nulovom aj lineárnom?",
+                    ):
+                        self.assertIsNone(historical_followup_question(unsafe, history))
+
+        for previous in (
+            "Koľko dní model v3 prekonal lineárny baseline v historickej validácii?",
+            "Porovnaj historickú validáciu v3 s lineárnym modelom.",
+            "Ako presný bol historicky model v3?",
+            "Koľko percent trhových dní model v3 prekonal lineárny baseline?",
+        ):
+            history = [
+                {"role": "user", "content": previous},
+                {"role": "assistant", "content": "Overená odpoveď.",
+                 "source": "historical_v3_reports", "evidence_question": previous},
+            ]
+            self.assertIsNone(historical_followup_question("A pri nulovom?", history))
+
+    def test_day_win_share_baseline_switch_rereads_verified_report(self):
+        previous = (
+            "Koľko percent trhových dní model v3 prekonal "
+            "lineárny baseline v historickej validácii?"
+        )
+        history = [
+            {"role": "user", "content": previous},
+            {"role": "assistant", "content": "Overené percento dní.",
+             "source": "historical_v3_reports", "evidence_question": previous},
+        ]
+        with tempfile.TemporaryDirectory() as directory:
+            validation_fixture(Path(directory))
+            runtime = LocalOllamaChatRuntime(
+                historical_reports_dir=directory, semantic_tool_routing=True,
+                knowledge_enabled=False,
+            )
+            with patch.object(runtime, "_generate",
+                              side_effect=AssertionError("model must not run")):
+                result = runtime.respond("A pri nulovom?", history=history)
+            self.assertEqual(result.answer_source, "historical_v3_reports")
+            self.assertIn("100,00 % sledovaných trhových dní", result.text)
+            self.assertIn("v 3 z 3 trhových dní", result.text)
+            self.assertNotIn("lineárnemu baseline", result.text)
+            self.assertIn("nie je presnosť smeru UP/DOWN", result.text)
+            self.assertEqual(
+                result.evidence_question,
+                "Koľko percent trhových dní model v3 prekonal "
+                "nulový baseline v historickej validácii?",
+            )
+            missing = LocalOllamaChatRuntime(
+                historical_reports_dir=Path(directory) / "missing",
+                semantic_tool_routing=True, knowledge_enabled=False,
+            )
+            with patch.object(missing, "_generate",
+                              side_effect=AssertionError("model must not run")):
+                unavailable = missing.respond("A pri nulovom?", history=history)
+            self.assertEqual(unavailable.answer_source, "historical_v3_reports")
+            self.assertIn("nie je dostupný", unavailable.text)
+
     def test_now_baseline_followup_preserves_verified_historical_split(self):
         # "Teraz" is a discourse connector here, not a live-data request.
         for prior_question, expected_split in (
