@@ -200,7 +200,7 @@ def bare_clarification_baseline_target(message: str) -> str | None:
     """
     text = _normalize(str(message or "")).strip().strip(" .?!„“\"")
     match = re.fullmatch(
-        r"(?:(?:myslel som|ten)\s+)?(nulovy|linearny)"
+        r"(?:(?:myslel som(?:\s+ten)?|ten)\s+)?(nulovy|linearny)"
         r"(?:\s+(?:baseline|model))?",
         text,
     )

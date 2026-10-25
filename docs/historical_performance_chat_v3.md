@@ -318,3 +318,18 @@ are copied from assistant prose, and no prediction/forward data are changed.
 
 Offline tests: `python -m unittest tests.test_verified_clarification_replies -v`.
 These checks do **not** run a local Qwen quality benchmark.
+
+
+### Definite-article baseline clarification replies (October 2026)
+
+The same verified four-turn clarification chain now accepts bounded Slovak
+replies such as `Myslel som ten nulový model.`,
+`Myslel som ten lineárny baseline.` and `Ten nulový model.`.
+The definite article `ten` is permitted only inside these exact baseline
+reply patterns; it does not authorize standalone historical reads or free-form
+references to arbitrary models. The original source, split and day-win
+count/percentage are still rechecked, and the trusted historical report is
+read again. Appended forward, trading or split instructions remain rejected.
+
+Offline regression: `python -m unittest tests.test_verified_clarification_replies -v`.
+No local Qwen benchmark is claimed.
