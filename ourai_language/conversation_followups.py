@@ -10,7 +10,8 @@ import unicodedata
 from typing import Iterable, Mapping
 
 from .historical_answers import (
-    historical_question_kind, historical_source_correction_target, is_bare_baseline_followup,
+    corrected_baseline_followup_target, historical_question_kind,
+    historical_source_correction_target, is_bare_baseline_followup,
 )
 
 
@@ -87,7 +88,14 @@ def historical_followup_question(
         elif prior_kind in ("test", "compare_test"):
             split = "lockbox teste"
 
-    if any(term in text for term in ("nulov", "null")):
+    # For an exclusive correction, the positive target wins even though the
+    # excluded baseline is also present in the user's sentence.
+    baseline_correction = corrected_baseline_followup_target(raw)
+    if baseline_correction == "null":
+        target = "nulovým baseline"
+    elif baseline_correction == "linear":
+        target = "lineárnym modelom"
+    elif any(term in text for term in ("nulov", "null")):
         target = "nulovým baseline"
     elif any(term in text for term in ("linearn", "linear")):
         target = "lineárnym modelom"

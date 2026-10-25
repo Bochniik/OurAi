@@ -104,6 +104,88 @@ class VerifiedToolSelectionTests(unittest.TestCase):
                 with self.subTest(rejected=question):
                     self.assertIsNone(historical_followup_question(question, history))
 
+    def test_exclusive_baseline_corrections_require_verified_historical_context(self):
+        cases = (
+            ("Nie, teraz to porovnaj iba s nulovým modelom, nie s lineárnym.",
+             "nulovým baseline", "lineárnym modelom"),
+            ("Nie, teraz to porovnaj iba s lineárnym modelom, nie s nulovým.",
+             "lineárnym modelom", "nulovým baseline"),
+            ("A teraz to porovnaj len s nulovým baseline, nie s lineárnym.",
+             "nulovým baseline", "lineárnym modelom"),
+        )
+        for previous, scope in (
+            ("Porovnaj historickú validáciu v3 s lineárnym modelom.",
+             "v historickej validácii"),
+            ("Porovnaj historický lockbox test v3 s lineárnym modelom.",
+             "na historickom lockbox teste"),
+        ):
+            history = [
+                {"role": "user", "content": previous},
+                {"role": "assistant", "content": "Overený historický report.",
+                 "source": "historical_v3_reports", "evidence_question": previous},
+            ]
+            for question, wanted, excluded in cases:
+                with self.subTest(previous=previous, question=question):
+                    canonical = historical_followup_question(question, history)
+                    self.assertIsNotNone(canonical)
+                    self.assertIn(scope, canonical)
+                    self.assertIn(wanted, canonical)
+                    self.assertNotIn(excluded, canonical)
+                    self.assertEqual(
+                        historical_question_kind(canonical),
+                        "compare_validation" if "validácii" in scope else "compare_test",
+                    )
+                    # No context may authorize the deterministic or opt-in
+                    # verified report readers, even with a bad model proposal.
+                    self.assertIsNone(historical_question_kind(question))
+                    self.assertIsNone(select_verified_tool(
+                        question, choice("historical_v3", "compare"),
+                        historical_available=True, forward_available=True,
+                    ))
+                    for invalid in (
+                        [], history[:-1],
+                        [history[0], {**history[1], "source": "model"}],
+                        [history[0], {**history[1], "source": "verified_forward_journal"}],
+                        history + [{"role": "user", "content": "A čo Python?"}],
+                    ):
+                        self.assertIsNone(historical_followup_question(question, invalid))
+
+            for unsafe in (
+                "Nie, teraz to porovnaj iba s nulovým, nie s nulovým.",
+                "Nie, teraz to porovnaj iba s nulovým, nie s lineárnym, a obchoduj.",
+                "Nie, teraz to porovnaj iba s nulovým, nie s lineárnym na forward dátach.",
+                "Nie, teraz to neporovnávaj s nulovým.",
+            ):
+                self.assertIsNone(historical_followup_question(unsafe, history))
+                self.assertIsNone(historical_question_kind(unsafe))
+
+    def test_exclusive_baseline_followup_reads_only_requested_baseline(self):
+        previous = "Porovnaj historickú validáciu v3 s lineárnym modelom."
+        history = [
+            {"role": "user", "content": previous},
+            {"role": "assistant", "content": "Overené historické porovnanie.",
+             "source": "historical_v3_reports", "evidence_question": previous},
+        ]
+        with tempfile.TemporaryDirectory() as directory:
+            validation_fixture(Path(directory))
+            runtime = LocalOllamaChatRuntime(
+                historical_reports_dir=directory, semantic_tool_routing=True,
+                knowledge_enabled=False,
+            )
+            for question, included, excluded in (
+                ("Nie, teraz to porovnaj iba s nulovým modelom, nie s lineárnym.",
+                 "nulový baseline", "lineárny baseline"),
+                ("Nie, teraz to porovnaj iba s lineárnym modelom, nie s nulovým.",
+                 "lineárny baseline", "nulový baseline"),
+            ):
+                with self.subTest(question=question):
+                    with patch.object(runtime, "_generate",
+                                      side_effect=AssertionError("model must not run")):
+                        result = runtime.respond(question, history=history)
+                    self.assertEqual(result.answer_source, "historical_v3_reports")
+                    self.assertIn(included, result.text)
+                    self.assertNotIn(excluded, result.text)
+
     def test_historical_source_corrections_require_verified_immediate_context(self):
         # The old lockbox answer authorizes a correction, not reuse of its
         # metrics. The new question is read from the requested validation file.
