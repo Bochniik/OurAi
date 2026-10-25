@@ -128,6 +128,46 @@ class VerifiedToolSelectionTests(unittest.TestCase):
                     self.assertNotIn("10,00 bps", result.text)
                     self.assertIn("nie je presnosť smeru UP/DOWN", result.text)
 
+    def test_explicit_historical_day_win_percentages_are_not_directional_accuracy(self):
+        # Synthetic verified report: 2/3 days vs linear, 3/3 vs null.
+        # Neither fraction measures correct UP/DOWN predictions.
+        with tempfile.TemporaryDirectory() as directory:
+            validation_fixture(Path(directory))
+            cases = (
+                ("Koľko dní model v3 prekonal lineárny baseline v historickej validácii?",
+                 "v 2 z 3 trhových dní", None),
+                ("Koľko percent trhových dní model v3 prekonal lineárny baseline v historickej validácii?",
+                 "66,67 % sledovaných trhových dní", "nulovému baseline"),
+                ("Aké percento dní model v3 prekonal nulový baseline v historickej validácii?",
+                 "100,00 % sledovaných trhových dní", "lineárnemu baseline"),
+            )
+            for question, expected, excluded in cases:
+                with self.subTest(question=question):
+                    self.assertEqual(historical_question_kind(question), "compare_validation")
+                    result = maybe_historical_answer(question, directory)
+                    self.assertIsNotNone(result)
+                    self.assertIn(expected, result)
+                    self.assertIn("nie je presnosť smeru UP/DOWN", result)
+                    self.assertNotIn("8,00 bps", result)
+                    if excluded:
+                        self.assertNotIn(excluded, result)
+            # A complete request is handled by the deterministic verified
+            # reader without model generation or the opt-in classifier.
+            runtime = LocalOllamaChatRuntime(
+                historical_reports_dir=directory, semantic_tool_routing=True,
+                knowledge_enabled=False,
+            )
+            with patch.object(runtime, "_generate",
+                              side_effect=AssertionError("model must not run")):
+                answer = runtime.respond(cases[1][0])
+            self.assertEqual(answer.answer_source, "historical_v3_reports")
+            self.assertIn("66,67 % sledovaných trhových dní", answer.text)
+            # Without a report, never calculate a percentage from a guess.
+            self.assertIn(
+                "nie je dostupný",
+                maybe_historical_answer(cases[1][0], Path(directory) / "missing"),
+            )
+
     def test_now_baseline_followup_preserves_verified_historical_split(self):
         # "Teraz" is a discourse connector here, not a live-data request.
         for prior_question, expected_split in (
