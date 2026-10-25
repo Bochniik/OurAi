@@ -157,6 +157,44 @@ def is_bare_day_wins_share_followup(message: str) -> bool:
     ))
 
 
+def bare_day_wins_baseline_share_target(message: str) -> str | None:
+    """Parse only a short baseline change after a verified day-win *share*.
+
+    A bare "A pri nulovom?" has no independent report/split/metric scope.
+    It must never authorize a reader without a verified previous turn.
+    """
+    text = _normalize(str(message or "")).strip().strip('.?!„“"')
+    match = re.fullmatch(
+        r"(?:a\\s+)?pri\\s+(nulov\\w*|null|linearn\\w*|linear)"
+        r"(?:\\s+(?:baseline|modeli))?",
+        text,
+    )
+    if match is None:
+        return None
+    return "linear" if match.group(1).startswith(("linearn", "linear")) else "null"
+
+
+def historical_day_wins_share_context(message: str) -> tuple[str, str] | None:
+    """Identify a single split and baseline in an explicit day-win share query.
+
+    The caller separately verifies the source of the immediately preceding
+    answer. A day-win count, MAE comparison or two-split overview is not
+    sufficient to carry the percentage metric into a new baseline.
+    """
+    text = _normalize(str(message or "")).strip().strip('.?!„“"')
+    match = re.fullmatch(
+        r"(?:kolko percent trhovych dni|ake percento dni) model v3 prekonal "
+        r"(linearn\\w*|linear|nulov\\w*|null) baseline "
+        r"(v historickej validacii|na historickom lockbox teste)",
+        text,
+    )
+    if match is None:
+        return None
+    baseline = "linear" if match.group(1).startswith(("linearn", "linear")) else "null"
+    split = "validation" if match.group(2).startswith("v historickej") else "test"
+    return split, baseline
+
+
 def historical_day_wins_count_context(message: str) -> tuple[str, str] | None:
     """Recover a split and baseline only from an explicit day-win count query.
 
@@ -188,7 +226,8 @@ def historical_question_kind(message: str) -> str | None:
     if (not text or is_historical_educational_request(message)
             or is_bare_baseline_followup(message)
             or bare_day_wins_followup_target(message) is not None
-            or is_bare_day_wins_share_followup(message)):
+            or is_bare_day_wins_share_followup(message)
+            or bare_day_wins_baseline_share_target(message) is not None):
         return None
     # A bare "Nie, myslel som validáciu" needs a verified preceding source.
     # The standalone deterministic reader must never assume that context.
