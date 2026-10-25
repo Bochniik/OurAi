@@ -83,12 +83,21 @@ def _user_forward_evidence(question: str) -> bool:
     return True
 
 
+# Curated, unambiguous Slovak forms for one frozen-universe company.
+# These are user-word aliases, never model-proposed ticker arguments.
+_VERIFIED_NVDA_ALIASES = frozenset(("NVIDIA", "NVIDIE", "NVIDIU", "NVIDIOU"))
+_NVDA_ALIAS_PATTERN = r"(?<!\w)(?:nvidia|nvidie|nvidiu|nvidiou)(?!\w)"
+
+
 def _mentioned_symbols(question: str) -> tuple[str, ...]:
-    """Read only exact frozen-universe ticker tokens from the user's words."""
-    return tuple(
+    """Read exact frozen tickers and a bounded verified NVDA name alias."""
+    mentioned = {
         symbol for symbol in FROZEN_SYMBOLS
         if re.search(r"(?<!\w)" + re.escape(symbol) + r"(?!\w)", question, re.I)
-    )
+    }
+    if re.search(_NVDA_ALIAS_PATTERN, question, re.I):
+        mentioned.add("NVDA")
+    return tuple(symbol for symbol in FROZEN_SYMBOLS if symbol in mentioned)
 
 
 # These are metric/source abbreviations, not stock tickers. Only consider
@@ -125,12 +134,24 @@ def _mentions_unsupported_forward_symbol(question: str) -> bool:
     )
     for match in re.finditer(pair, question):
         candidates.extend(match.groups())
+    # A recognized company alias must not silently narrow a comparison
+    # with another (possibly unsupported) company or ticker. Inspect both
+    # orders; title-case company names are intentionally not auto-resolved.
+    join = r"\s*(?i:vs\.?|versus|oproti|a|aj|/|,)\s*"
+    name = r"([A-Za-z]{2,30})(?!\w)"
+    for pattern in (
+        _NVDA_ALIAS_PATTERN + join + name,
+        r"(?<!\w)([A-Za-z]{2,30})" + join + _NVDA_ALIAS_PATTERN,
+    ):
+        candidates.extend(match.group(1) for match in re.finditer(
+            pattern, question, re.I,
+        ))
     return any(
         candidate.upper() not in FROZEN_SYMBOLS
         and candidate.upper() not in _NON_TICKER_ABBREVIATIONS
+        and candidate.upper() not in _VERIFIED_NVDA_ALIASES
         for candidate in candidates
     )
-
 
 def select_verified_tool(
     user_question: str,
