@@ -110,7 +110,7 @@ class OrdinalBaselineFollowupTests(unittest.TestCase):
             history(previous, "model"),
             history(previous, "verified_forward_journal"),
             history(previous) + [{"role": "user", "content": "Iná téma."}],
-            history(previous.replace("Koľko percent trhových dní", "Koľko dní")),
+            history("Koľko dní model v3 prekonal lineárny baseline?"),
             history("Aká bola MAE modelu v3 v historickej validácii?"),
             history("Porovnaj model v3 s lineárnym baseline."),
         ):
