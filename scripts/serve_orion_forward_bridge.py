@@ -91,6 +91,17 @@ def make_handler(journal_path: str | Path):
             if host_header not in {"127.0.0.1", "localhost"}:
                 self._json(403, {"status": "forbidden_host"})
                 return
+            # CORS only prevents a browser from reading a response; it does
+            # not prevent cross-site pages from issuing simple GET requests.
+            # Reject browser-originated cross-site requests before verifying
+            # the full journal (an expensive read-only operation).
+            if (
+                self.headers.get("Origin") is not None
+                or self.headers.get("Sec-Fetch-Site", "").strip().lower()
+                in {"cross-site", "same-site"}
+            ):
+                self._json(403, {"status": "forbidden_browser_origin"})
+                return
             if self.path != ROUTE:
                 self._json(404, {"status": "not_found"})
                 return
