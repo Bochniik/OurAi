@@ -334,15 +334,40 @@ def _baseline_comparison(split: str, report: dict[str, Any], baseline: str) -> s
     )
 
 
-def _day_wins_comparison(split: str, report: dict[str, Any], baseline: str) -> str:
-    """Report observed day-level MAE wins, never directional hit rate."""
+def _day_wins_comparison(
+    split: str, report: dict[str, Any], baseline: str, *, include_share: bool = False,
+) -> str:
+    """Describe observed daily MAE wins; their share is not directional accuracy."""
     label = "lineárnemu" if baseline == "linear" else "nulovému"
     scope = "V historickej validácii" if split == "validation" else "V historickom lockbox teste"
     wins = report[f"market_date_wins_vs_{baseline}"]
-    return (
+    result = (
         f"{scope} dosiahol OurAI v3 nižšiu dennú MAE oproti {label} baseline "
         f"v {wins} z {report['days']} trhových dní."
     )
+    if include_share:
+        # The validated report guarantees days > 0 and 0 <= wins <= days.
+        result += (
+            f" To predstavuje {_fmt(100 * wins / report['days'])} % "
+            "sledovaných trhových dní, nie presnosť jednotlivých predikcií."
+        )
+    return result
+
+
+def _day_wins_metric_request(message: str) -> tuple[bool, bool]:
+    """Identify explicit daily-win count/share questions, not generic accuracy.
+
+    Both variants require a comparison and the user's named historical scope
+    to be selected by the existing deterministic report router.
+    """
+    text = _normalize(message)
+    if not re.search(r"\bprekonal\b", text):
+        return False, False
+    share = bool(re.search(
+        r"\b(?:ake percento|kolko percent)\s+(?:trhovych\s+)?dni\b", text
+    ))
+    count = bool(re.search(r"\bkolko\s+(?:trhovych\s+)?dni\b", text))
+    return count or share, share
 
 
 def explicit_comparison_baseline(message: str) -> str | None:
@@ -462,12 +487,12 @@ def maybe_historical_answer(message: str, reports_dir: str | Path | None) -> str
         )
     if kind.startswith("compare"):
         targets = _comparison_targets(message)
-        # Explicit day-win questions use validated day counts, not MAE values
-        # or an invented direction-accuracy percentage.
-        day_wins = "kolko trhovych dni" in _normalize(message) and "prekonal" in _normalize(message)
-        formatter = _day_wins_comparison if day_wins else _baseline_comparison
+        # A named count/share of day-level MAE wins comes only from the
+        # validated daily-win fields, never from direction hit rates.
+        day_wins, share = _day_wins_metric_request(message)
         details = " ".join(
-            formatter(split, report, baseline)
+            (_day_wins_comparison(split, report, baseline, include_share=share)
+             if day_wins else _baseline_comparison(split, report, baseline))
             for split, report in available.items() for baseline in targets
         )
     else:
