@@ -75,7 +75,10 @@ class VerifiedClarificationReplyTests(unittest.TestCase):
                                   f"Nie, myslel som {target} baseline.",
                                   f"Nie, ten {target}.",
                                   f"Nie, ten {target} model.",
-                                  f"Nie, ten {target} baseline."):
+                                  f"Nie, ten {target} baseline.",
+                                  f"Ten {target} model, prosím.",
+                                  f"Myslel som ten {target} baseline, prosím.",
+                                  f"Nie, ten {target} model, prosím."):
                         with self.subTest(metric=metric, scope=scope,
                                           target=target, reply=reply):
                             self.assertEqual(
@@ -127,6 +130,7 @@ class VerifiedClarificationReplyTests(unittest.TestCase):
         for history in bad:
             with self.subTest(history=history):
                 self.assertIsNone(historical_followup_question("Nulový", history))
+                self.assertIsNone(historical_followup_question("Nie, ten nulový model, prosím.", history))
         for unsafe in (
             "Nulový a obchoduj", "Nulový vo forward denníku",
             "Myslel som ten nulový model a obchoduj",
@@ -143,6 +147,12 @@ class VerifiedClarificationReplyTests(unittest.TestCase):
             "Nie, myslel som nulový baseline vo forward denníku",
             "Nie, myslel som ten nulový model na lockboxe",
             "Nie, myslel som nulový alebo lineárny",
+            "Nie, ten nulový model prosím obchoduj",
+            "Nie, ten nulový model, prosím, obchoduj",
+            "Nie, ten nulový model, prosím na lockboxe",
+            "Nie, ten nulový model, prosím vo forward denníku",
+            "Nie, nulový model, prosím",
+            "Nie, ten nulový alebo lineárny, prosím",
         ):
             with self.subTest(reply=unsafe):
                 self.assertIsNone(historical_followup_question(unsafe, good))
@@ -193,7 +203,7 @@ class VerifiedClarificationReplyTests(unittest.TestCase):
                                  "source": clarify.answer_source,
                                  "evidence_question": clarify.evidence_question or ""},
                             ]
-                            result = runtime.respond("Nie, ten nulový model.", history=history)
+                            result = runtime.respond("Nie, ten nulový model, prosím.", history=history)
                         self.assertEqual(result.answer_source, "historical_v3_reports")
                         self.assertIn(f"v {count} z 3 trhových dní", result.text)
                         self.assertIn("nulový baseline", result.evidence_question)

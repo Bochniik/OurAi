@@ -196,13 +196,15 @@ def bare_clarification_baseline_target(message: str) -> str | None:
     """Parse an answer to a baseline clarification, not a report request.
 
     These fragments must never independently select the historical reader.
+    A trailing polite `, prosím` is permitted, but no additional request.
     The follow-up layer separately validates the complete verified dialogue.
     """
     text = _normalize(str(message or "")).strip().strip(" .?!„“\"")
     match = re.fullmatch(
         r"(?:(?:nie\s*,\s*)?(?:myslel som(?:\s+ten)?|ten)\s+)?"
         r"(nulovy|linearny)"
-        r"(?:\s+(?:baseline|model))?",
+        r"(?:\s+(?:baseline|model))?"
+        r"(?:\s*,\s*prosim)?",
         text,
     )
     if match is None:

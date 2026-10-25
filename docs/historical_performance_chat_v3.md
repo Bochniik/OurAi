@@ -351,3 +351,18 @@ unsupported and fail closed.
 
 Offline regression: `python -m unittest tests.test_verified_clarification_replies -v`.
 This does not constitute a local Qwen benchmark.
+
+### Polite replies to verified baseline clarifications (October 2026)
+
+After the same **exact four-turn verified clarification chain**, a concise
+baseline selection may end with a comma and `prosím`, for example
+`Nie, ten nulový model, prosím.` or `Myslel som ten lineárny baseline, prosím.`.
+The polite suffix is not a new tool permission: a standalone reply, altered
+clarification, unrelated intervening turn, or appended forward/trading/split
+request still fails closed. The requested historical count or percentage is
+recomputed from the appropriate validated local report. The reader never
+uses assistant prose as numeric evidence. This is a narrow deterministic
+language improvement, not a claim of unrestricted Slovak understanding.
+
+Offline regression: `python -m unittest tests.test_verified_clarification_replies -v`.
+No local Qwen benchmark was performed for this change.
