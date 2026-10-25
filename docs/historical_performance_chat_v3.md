@@ -294,3 +294,27 @@ These rules do not establish unrestricted natural-language understanding.
 
 Offline tests: `python -m unittest tests.test_verified_ordinal_clarification -v`.
 No local Qwen benchmark is implied.
+
+### Answering a verified baseline clarification (October 2026)
+
+After a verified single-split historical **day-win count or percentage**,
+OurAI may ask whether `druhému modelu` means the linear or null baseline.
+The next message may now be a narrowly scoped answer such as `Nulový.`,
+`Lineárny baseline.`, `Myslel som nulový.` or `Ten lineárny.`.
+Only the exact four-turn chain is accepted: verified historical user/assistant
+pair, ambiguous ordinal user question, and the **unchanged deterministic**
+`conversation_clarification` answer. The original verified answer must
+still contain one explicit split, one baseline and one day-win metric.
+
+A bare baseline word **never** opens a report by itself. The clarification
+is not evidence and cannot authorize other abbreviated requests. The reply
+reconstructs a fully scoped historical question from the original verified
+evidence, then the read-only report reader **revalidates and recomputes** the
+result. Count versus percentage, validation versus lockbox, and the requested
+baseline remain explicit. If the clarification is altered, interrupted,
+unverified, refers to MAE rather than day wins, or the reply includes any
+extra forward/trading/split clause, this route fails closed. No report data
+are copied from assistant prose, and no prediction/forward data are changed.
+
+Offline tests: `python -m unittest tests.test_verified_clarification_replies -v`.
+These checks do **not** run a local Qwen quality benchmark.

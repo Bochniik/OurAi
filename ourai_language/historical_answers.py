@@ -192,6 +192,23 @@ def bare_day_wins_split_share_target(message: str) -> str | None:
     return "test" if "lockbox" in text else "validation"
 
 
+def bare_clarification_baseline_target(message: str) -> str | None:
+    """Parse an answer to a baseline clarification, not a report request.
+
+    These fragments must never independently select the historical reader.
+    The follow-up layer separately validates the complete verified dialogue.
+    """
+    text = _normalize(str(message or "")).strip().strip(" .?!„“\"")
+    match = re.fullmatch(
+        r"(?:(?:myslel som|ten)\s+)?(nulovy|linearny)"
+        r"(?:\s+(?:baseline|model))?",
+        text,
+    )
+    if match is None:
+        return None
+    return "null" if match.group(1) == "nulovy" else "linear"
+
+
 def ordinal_other_comparison_kind(message: str) -> str | None:
     """Parse a bounded 'other baseline/model' reference without selecting data.
 
@@ -267,6 +284,7 @@ def historical_question_kind(message: str) -> str | None:
             or bare_day_wins_baseline_share_target(message) is not None
             or bare_day_wins_split_share_target(message) is not None
             or ordinal_other_comparison_kind(message) is not None
+            or bare_clarification_baseline_target(message) is not None
             or re.search(r"\bdruh(?:emu|om)\s+(?:baseline|modelu|modelom)\b", text)):
         return None
     # A bare "Nie, myslel som validáciu" needs a verified preceding source.

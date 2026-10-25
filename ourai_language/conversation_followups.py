@@ -16,6 +16,7 @@ from .historical_answers import (
     is_bare_day_wins_share_followup,
     bare_day_wins_baseline_share_target, historical_day_wins_share_context,
     bare_day_wins_split_share_target, ordinal_other_comparison_kind,
+    bare_clarification_baseline_target,
 )
 
 
@@ -67,6 +68,59 @@ def historical_ambiguity_clarification(
     )
 
 
+
+def historical_clarification_reply_question(
+    message: str,
+    history: Iterable[Mapping[str, str]] | None,
+) -> str | None:
+    """Resolve a one-word baseline only after our exact verified clarification.
+
+    A clarification is not evidence. Recheck the immediately preceding four
+    turns: the original verified report, an ambiguous ordinal question, and
+    the deterministic clarification. Never accept arbitrary assistant prose
+    or use the clarification itself as a historical report authorization.
+    """
+    target = bare_clarification_baseline_target(message)
+    if target is None:
+        return None
+    rows = list(history or ())
+    if len(rows) < 4:
+        return None
+    verified_user, verified_assistant, ambiguous_user, clarification = rows[-4:]
+    if (verified_user.get("role") != "user"
+            or verified_assistant.get("role") != "assistant"
+            or ambiguous_user.get("role") != "user"
+            or clarification.get("role") != "assistant"
+            or clarification.get("source") != "conversation_clarification"
+            or clarification.get("evidence_question") not in (None, "")):
+        return None
+    prior_pair = [verified_user, verified_assistant]
+    expected = historical_ambiguity_clarification(
+        str(ambiguous_user.get("content") or ""), prior_pair,
+    )
+    if expected is None or clarification.get("content") != expected:
+        return None
+    prior = _context(prior_pair)
+    if prior is None:
+        return None
+    share = historical_day_wins_share_context(prior)
+    count = historical_day_wins_count_context(prior)
+    if share is not None:
+        split = share[0]
+        metric = "Koľko percent trhových dní"
+    elif count is not None:
+        split = count[0]
+        metric = "Koľko trhových dní"
+    else:
+        return None
+    baseline = "nulový" if target == "null" else "lineárny"
+    scope = (
+        "v historickej validácii" if split == "validation"
+        else "na historickom lockbox teste"
+    )
+    return f"{metric} model v3 prekonal {baseline} baseline {scope}?"
+
+
 def historical_followup_question(
     message: str,
     history: Iterable[Mapping[str, str]] | None,
@@ -79,6 +133,11 @@ def historical_followup_question(
     The returned question must still go through the report reader and all
     of its provenance and numeric checks before any result is displayed.
     """
+    # A single baseline word is meaningful only as the immediate reply to
+    # our exact clarification after a verified historical day-win result.
+    clarified = historical_clarification_reply_question(message, history)
+    if clarified is not None:
+        return clarified
     prior = _context(history)
     if prior is None:
         return None
