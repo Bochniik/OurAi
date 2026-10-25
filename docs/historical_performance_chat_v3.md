@@ -376,6 +376,14 @@ after **ale** is selected only when it differs from the explicitly rejected
 baseline. The historical split and day-win count/percentage are preserved,
 and the trusted report is re-read rather than using earlier assistant prose.
 
+The same explicit two-baseline correction may use the Slovak preference
+connectors `skôr` or `radšej`, for example `Nie lineárny, skôr nulový.`
+or `Nie ten nulový model, radšej ten lineárny baseline, prosím.`.
+Only the baseline **after** the connector is selected, and only when it
+differs from the excluded baseline. This does not interpret open-ended
+preferences or change report scope. The four-turn provenance check and
+standalone tool-selection guard remain mandatory.
+
 A standalone contrast cannot open either historical or forward tools,
 including opt-in semantic routing. A contradictory contrast (`Nie lineárny,
 ale lineárny`), an interrupted or altered clarification, and any appended
