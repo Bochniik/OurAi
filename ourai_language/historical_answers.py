@@ -202,7 +202,7 @@ def bare_clarification_baseline_target(message: str) -> str | None:
     text = _normalize(str(message or "")).strip().strip(" .?!„“\"")
     contrast = re.fullmatch(
         r"nie\s+(?:ten\s+)?(nulovy|linearny)"
-        r"(?:\s+(?:baseline|model))?\s*,?\s+ale\s+"
+        r"(?:\s+(?:baseline|model))?\s*,?\s+(?:ale|skor|radsej)\s+"
         r"(?:ten\s+)?(nulovy|linearny)"
         r"(?:\s+(?:baseline|model))?"
         r"(?:\s*,\s*prosim)?",
