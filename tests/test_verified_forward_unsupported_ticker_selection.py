@@ -40,6 +40,41 @@ class UnsupportedForwardTickerTests(unittest.TestCase):
                         historical_available=True, forward_available=True,
                     ))
 
+    def test_lowercase_unknown_in_named_stock_comparisons_fails_closed(self):
+        # These must not silently return a one-stock or overall report.
+        questions = (
+            "Aké máš výsledky shadow pre NVDA a ibm?",
+            "Aké máš výsledky shadow pre ibm a NVDA?",
+            "Aká je presnosť forward predikcií ibm oproti NVDA?",
+            "Aké máš výsledky shadow pre NVDA vs ibm?",
+            "Zhrň forward predikcie NVDA/ibm.",
+            "Aké máš výsledky shadow pre NVDA, NVDA, ibm?",
+            "Aké máš výsledky shadow pre nvda, ibm?",
+        )
+        for question in questions:
+            for action in ("summary", "performance", "latest"):
+                with self.subTest(question=question, action=action):
+                    self.assertIsNone(select_verified_tool(
+                        question, _proposal(action),
+                        historical_available=True, forward_available=True,
+                    ))
+
+    def test_lowercase_pair_guard_preserves_metrics_and_single_symbol(self):
+        for question in (
+            "Aké máš výsledky shadow pre NVDA a MAE?",
+            "Aké máš výsledky shadow pre NVDA, USD?",
+            "Aká je MAE pre NVDA vo forward denníku?",
+            "Aké máš výsledky shadow pre NVDA a nvda?",
+        ):
+            with self.subTest(question=question):
+                selected = select_verified_tool(
+                    question, _proposal("performance"),
+                    historical_available=True, forward_available=True,
+                )
+                self.assertIsNotNone(selected)
+                self.assertEqual(selected[0], "forward_v2")
+                self.assertIn("NVDA", selected[1])
+
     def test_unsupported_ticker_in_longer_lists_cannot_be_skipped(self):
         # A non-overlapping pair regex used to see only the first pair.
         # It could silently answer for NVDA while ignoring a third IBM.
