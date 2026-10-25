@@ -107,8 +107,7 @@ class VerifiedClarificationReplyTests(unittest.TestCase):
             [*good[:3], {**good[3], "content": "Nulový baseline."}],
             [*good[:3], {**good[3], "evidence_question": previous}],
             [*good[:2], {**good[2], "content": "A oproti druhému baseline?"}, good[3]],
-            _history("Aká bola MAE modelu v3 v historickej validácii?")
-            if False else [
+            [
                 {"role": "user", "content": "Aká bola MAE modelu v3 v historickej validácii?"},
                 {**good[1], "evidence_question":
                  "Aká bola MAE modelu v3 v historickej validácii?"},
