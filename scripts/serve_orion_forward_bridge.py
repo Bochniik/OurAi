@@ -126,7 +126,7 @@ def make_handler(journal_path: str | Path):
                 # reader cannot hold up another independent journal check.
                 try:
                     snapshot = forward_evidence_snapshot(journal_path)
-                except (OSError, ValueError, TypeError, KeyError, AssertionError):
+                except (OSError, ValueError, TypeError, KeyError, AssertionError, OverflowError, RecursionError):
                     # Never return raw paths, journal data or exception text.
                     snapshot = None
             finally:
