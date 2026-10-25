@@ -62,10 +62,20 @@ def bare_historical_split_reply_target(message: str) -> str | None:
     # Full-utterance source choices, including short polite/corrective
     # replies to our own clarification. This parser is NOT an authorization:
     # the caller must verify the exact preceding clarification and question.
+    source = r"(validaciu|historicku validaciu|lockbox|lockbox test|historicky lockbox test)"
+    contrast = re.fullmatch(
+        r"nie\s+" + source + r"\s*,\s*(?:ale|skor|radsej)\s+"
+        + source + r"(?:,\s*prosim)?",
+        text,
+    )
+    if contrast is not None:
+        excluded, requested = contrast.groups()
+        excluded_split = "validation" if "validaciu" in excluded else "test"
+        requested_split = "validation" if "validaciu" in requested else "test"
+        return requested_split if excluded_split != requested_split else None
     match = re.fullmatch(
         r"(?:(?:nie,\s*)?myslel(?:a)? som\s+)?"
-        r"(validaciu|historicku validaciu|lockbox|lockbox test|historicky lockbox test)"
-        r"(?:,\s*prosim)?",
+        + source + r"(?:,\s*prosim)?",
         text,
     )
     if match is None:
