@@ -333,3 +333,17 @@ read again. Appended forward, trading or split instructions remain rejected.
 
 Offline regression: `python -m unittest tests.test_verified_clarification_replies -v`.
 No local Qwen benchmark is claimed.
+
+### Corrective Slovak clarification replies (October 2026)
+
+After the same exact verified four-turn clarification chain, a reply may begin
+with a bounded correction such as `Nie, myslel som ten nulový model.` or
+`Nie, myslel som lineárny baseline.`. The correction prefix does not grant
+new tool permissions: the original historical split and day-win count/share
+metric are rechecked and the selected report is re-read. Bare correction
+sentences cannot select historical or forward tools, even with opt-in semantic
+routing. `Nie, ten nulový model`, contradictory baselines, and appended
+forward/trading/split requests remain unsupported and fail closed.
+
+Offline regression: `python -m unittest tests.test_verified_clarification_replies -v`.
+This does not constitute a local Qwen benchmark.
