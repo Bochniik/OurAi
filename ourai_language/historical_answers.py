@@ -176,14 +176,14 @@ def bare_day_wins_baseline_share_target(message: str) -> str | None:
 
 
 def bare_day_wins_split_share_target(message: str) -> str | None:
-    """Recognize an elliptical historical split change, never a standalone read.
+    """Recognize bounded split changes (including "A čo na lockboxe?").
 
     Only an immediately preceding verified *day-win percentage* may supply
     the baseline and metric. This parser provides no evidence by itself.
     """
     text = _normalize(str(message or "")).strip().strip('.?!„“"')
     match = re.fullmatch(
-        r"(?:a\s+)?(?:na\s+lockboxe|na\s+historickom\s+lockbox\s+teste|"
+        r"(?:a\s+)?(?:co\s+)?(?:na\s+lockboxe|na\s+historickom\s+lockbox\s+teste|"
         r"vo?\s+validacii|v\s+historickej\s+validacii)",
         text,
     )
