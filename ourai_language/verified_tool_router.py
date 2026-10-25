@@ -142,6 +142,27 @@ def _mentions_unsupported_forward_symbol(question: str) -> bool:
     )
     for match in re.finditer(pair, question):
         candidates.extend(match.groups())
+    # Mixed/lowercase unsupported tickers in explicit stock comparisons
+    # must not be dropped when the other side is a known frozen ticker.
+    # Require whole-word tokens: "shadow" must not be split at its "a".
+    mixed_pair = (
+        r"(?=(?<!\w)([A-Za-z]{2,5})(?!\w)\s*"
+        r"(?i:vs\.?|versus|oproti|a|aj|/|,)\s*"
+        r"(?<!\w)([A-Za-z]{2,5})(?!\w))"
+    )
+    for match in re.finditer(mixed_pair, question):
+        left, right = match.groups()
+        # "NVDA, len NVDA" repeats one ticker; "len" is the Slovak
+        # qualifier "only" here, not a second unsupported stock.
+        # Do not exempt "NVDA, len ibm" or an unrelated follow-up.
+        if right.casefold() == "len" and left.upper() in FROZEN_SYMBOLS:
+            if re.match(
+                r"\s+" + re.escape(left) + r"(?!\w)",
+                question[match.end(2):], re.I,
+            ):
+                continue
+        if any(token.upper() in FROZEN_SYMBOLS for token in (left, right)):
+            candidates.extend((left, right))
     # A recognized company alias must not silently narrow a comparison
     # with another (possibly unsupported) company or ticker. Inspect both
     # orders and overlapping pairs in longer lists, including repeated aliases.
