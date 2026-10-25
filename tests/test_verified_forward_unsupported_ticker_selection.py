@@ -66,7 +66,7 @@ class UnsupportedForwardTickerTests(unittest.TestCase):
             "Zhrň predikcie vo forward denníku pre akciu ibm.",
             "Aké máš výsledky shadow pre stock ibm a NVDA?",
             "Aké máš výsledky shadow pre ticker nvda a symbol ibm?",
-            "Aké máš výsledky shadow pre akcie Tesla?",
+            "Aké máš výsledky shadow pre akcie Microsoft?",
         )
         for question in questions:
             for action in ("summary", "performance", "latest"):
