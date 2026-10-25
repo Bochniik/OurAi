@@ -251,3 +251,25 @@ Offline regression checks:
 `python -m unittest tests.test_ordinal_baseline_followups -v`.
 These tests use synthetic report files and do not constitute a local Qwen
 benchmark.
+
+### Ordinal references after historical day-win counts (October 2026)
+
+The same bounded `A oproti druhému baseline?` / `A čo pri druhom baseline?`
+reference can now follow a **verified historical day-win count**, not just a
+percentage. For example, after `Koľko trhových dní model v3 prekonal
+lineárny baseline v historickej validácii?`, it changes only the baseline
+to null while preserving the **count** metric and validation split. The
+reader loads the relevant local report again; it does not copy a number
+from conversational prose or convert a count into a percentage.
+
+Only the immediately preceding source-tagged historical answer with an
+explicit count, one baseline and one split authorizes this transition.
+An MAE-only answer, unverified or interrupted history, an ambiguous
+`druhému modelu`, or an appended forward/trading request fails closed.
+The standalone abbreviated request cannot select a reader, including
+through opt-in semantic tool selection. This is an offline deterministic
+regression, **not** a local Qwen benchmark.
+
+Run `python -m unittest tests.test_ordinal_day_win_count_followups -v`
+to test both historical splits and both baseline directions using synthetic
+reports.
