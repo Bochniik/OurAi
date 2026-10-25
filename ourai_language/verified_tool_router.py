@@ -109,14 +109,14 @@ def _mentions_unsupported_forward_symbol(question: str) -> bool:
     """
     candidates: list[str] = []
     for pattern in (
-        r"(?<!\\w)\\$([A-Za-z]{2,5})(?!\\w)",
-        r"(?<!\\w)(?i:pre|ticker|symbol|akci\\w*|stock)\\s+([A-Z]{2,5})(?!\\w)",
+        r"(?<!\w)\$([A-Za-z]{2,5})(?!\w)",
+        r"(?<!\w)(?i:pre|ticker|symbol|akci\w*|stock)\s+([A-Z]{2,5})(?!\w)",
     ):
         candidates.extend(match.group(1) for match in re.finditer(pattern, question))
     pair = (
-        r"(?<!\\w)([A-Z]{2,5})\\s*"
-        r"(?i:vs\\.?|versus|oproti|a|aj|/)\\s*"
-        r"([A-Z]{2,5})(?!\\w)"
+        r"(?<!\w)([A-Z]{2,5})\s*"
+        r"(?i:vs\.?|versus|oproti|a|aj|/)\s*"
+        r"([A-Z]{2,5})(?!\w)"
     )
     for match in re.finditer(pair, question):
         candidates.extend(match.groups())
