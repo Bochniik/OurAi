@@ -81,7 +81,14 @@ def make_handler(journal_path: str | Path):
 
     class ForwardEvidenceHandler(BaseHTTPRequestHandler):
         def _json(self, code: int, payload: dict[str, Any]) -> None:
-            encoded = json.dumps(payload, allow_nan=False, separators=(",", ":")).encode("utf-8")
+            try:
+                encoded = json.dumps(payload, allow_nan=False, separators=(",", ":")).encode("utf-8")
+            except (TypeError, ValueError, OverflowError, RecursionError):
+                # A malformed analytics snapshot must never drop the socket
+                # or publish partial evidence. Return a fixed unavailable
+                # response without exposing internal data or exception text.
+                code = 503
+                encoded = b'{"status":"forward_evidence_unavailable"}'
             self.send_response(code)
             self.send_header("Content-Type", "application/json; charset=utf-8")
             self.send_header("Cache-Control", "no-store")
