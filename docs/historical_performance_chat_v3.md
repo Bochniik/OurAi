@@ -119,6 +119,15 @@ ambiguous/two-split percentage questions cannot silently become a different
 metric. Existing verified MAE split follow-ups retain their earlier behavior.
 This is covered by synthetic regression tests, not a local Qwen benchmark.
 
+The colloquial variants `A čo na lockboxe?` and `A čo vo validácii?`
+follow the same guarded rule as `A na lockboxe?` / `A vo validácii?`.
+Consecutive verified percentage follow-ups can change the split, then the
+baseline, then the split again: each answer is computed from the selected
+local historical report using the *latest canonical evidence question*.
+A missing, unrelated, forward-tagged or model-generated previous turn does
+not authorize these abbreviated requests. This is a bounded deterministic
+routing regression, not a Qwen language benchmark.
+
 ## Local testing
 
 ```powershell
