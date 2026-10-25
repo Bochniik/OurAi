@@ -93,13 +93,13 @@ def corrected_baseline_followup_target(message: str) -> str | None:
     """
     text = _normalize(str(message or "")).strip().strip('.?!„“"')
     match = re.fullmatch(
-        r"(?:nie,\\s*)?(?:a\\s+)?teraz\\s+to\\s+porovnaj\\s+"
-        r"(?:iba|len)\\s+(?:s|so)\\s+"
-        r"(nulov\\w*|null|linearn\\w*|linear)"
-        r"(?:\\s+(?:baseline|modelom))?\\s*,\\s*"
-        r"(?:a\\s+)?nie\\s+(?:s|so)\\s+"
-        r"(nulov\\w*|null|linearn\\w*|linear)"
-        r"(?:\\s+(?:baseline|modelom))?",
+        r"(?:nie,\s*)?(?:a\s+)?teraz\s+to\s+porovnaj\s+"
+        r"(?:iba|len)\s+(?:s|so)\s+"
+        r"(nulov\w*|null|linearn\w*|linear)"
+        r"(?:\s+(?:baseline|modelom))?\s*,\s*"
+        r"(?:a\s+)?nie\s+(?:s|so)\s+"
+        r"(nulov\w*|null|linearn\w*|linear)"
+        r"(?:\s+(?:baseline|modelom))?",
         text,
     )
     if match is None:
