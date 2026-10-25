@@ -416,7 +416,10 @@ paths and do not run or benchmark local Qwen.
 After **exactly** the immediately preceding supported day-win question and
 deterministic `conversation_clarification`, a short reply such as
 `Validáciu.`, `Historickú validáciu.`, `Lockbox.` or `Lockbox test.`
-selects the requested report split. The system reconstructs the original
+selects the requested report split. Bounded natural replies such as
+`Myslel som validáciu.`, `Myslela som historickú validáciu.`,
+`Nie, myslel som lockbox test.`, and `Lockbox test, prosím.` also work
+**only** after that exact deterministic clarification. The system reconstructs the original
 count/percentage and linear/null baseline, then re-reads the selected
 validated historical report. It does not treat the clarification as evidence,
 reuse generated numbers, or infer a source from other conversation turns.
