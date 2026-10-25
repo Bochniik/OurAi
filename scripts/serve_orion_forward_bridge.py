@@ -10,6 +10,7 @@ import argparse
 from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
+from threading import BoundedSemaphore
 from pathlib import Path
 from typing import Any
 
@@ -73,6 +74,11 @@ def forward_evidence_snapshot(journal_path: str | Path) -> dict[str, Any]:
 
 
 def make_handler(journal_path: str | Path):
+    # Journal hash-chain verification can be expensive. One verification per
+    # server at a time prevents concurrent HTTP refreshes from multiplying
+    # journal reads; a busy caller gets a safe, retryable unavailable status.
+    verification_gate = BoundedSemaphore(1)
+
     class ForwardEvidenceHandler(BaseHTTPRequestHandler):
         def _json(self, code: int, payload: dict[str, Any]) -> None:
             encoded = json.dumps(payload, allow_nan=False, separators=(",", ":")).encode("utf-8")
@@ -105,12 +111,23 @@ def make_handler(journal_path: str | Path):
             if self.path != ROUTE:
                 self._json(404, {"status": "not_found"})
                 return
-            try:
-                self._json(200, forward_evidence_snapshot(journal_path))
-            except (OSError, ValueError, TypeError, KeyError, AssertionError):
-                # Never return raw file contents, local paths or exception
-                # messages across the HTTP bridge.
+            if not verification_gate.acquire(blocking=False):
                 self._json(503, {"status": "forward_evidence_unavailable"})
+                return
+            try:
+                # Release the gate before writing the HTTP response so a slow
+                # reader cannot hold up another independent journal check.
+                try:
+                    snapshot = forward_evidence_snapshot(journal_path)
+                except (OSError, ValueError, TypeError, KeyError, AssertionError):
+                    # Never return raw paths, journal data or exception text.
+                    snapshot = None
+            finally:
+                verification_gate.release()
+            if snapshot is None:
+                self._json(503, {"status": "forward_evidence_unavailable"})
+            else:
+                self._json(200, snapshot)
 
         def log_message(self, format_string: str, *args: object) -> None:
             # Avoid logging request headers or any confidential local paths.
