@@ -265,7 +265,9 @@ def historical_question_kind(message: str) -> str | None:
             or bare_day_wins_followup_target(message) is not None
             or is_bare_day_wins_share_followup(message)
             or bare_day_wins_baseline_share_target(message) is not None
-            or bare_day_wins_split_share_target(message) is not None):
+            or bare_day_wins_split_share_target(message) is not None
+            or ordinal_other_comparison_kind(message) is not None
+            or re.search(r"\\bdruh(?:emu|om)\\s+(?:baseline|modelu|modelom)\\b", text)):
         return None
     # A bare "Nie, myslel som validáciu" needs a verified preceding source.
     # The standalone deterministic reader must never assume that context.
