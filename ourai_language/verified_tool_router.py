@@ -83,20 +83,24 @@ def _user_forward_evidence(question: str) -> bool:
     return True
 
 
-# Curated, unambiguous Slovak forms for one frozen-universe company.
+# Curated, unambiguous Slovak company forms for frozen-universe tickers.
 # These are user-word aliases, never model-proposed ticker arguments.
 _VERIFIED_NVDA_ALIASES = frozenset(("NVIDIA", "NVIDIE", "NVIDII", "NVIDIU", "NVIDIOU"))
 _NVDA_ALIAS_PATTERN = r"(?<!\w)(?:nvidia|nvidie|nvidii|nvidiu|nvidiou)(?!\w)"
+_VERIFIED_TSLA_ALIASES = frozenset(("TESLA", "TESLY", "TESLE", "TESLU", "TESLOU"))
+_TSLA_ALIAS_PATTERN = r"(?<!\w)(?:tesla|tesly|tesle|teslu|teslou)(?!\w)"
 
 
 def _mentioned_symbols(question: str) -> tuple[str, ...]:
-    """Read exact frozen tickers and a bounded verified NVDA name alias."""
+    """Read exact frozen tickers and bounded verified company-name aliases."""
     mentioned = {
         symbol for symbol in FROZEN_SYMBOLS
         if re.search(r"(?<!\w)" + re.escape(symbol) + r"(?!\w)", question, re.I)
     }
     if re.search(_NVDA_ALIAS_PATTERN, question, re.I):
         mentioned.add("NVDA")
+    if re.search(_TSLA_ALIAS_PATTERN, question, re.I):
+        mentioned.add("TSLA")
     return tuple(symbol for symbol in FROZEN_SYMBOLS if symbol in mentioned)
 
 
@@ -136,20 +140,22 @@ def _mentions_unsupported_forward_symbol(question: str) -> bool:
         candidates.extend(match.groups())
     # A recognized company alias must not silently narrow a comparison
     # with another (possibly unsupported) company or ticker. Inspect both
-    # orders; title-case company names are intentionally not auto-resolved.
+    # orders and overlapping pairs in longer lists, including repeated aliases.
     join = r"\s*(?i:vs\.?|versus|oproti|a|aj|/|,)\s*"
     name = r"([A-Za-z]{2,30})(?!\w)"
-    for pattern in (
-        _NVDA_ALIAS_PATTERN + join + name,
-        r"(?<!\w)([A-Za-z]{2,30})" + join + _NVDA_ALIAS_PATTERN,
-    ):
-        candidates.extend(match.group(1) for match in re.finditer(
-            pattern, question, re.I,
-        ))
+    for alias_pattern in (_NVDA_ALIAS_PATTERN, _TSLA_ALIAS_PATTERN):
+        for pattern in (
+            r"(?=" + alias_pattern + join + name + r")",
+            r"(?=(?<!\w)([A-Za-z]{2,30})" + join + alias_pattern + r")",
+        ):
+            candidates.extend(match.group(1) for match in re.finditer(
+                pattern, question, re.I,
+            ))
     return any(
         candidate.upper() not in FROZEN_SYMBOLS
         and candidate.upper() not in _NON_TICKER_ABBREVIATIONS
         and candidate.upper() not in _VERIFIED_NVDA_ALIASES
+        and candidate.upper() not in _VERIFIED_TSLA_ALIASES
         for candidate in candidates
     )
 

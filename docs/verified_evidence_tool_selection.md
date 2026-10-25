@@ -79,17 +79,19 @@ as stock names. Explicit stock cues such as `ticker ibm`, `symbol ibm`,
 letter candidates, rather than silently selecting an overall or NVDA-only
 report. The broad Slovak preposition `pre` remains **uppercase-only** for
 unsupported candidates to avoid mistaking ordinary lowercase words for
-tickers. A company name such as `akcie Tesla` or `akciu Microsoft` is
-**not** silently mapped to a ticker by this opt-in selector; without a
-verified alias it fails closed. A narrow, manually curated exception now
-recognizes the unambiguous Slovak name forms `Nvidia`, `Nvidie`,
-`Nvidii`, `Nvidiu` and `Nvidiou` as **NVDA**, a ticker already present
-in the frozen journal universe. This applies to the opt-in tool selector
-only: it neither adds a ticker nor changes any evidence reader. When that
-alias is joined to another named company/ticker (including unsupported
-names in either order), the selector rejects the proposal instead of
-silently narrowing a comparison to NVDA. Other company names remain
-unverified, and ambiguous or unrecognized names must not be guessed. The explicit stock-cue
+tickers. A company name such as `akciu Microsoft` is **not** silently
+mapped to a ticker by this opt-in selector; without a verified alias it
+fails closed. Narrow, manually curated exceptions recognize the Slovak
+forms `Nvidia`, `Nvidie`, `Nvidii`, `Nvidiu`, `Nvidiou` as **NVDA**
+and `Tesla`, `Tesly`, `Tesle`, `Teslu`, `Teslou` as **TSLA**. Both
+tickers are already in the frozen journal universe. These aliases apply
+to the opt-in tool selector only: they neither add tickers nor change
+any evidence reader. A request naming two distinct companies/tickers
+(including a verified alias paired with an unsupported name in either
+order) is rejected rather than silently narrowed. Overlapping alias
+pairs in longer lists are also checked, including repeated names.
+Other company names remain unverified, and ambiguous or unrecognized
+names must not be guessed. The explicit stock-cue
 scanner checks names up to 30 ASCII letters, rather than silently treating
 longer names as an overall forward-journal question. This remains a bounded
 fail-closed guard, **not** a general company-name-to-ticker resolver.
@@ -100,4 +102,4 @@ not a fabricated per-stock statistic. Tests use synthetic JSON proposals;
 no local Qwen benchmark was performed.
 
 Offline regression:
-`python -m unittest tests.test_verified_forward_multi_symbol_selection tests.test_verified_forward_unsupported_ticker_selection tests.test_verified_forward_nvidia_alias -v`.
+`python -m unittest tests.test_verified_forward_multi_symbol_selection tests.test_verified_forward_unsupported_ticker_selection tests.test_verified_forward_nvidia_alias tests.test_verified_forward_tesla_alias -v`.
