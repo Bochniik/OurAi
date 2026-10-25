@@ -71,7 +71,7 @@ class VerifiedNvidiaAliasTests(unittest.TestCase):
         for question in (
             "Čo je Nvidia?",
             "Aké máš výsledky shadow pre Nvidia a nakúp akcie.",
-            "Aké máš výsledky shadow pre akcie Microsoft?",
+            "Aké máš výsledky shadow pre akcie Alphabet?",
         ):
             with self.subTest(question=question):
                 self.assertIsNone(_select(question))

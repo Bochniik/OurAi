@@ -79,12 +79,13 @@ as stock names. Explicit stock cues such as `ticker ibm`, `symbol ibm`,
 letter candidates, rather than silently selecting an overall or NVDA-only
 report. The broad Slovak preposition `pre` remains **uppercase-only** for
 unsupported candidates to avoid mistaking ordinary lowercase words for
-tickers. A company name such as `akciu Microsoft` is **not** silently
+tickers. An unverified company name such as `akciu Alphabet` is **not** silently
 mapped to a ticker by this opt-in selector; without a verified alias it
 fails closed. Narrow, manually curated exceptions recognize the Slovak
 forms `Nvidia`, `Nvidie`, `Nvidii`, `Nvidiu`, `Nvidiou` as **NVDA**
-and `Tesla`, `Tesly`, `Tesle`, `Teslu`, `Teslou` as **TSLA**. Both
-tickers are already in the frozen journal universe. These aliases apply
+and `Tesla`, `Tesly`, `Tesle`, `Teslu`, `Teslou` as **TSLA**, plus
+`Microsoft`, `Microsoftu`, `Microsofte`, `Microsoftom` as **MSFT**.
+All three tickers are already in the frozen journal universe. These aliases apply
 to the opt-in tool selector only: they neither add tickers nor change
 any evidence reader. A request naming two distinct companies/tickers
 (including a verified alias paired with an unsupported name in either
@@ -102,4 +103,4 @@ not a fabricated per-stock statistic. Tests use synthetic JSON proposals;
 no local Qwen benchmark was performed.
 
 Offline regression:
-`python -m unittest tests.test_verified_forward_multi_symbol_selection tests.test_verified_forward_unsupported_ticker_selection tests.test_verified_forward_nvidia_alias tests.test_verified_forward_tesla_alias -v`.
+`python -m unittest tests.test_verified_forward_multi_symbol_selection tests.test_verified_forward_unsupported_ticker_selection tests.test_verified_forward_nvidia_alias tests.test_verified_forward_tesla_alias tests.test_verified_forward_microsoft_alias -v`.
