@@ -147,6 +147,36 @@ def bare_day_wins_followup_target(message: str) -> str | None:
     return "linear" if match.group(1).startswith(("linearn", "linear")) else "null"
 
 
+def is_bare_day_wins_share_followup(message: str) -> bool:
+    """A referential percentage question is not a standalone report request."""
+    text = _normalize(str(message or "")).strip().strip('.?!„“"')
+    return bool(re.fullmatch(
+        r"(?:a )?(?:kolko je to percent|kolko percent to je|"
+        r"ake percento to je|kolko je to v percentach)",
+        text,
+    ))
+
+
+def historical_day_wins_count_context(message: str) -> tuple[str, str] | None:
+    """Recover a split and baseline only from an explicit day-win count query.
+
+    Callers must independently require an immediately preceding, verified
+    historical answer. Neither generic MAE nor two-report summaries qualify.
+    """
+    text = _normalize(str(message or "")).strip().strip('.?!„“"')
+    match = re.fullmatch(
+        r"kolko (?:trhovych )?dni model (?:v3 )?prekonal "
+        r"(linearn\w*|linear|nulov\w*|null) (?:baseline|model) "
+        r"(v historickej validacii|na historickom lockbox teste)",
+        text,
+    )
+    if match is None:
+        return None
+    baseline = "linear" if match.group(1).startswith(("linearn", "linear")) else "null"
+    split = "validation" if match.group(2).startswith("v historickej") else "test"
+    return split, baseline
+
+
 def historical_question_kind(message: str) -> str | None:
     """Classify only model-performance requests, never finance definitions.
 
@@ -157,7 +187,8 @@ def historical_question_kind(message: str) -> str | None:
     text = _normalize(str(message or "").strip())
     if (not text or is_historical_educational_request(message)
             or is_bare_baseline_followup(message)
-            or bare_day_wins_followup_target(message) is not None):
+            or bare_day_wins_followup_target(message) is not None
+            or is_bare_day_wins_share_followup(message)):
         return None
     # A bare "Nie, myslel som validáciu" needs a verified preceding source.
     # The standalone deterministic reader must never assume that context.
