@@ -15,6 +15,7 @@ from .historical_answers import (
     bare_day_wins_followup_target, bare_day_wins_baseline_share_target,
     bare_day_wins_split_share_target, ordinal_other_comparison_kind,
     bare_clarification_baseline_target, historical_day_wins_missing_split,
+    bare_historical_split_reply_target,
     explicit_comparison_baseline,
     historical_source_correction_target, is_historical_educational_request,
 )
@@ -191,6 +192,7 @@ def canonical_historical_question(
         or ordinal_other_comparison_kind(original_question) is not None
         or bare_clarification_baseline_target(original_question) is not None
         or historical_day_wins_missing_split(original_question)
+        or bare_historical_split_reply_target(original_question) is not None
         or re.search(r"\bdruh(?:emu|om)\s+(?:baseline|modelu|modelom)\b", user_text)
         or not _is_retrospective_performance_request(user_text)
     ):

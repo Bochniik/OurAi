@@ -182,7 +182,7 @@ class VerifiedMissingSplitReplyTests(unittest.TestCase):
                             else "na historickom lockbox teste",
                             answer.evidence_question,
                         )
-                        self.assertNotIn("forward", answer.text.lower())
+                        self.assertIn("nie je presnosť smeru", answer.text.lower())
 
 
 if __name__ == "__main__":
