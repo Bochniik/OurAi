@@ -12,6 +12,7 @@ from typing import Iterable, Mapping
 from .historical_answers import (
     corrected_baseline_followup_target, historical_question_kind,
     historical_source_correction_target, is_bare_baseline_followup,
+    bare_day_wins_followup_target,
 )
 
 
@@ -60,7 +61,10 @@ def historical_followup_question(
     # retrospective report, not current market data. Accept only this
     # tightly scoped discourse transition; other uses of "teraz" remain
     # excluded along with forward/live/trading requests.
-    discourse_baseline_comparison = is_bare_baseline_followup(raw)
+    day_wins_baseline = bare_day_wins_followup_target(raw)
+    discourse_baseline_comparison = (
+        is_bare_baseline_followup(raw) or day_wins_baseline is not None
+    )
     if any(term in text for term in (
         "forward", "posledn", "najnov", "aktualn", "journal", "dennik",
         "zajtra", "dnes", "live", "obchod", "nakup", "predaj",
@@ -87,6 +91,18 @@ def historical_followup_question(
             split = "validácii"
         elif prior_kind in ("test", "compare_test"):
             split = "lockbox teste"
+
+    # A metric switch is allowed only for a verified, single historical split.
+    # A prior two-report overview cannot silently pick validation or lockbox.
+    if day_wins_baseline is not None:
+        if split not in ("validácii", "lockbox teste"):
+            return None
+        scope = (
+            "v historickej validácii" if split == "validácii"
+            else "na historickom lockbox teste"
+        )
+        baseline = "lineárny baseline" if day_wins_baseline == "linear" else "nulový baseline"
+        return f"Koľko trhových dní model v3 prekonal {baseline} {scope}?"
 
     # For an exclusive correction, the positive target wins even though the
     # excluded baseline is also present in the user's sentence.
