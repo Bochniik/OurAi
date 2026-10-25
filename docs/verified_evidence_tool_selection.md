@@ -67,10 +67,16 @@ uses the existing overall read-only query.
 
 This guard applies to the **optional model-proposed tool selection path**;
 it does not change the deterministic forward reader or implement a multi-stock
-comparison. Unsupported or unrecognized tickers are not interpreted by this
-narrow check. A rejected proposal falls through to ordinary conversation,
+comparison. A follow-up guard also rejects **explicit unsupported ticker syntax** (for
+example `pre IBM`, `$IBM`, `NVDA oproti IBM`, `NVDA a IBM`, or
+`NVDA, IBM`) in this opt-in tool selector. It does not silently discard
+an unknown stock and answer for the remaining known ticker or overall
+journal. Recognized metric abbreviations such as MAE and BPS are not treated
+as stock names. This intentionally bounded syntax does **not** detect every
+possible unmarked or lowercase ticker reference and does not extend the
+supported universe. Unknown tickers are never passed as reader arguments. A rejected proposal falls through to ordinary conversation,
 not a fabricated per-stock statistic. Tests use synthetic JSON proposals;
 no local Qwen benchmark was performed.
 
 Offline regression:
-`python -m unittest tests.test_verified_forward_multi_symbol_selection -v`.
+`python -m unittest tests.test_verified_forward_multi_symbol_selection tests.test_verified_forward_unsupported_ticker_selection -v`.
