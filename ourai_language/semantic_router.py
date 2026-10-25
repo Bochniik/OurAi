@@ -13,6 +13,7 @@ import unicodedata
 
 from .historical_answers import (
     bare_day_wins_followup_target, bare_day_wins_baseline_share_target,
+    bare_day_wins_split_share_target,
     explicit_comparison_baseline,
     historical_source_correction_target, is_historical_educational_request,
 )
@@ -185,6 +186,7 @@ def canonical_historical_question(
         or historical_source_correction_target(original_question) is not None
         or bare_day_wins_followup_target(original_question) is not None
         or bare_day_wins_baseline_share_target(original_question) is not None
+        or bare_day_wins_split_share_target(original_question) is not None
         or not _is_retrospective_performance_request(user_text)
     ):
         return None
