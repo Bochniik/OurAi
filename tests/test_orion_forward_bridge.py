@@ -125,9 +125,9 @@ class OrionForwardBridgeTests(unittest.TestCase):
                 runner.join(timeout=5)
 
     def test_cross_origin_browser_requests_do_not_read_forward_journal(self):
-        # No CORS headers is insufficient: a cross-site page can still issue
-        # a simple GET even when it cannot read the response. Fail before
-        # performing expensive full-journal verification.
+        # No CORS headers is insufficient: browser GETs still trigger work.
+        # Even a direct navigation (Sec-Fetch-Site: none) must not verify the
+        # full journal; only backend-to-backend requests are supported.
         with patch(
             "scripts.serve_orion_forward_bridge.read_forward_report",
             side_effect=AssertionError("cross-origin request reached journal"),
@@ -143,6 +143,9 @@ class OrionForwardBridgeTests(unittest.TestCase):
                     {"Origin": "null"},
                     {"Sec-Fetch-Site": "cross-site"},
                     {"Sec-Fetch-Site": "same-site"},
+                    {"Sec-Fetch-Site": "same-origin"},
+                    {"Sec-Fetch-Site": "none", "Sec-Fetch-Mode": "navigate"},
+                    {"Sec-Fetch-Site": "unexpected"},
                 ):
                     with self.subTest(headers=headers):
                         with self.assertRaises(HTTPError) as caught:

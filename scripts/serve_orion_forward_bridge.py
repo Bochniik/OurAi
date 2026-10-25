@@ -92,13 +92,13 @@ def make_handler(journal_path: str | Path):
                 self._json(403, {"status": "forbidden_host"})
                 return
             # CORS only prevents a browser from reading a response; it does
-            # not prevent cross-site pages from issuing simple GET requests.
-            # Reject browser-originated cross-site requests before verifying
-            # the full journal (an expensive read-only operation).
+            # not prevent it from issuing a GET that verifies the full journal.
+            # This endpoint is for the Orion backend, not browsers. Reject
+            # *all* Fetch Metadata site values, including "none" (address-bar
+            # navigation) and "same-origin", before touching the journal.
             if (
                 self.headers.get("Origin") is not None
-                or self.headers.get("Sec-Fetch-Site", "").strip().lower()
-                in {"cross-site", "same-site"}
+                or self.headers.get("Sec-Fetch-Site") is not None
             ):
                 self._json(403, {"status": "forbidden_browser_origin"})
                 return
