@@ -79,8 +79,12 @@ as stock names. Explicit stock cues such as `ticker ibm`, `symbol ibm`,
 letter candidates, rather than silently selecting an overall or NVDA-only
 report. The broad Slovak preposition `pre` remains **uppercase-only** for
 unsupported candidates to avoid mistaking ordinary lowercase words for
-tickers. A company name such as `akcie Tesla` is **not** silently mapped to
-TSLA by this opt-in selector; without a verified alias it fails closed.
+tickers. A company name such as `akcie Tesla`, `akcie Nvidia`, or
+`akciu Microsoft` is **not** silently mapped to a ticker by this opt-in
+selector; without a verified alias it fails closed. The explicit stock-cue
+scanner checks names up to 30 ASCII letters, rather than silently treating
+longer names as an overall forward-journal question. This remains a bounded
+fail-closed guard, **not** a company-name-to-ticker resolver.
 This intentionally bounded syntax does **not** detect every possible
 unmarked or lowercase ticker reference and does not extend the supported
 universe. Unknown tickers are never passed as reader arguments. A rejected proposal falls through to ordinary conversation,
