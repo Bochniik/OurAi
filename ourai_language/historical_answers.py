@@ -136,10 +136,10 @@ def bare_day_wins_followup_target(message: str) -> str | None:
     """
     text = _normalize(str(message or "")).strip().strip('.?!„“"')
     match = re.fullmatch(
-        r"(?:dobre,\\s*ale\\s+teraz\\s+mi\\s+namiesto\\s+mae\\s+ukaz,\\s*|a\\s+)"
-        r"kolko\\s+(?:trhovych\\s+)?dni\\s+model\\s+(?:v3\\s+)?prekonal\\s+"
-        r"(linearn\\w*|linear|nulov\\w*|null)"
-        r"(?:\\s+(?:baseline|model))?",
+        r"(?:dobre,\s*ale\s+teraz\s+mi\s+namiesto\s+mae\s+ukaz,\s*|a\s+)"
+        r"kolko\s+(?:trhovych\s+)?dni\s+model\s+(?:v3\s+)?prekonal\s+"
+        r"(linearn\w*|linear|nulov\w*|null)"
+        r"(?:\s+(?:baseline|model))?",
         text,
     )
     if match is None:
