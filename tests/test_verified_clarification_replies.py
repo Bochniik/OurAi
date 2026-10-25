@@ -174,6 +174,8 @@ class VerifiedClarificationReplyTests(unittest.TestCase):
                     for reply in (
                         f"Nie {excluded}, ale {requested}.",
                         f"Nie {excluded} ale {requested}.",
+                        f"Nie {excluded}, skôr {requested}.",
+                        f"Nie ten {excluded} model, radšej ten {requested} baseline, prosím.",
                         f"Nie ten {excluded} model, ale ten {requested} baseline, prosím.",
                     ):
                         with self.subTest(reply=reply, scope=scope, metric=metric):
@@ -203,11 +205,16 @@ class VerifiedClarificationReplyTests(unittest.TestCase):
         )
         for unsafe in (
             "Nie lineárny, ale lineárny.",
+            "Nie lineárny, skôr lineárny.",
+            "Nie lineárny, radšej nulový alebo lineárny.",
             "Nie lineárny, ale nulový alebo lineárny.",
             "Nie lineárny, ale nulový a obchoduj.",
             "Nie lineárny, ale nulový na lockboxe.",
             "Nie lineárny, ale nulový vo forward denníku.",
             "Nie lineárny, ale nulový, prosím obchoduj.",
+            "Nie lineárny, radšej nulový a obchoduj.",
+            "Nie lineárny, skôr nulový na lockboxe.",
+            "Nie lineárny, radšej nulový vo forward denníku.",
         ):
             with self.subTest(unsafe=unsafe):
                 self.assertIsNone(historical_followup_question(unsafe, good))
@@ -272,6 +279,8 @@ class VerifiedClarificationReplyTests(unittest.TestCase):
                                 for reply in (
                                     "Nie, ten nulový model, prosím.",
                                     "Nie lineárny, ale nulový.",
+                                    "Nie lineárny, skôr nulový.",
+                                    "Nie lineárny, radšej nulový.",
                                 )
                             ]
                         for result in results:
