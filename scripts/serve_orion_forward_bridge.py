@@ -21,6 +21,17 @@ HOST = "127.0.0.1"
 PORT = 8765
 ROUTE = "/v1/forward-evidence"
 
+# Whitelist fields at EVERY nesting level. Forward analytics may grow new
+# internal metadata; none of it should silently become part of this HTTP API.
+_SYMBOL_FIELDS = (
+    "predictions", "resolved", "pending", "overdue_pending",
+    "champion_mae_bps", "linear_mae_bps", "null_mae_bps",
+)
+_LATEST_FIELDS = (
+    "symbol", "predicted_at", "sample_timestamp", "target_due_at",
+    "expected_magnitude_bps", "resolved",
+)
+
 
 def forward_evidence_snapshot(journal_path: str | Path) -> dict[str, Any]:
     """Only expose a tightly scoped view of VERIFIED read-only V3 data."""
@@ -46,8 +57,14 @@ def forward_evidence_snapshot(journal_path: str | Path) -> dict[str, Any]:
         "champion_mae_bps": report["champion_mae_bps"],
         "linear_mae_bps": report["linear_mae_bps"],
         "null_mae_bps": report["null_mae_bps"],
-        "symbols": report["symbols"],
-        "latest_by_symbol": report["latest_by_symbol"],
+        "symbols": {
+            symbol: {field: row[field] for field in _SYMBOL_FIELDS}
+            for symbol, row in report["symbols"].items()
+        },
+        "latest_by_symbol": {
+            symbol: {field: row[field] for field in _LATEST_FIELDS}
+            for symbol, row in report["latest_by_symbol"].items()
+        },
         "limitations": (
             "Absolute 15m price-movement magnitude only; no UP/DOWN odds, "
             "trade signal, production promotion, or proof of trading edge."
