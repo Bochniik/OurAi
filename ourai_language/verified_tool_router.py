@@ -121,7 +121,7 @@ def _mentions_unsupported_forward_symbol(question: str) -> bool:
     """Fail closed on explicit unsupported ticker syntax in opt-in routing.
 
     This intentionally does not guess that arbitrary unmarked words or
-    lowercase prose are stock symbols. Explicit ticker/stock cues accept
+    lowercase prose are stock symbols. Explicit ticker/stock and Slovak company/firm cues accept
     mixed-case candidates including longer company names; the ordinary Slovak preposition "pre"
     remains uppercase-only to avoid interpreting everyday words as tickers.
     Cashtags and uppercase symbol pairs remain supported.
@@ -130,7 +130,7 @@ def _mentions_unsupported_forward_symbol(question: str) -> bool:
     for pattern in (
         r"(?<!\w)\$([A-Za-z]{2,5})(?!\w)",
         r"(?<!\w)(?i:pre)\s+([A-Z]{2,5})(?!\w)",
-        r"(?<!\w)(?i:ticker|symbol|akci\w*|stock)\s+([A-Za-z]{2,30})(?!\w)",
+        r"(?<!\w)(?i:ticker|symbol|akci\w*|stock|spolo[čc]nos[ťt]\w*|firm(?:a|y|e|u|ou))\s+([A-Za-z]{2,30})(?!\w)",
     ):
         candidates.extend(match.group(1) for match in re.finditer(pattern, question))
     # Scan overlapping pairs too: a non-overlapping match can skip the
