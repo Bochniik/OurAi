@@ -113,10 +113,12 @@ def _mentions_unsupported_forward_symbol(question: str) -> bool:
         r"(?<!\w)(?i:pre|ticker|symbol|akci\w*|stock)\s+([A-Z]{2,5})(?!\w)",
     ):
         candidates.extend(match.group(1) for match in re.finditer(pattern, question))
+    # Scan overlapping pairs too: a non-overlapping match can skip the
+    # third ticker in "NVDA, NVDA, IBM" and silently narrow the query.
     pair = (
-        r"(?<!\w)([A-Z]{2,5})\s*"
+        r"(?=(?<!\w)([A-Z]{2,5})\s*"
         r"(?i:vs\.?|versus|oproti|a|aj|/|,)\s*"
-        r"([A-Z]{2,5})(?!\w)"
+        r"([A-Z]{2,5})(?!\w))"
     )
     for match in re.finditer(pair, question):
         candidates.extend(match.groups())

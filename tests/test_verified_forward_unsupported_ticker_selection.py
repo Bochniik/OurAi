@@ -40,6 +40,38 @@ class UnsupportedForwardTickerTests(unittest.TestCase):
                         historical_available=True, forward_available=True,
                     ))
 
+    def test_unsupported_ticker_in_longer_lists_cannot_be_skipped(self):
+        # A non-overlapping pair regex used to see only the first pair.
+        # It could silently answer for NVDA while ignoring a third IBM.
+        questions = (
+            "Aké máš výsledky shadow pre NVDA, NVDA, IBM?",
+            "Aké máš výsledky shadow pre NVDA, MAE, IBM?",
+            "Aké máš výsledky shadow pre NVDA, TSLA, IBM?",
+            "Aké máš výsledky shadow pre NVDA a NVDA a IBM?",
+        )
+        for question in questions:
+            for action in ("summary", "performance", "latest"):
+                with self.subTest(question=question, action=action):
+                    self.assertIsNone(select_verified_tool(
+                        question, _proposal(action),
+                        historical_available=True, forward_available=True,
+                    ))
+
+    def test_repeated_supported_tickers_and_metric_words_still_work(self):
+        for question in (
+            "Aké máš výsledky shadow pre NVDA, NVDA, NVDA?",
+            "Aké máš výsledky shadow pre NVDA, MAE, NVDA?",
+            "Aké máš výsledky shadow pre NVDA, NVDA, USD?",
+        ):
+            with self.subTest(question=question):
+                selected = select_verified_tool(
+                    question, _proposal("performance"),
+                    historical_available=False, forward_available=True,
+                )
+                self.assertIsNotNone(selected)
+                self.assertEqual(selected[0], "forward_v2")
+                self.assertIn("NVDA", selected[1])
+
     def test_known_ticker_metrics_and_overall_questions_remain_allowed(self):
         questions = (
             ("Aké máš výsledky shadow pre NVDA?", "NVDA"),
