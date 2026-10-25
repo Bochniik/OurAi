@@ -72,7 +72,10 @@ class VerifiedClarificationReplyTests(unittest.TestCase):
                                   f"Myslel som ten {target} baseline.",
                                   f"Ten {target} model.",
                                   f"Nie, myslel som ten {target} model.",
-                                  f"Nie, myslel som {target} baseline."):
+                                  f"Nie, myslel som {target} baseline.",
+                                  f"Nie, ten {target}.",
+                                  f"Nie, ten {target} model.",
+                                  f"Nie, ten {target} baseline."):
                         with self.subTest(metric=metric, scope=scope,
                                           target=target, reply=reply):
                             self.assertEqual(
@@ -131,7 +134,11 @@ class VerifiedClarificationReplyTests(unittest.TestCase):
             "Myslel som ten nulový model na lockboxe",
             "Nulový na lockboxe", "Nulový alebo lineárny",
             "Nulový, kúp akcie", "Nulový a vo validácii",
-            "Nie, ten nulový model",
+            "Nie, nulový model",
+            "Nie, ten nulový model a obchoduj",
+            "Nie, ten nulový model vo forward denníku",
+            "Nie, ten nulový model na lockboxe",
+            "Nie, ten nulový alebo lineárny",
             "Nie, myslel som ten nulový model a obchoduj",
             "Nie, myslel som nulový baseline vo forward denníku",
             "Nie, myslel som ten nulový model na lockboxe",
@@ -186,7 +193,7 @@ class VerifiedClarificationReplyTests(unittest.TestCase):
                                  "source": clarify.answer_source,
                                  "evidence_question": clarify.evidence_question or ""},
                             ]
-                            result = runtime.respond("Nie, myslel som ten nulový model.", history=history)
+                            result = runtime.respond("Nie, ten nulový model.", history=history)
                         self.assertEqual(result.answer_source, "historical_v3_reports")
                         self.assertIn(f"v {count} z 3 trhových dní", result.text)
                         self.assertIn("nulový baseline", result.evidence_question)

@@ -342,8 +342,12 @@ with a bounded correction such as `Nie, myslel som ten nulový model.` or
 new tool permissions: the original historical split and day-win count/share
 metric are rechecked and the selected report is re-read. Bare correction
 sentences cannot select historical or forward tools, even with opt-in semantic
-routing. `Nie, ten nulový model`, contradictory baselines, and appended
-forward/trading/split requests remain unsupported and fail closed.
+routing. The same guarded chain also accepts the concise correction
+`Nie, ten nulový model.` / `Nie, ten lineárny baseline.` (and the bounded
+adjective-only form `Nie, ten nulový.`). A bare `Nie, nulový model` is still
+rejected because its negation is not a definite, unambiguous selection.
+Contradictory baselines and appended forward/trading/split requests remain
+unsupported and fail closed.
 
 Offline regression: `python -m unittest tests.test_verified_clarification_replies -v`.
 This does not constitute a local Qwen benchmark.
