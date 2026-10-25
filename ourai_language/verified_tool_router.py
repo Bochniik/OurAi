@@ -85,8 +85,8 @@ def _user_forward_evidence(question: str) -> bool:
 
 # Curated, unambiguous Slovak forms for one frozen-universe company.
 # These are user-word aliases, never model-proposed ticker arguments.
-_VERIFIED_NVDA_ALIASES = frozenset(("NVIDIA", "NVIDIE", "NVIDIU", "NVIDIOU"))
-_NVDA_ALIAS_PATTERN = r"(?<!\w)(?:nvidia|nvidie|nvidiu|nvidiou)(?!\w)"
+_VERIFIED_NVDA_ALIASES = frozenset(("NVIDIA", "NVIDIE", "NVIDII", "NVIDIU", "NVIDIOU"))
+_NVDA_ALIAS_PATTERN = r"(?<!\w)(?:nvidia|nvidie|nvidii|nvidiu|nvidiou)(?!\w)"
 
 
 def _mentioned_symbols(question: str) -> tuple[str, ...]:
