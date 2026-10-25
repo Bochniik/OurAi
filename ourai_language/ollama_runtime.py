@@ -22,7 +22,9 @@ from .semantic_router import (
     canonical_historical_question,
     explicit_heldout_performance_question,
 )
-from .conversation_followups import historical_followup_question
+from .conversation_followups import (
+    historical_ambiguity_clarification, historical_followup_question,
+)
 from .verified_tool_router import (
     SYSTEM_PROMPT as VERIFIED_TOOL_ROUTER_PROMPT, select_verified_tool,
 )
@@ -171,6 +173,16 @@ class LocalOllamaChatRuntime:
                 )
 
         if self.historical_reports_dir is not None:
+            # A source-tagged answer can justify a clarification, never an
+            # invented interpretation of "the other model". No report is read.
+            clarification = historical_ambiguity_clarification(
+                user_message, history_rows,
+            )
+            if clarification is not None:
+                return ChatResult(
+                    text=clarification, used_grounding_fallback=False,
+                    mode=ANALYSIS_QA, answer_source="conversation_clarification",
+                )
             try:
                 contextual = historical_followup_question(user_message, history_rows)
                 answer = maybe_historical_answer(
