@@ -63,9 +63,9 @@ def bare_historical_split_reply_target(message: str) -> str | None:
     # replies to our own clarification. This parser is NOT an authorization:
     # the caller must verify the exact preceding clarification and question.
     match = re.fullmatch(
-        r"(?:(?:nie,\\s*)?myslel(?:a)? som\\s+)?"
+        r"(?:(?:nie,\s*)?myslel(?:a)? som\s+)?"
         r"(validaciu|historicku validaciu|lockbox|lockbox test|historicky lockbox test)"
-        r"(?:,\\s*prosim)?",
+        r"(?:,\s*prosim)?",
         text,
     )
     if match is None:
