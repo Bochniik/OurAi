@@ -59,11 +59,18 @@ def historical_day_wins_missing_split(message: str) -> bool:
 def bare_historical_split_reply_target(message: str) -> str | None:
     """Parse only a bare source choice, never a standalone report request."""
     text = _normalize(str(message or "")).strip().strip(' .?!„“"')
-    if text in {"validaciu", "historicku validaciu"}:
-        return "validation"
-    if text in {"lockbox", "lockbox test", "historicky lockbox test"}:
-        return "test"
-    return None
+    # Full-utterance source choices, including short polite/corrective
+    # replies to our own clarification. This parser is NOT an authorization:
+    # the caller must verify the exact preceding clarification and question.
+    match = re.fullmatch(
+        r"(?:(?:nie,\\s*)?myslel(?:a)? som\\s+)?"
+        r"(validaciu|historicku validaciu|lockbox|lockbox test|historicky lockbox test)"
+        r"(?:,\\s*prosim)?",
+        text,
+    )
+    if match is None:
+        return None
+    return "validation" if "validaciu" in match.group(1) else "test"
 
 
 def is_historical_educational_request(message: str) -> bool:
