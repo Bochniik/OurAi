@@ -124,6 +124,40 @@ class OrionForwardBridgeTests(unittest.TestCase):
                 server.server_close()
                 runner.join(timeout=5)
 
+    def test_cross_origin_browser_requests_do_not_read_forward_journal(self):
+        # No CORS headers is insufficient: a cross-site page can still issue
+        # a simple GET even when it cannot read the response. Fail before
+        # performing expensive full-journal verification.
+        with patch(
+            "scripts.serve_orion_forward_bridge.read_forward_report",
+            side_effect=AssertionError("cross-origin request reached journal"),
+        ) as read_report:
+            server = ThreadingHTTPServer((HOST, 0), make_handler("mock-journal.jsonl"))
+            runner = threading.Thread(target=server.serve_forever, daemon=True)
+            runner.start()
+            try:
+                url = f"http://127.0.0.1:{server.server_port}{ROUTE}"
+                opener = build_opener(ProxyHandler({}))
+                for headers in (
+                    {"Origin": "https://example.invalid"},
+                    {"Origin": "null"},
+                    {"Sec-Fetch-Site": "cross-site"},
+                    {"Sec-Fetch-Site": "same-site"},
+                ):
+                    with self.subTest(headers=headers):
+                        with self.assertRaises(HTTPError) as caught:
+                            opener.open(Request(url, headers=headers), timeout=5)
+                        self.assertEqual(caught.exception.code, 403)
+                        self.assertEqual(
+                            json.load(caught.exception),
+                            {"status": "forbidden_browser_origin"},
+                        )
+                read_report.assert_not_called()
+            finally:
+                server.shutdown()
+                server.server_close()
+                runner.join(timeout=5)
+
     def test_http_unavailable_never_leaks_exception(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "missing.jsonl"
