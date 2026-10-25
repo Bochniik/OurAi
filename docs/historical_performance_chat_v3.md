@@ -273,3 +273,24 @@ regression, **not** a local Qwen benchmark.
 Run `python -m unittest tests.test_ordinal_day_win_count_followups -v`
 to test both historical splits and both baseline directions using synthetic
 reports.
+
+### Clarification for ambiguous ordinal model references (October 2026)
+
+After an immediately preceding **source-tagged, single-split historical day-win
+count or percentage**, `A oproti druhému modelu?`,
+`A ako to dopadlo oproti druhému modelu?`, and `A oproti druhému?`
+now receive a short Slovak **clarification question**, not a guessed baseline.
+The user is asked whether they mean the linear or null baseline. No
+historical report is opened, no metric is computed, and no local language
+model is called for this deterministic clarification.
+
+The clarification is tagged `conversation_clarification`, **not**
+`historical_v3_reports`, and carries no `evidence_question`. It cannot
+authorize a later abbreviated historical follow-up by itself. The existing
+unambiguous `A oproti druhému baseline?` route remains unchanged.
+Standalone questions, unverified/forward context, MAE-only answers, and
+requests with additional clauses do not activate this narrow clarification.
+These rules do not establish unrestricted natural-language understanding.
+
+Offline tests: `python -m unittest tests.test_verified_ordinal_clarification -v`.
+No local Qwen benchmark is implied.
