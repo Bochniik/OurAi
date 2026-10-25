@@ -88,6 +88,14 @@ the requested validation or lockbox split and baseline, without inventing
 values if the local report is missing. Generic "success rate" questions
 must not be silently converted into a directional hit rate.
 
+A short follow-up such as `A koľko je to percent?` is supported only
+immediately after a **source-tagged verified historical day-win count** for
+one named baseline and one explicit validation/lockbox split. It re-reads the
+same verified report and computes the observed-day share; it does not reuse
+numbers from conversational prose. Standalone percentage questions, prior
+MAE-only answers, two-report summaries, wrong-source history, and interruptions
+do not authorize report access. This does not test local Qwen language quality.
+
 ## Local testing
 
 ```powershell
