@@ -16,6 +16,19 @@ from .verified_tool_router import (
 )
 
 
+def _mentions_retrospective_source(question: str) -> bool:
+    """Never inherit a forward ticker from retrospective or lockbox context.
+
+    The assistant source tag alone is not sufficient if the preceding user
+    request or stored evidence question names a conflicting evidence source.
+    """
+    folded = unicodedata.normalize("NFKD", question.casefold())
+    plain = "".join(char for char in folded if not unicodedata.combining(char))
+    return re.search(
+        r"\b(?:lockbox\w*|historick\w*|backtest\w*|retrospekt\w*|validac\w*|validation\w*)\b",
+        plain,
+    ) is not None
+
 def forward_ticker_followup_question(
     message: str, history: Iterable[Mapping[str, str]] | None,
 ) -> str | None:
@@ -44,7 +57,7 @@ def forward_ticker_followup_question(
     # The source tag alone is insufficient: a malformed or mismatched
     # evidence_question must not authorize a switch to a different ticker.
     # An overall verified report (no ticker in either turn) remains eligible.
-    if _mentions_unsupported_forward_symbol(prior):
+    if _mentions_unsupported_forward_symbol(prior) or _mentions_retrospective_source(prior):
         return None
     prior_symbols = _mentioned_symbols(prior)
     prior_user_text = previous_user.get("content")
@@ -52,6 +65,7 @@ def forward_ticker_followup_question(
         len(prior_symbols) > 1
         or not isinstance(prior_user_text, str)
         or _mentions_unsupported_forward_symbol(prior_user_text)
+        or _mentions_retrospective_source(prior_user_text)
     ):
         return None
     user_symbols = _mentioned_symbols(prior_user_text)
@@ -92,14 +106,18 @@ def _verified_forward_ticker(
     prior = previous_assistant.get("evidence_question")
     if not isinstance(prior, str) or forward_question_kind(prior) is None:
         return None
-    if _mentions_unsupported_forward_symbol(prior):
+    if _mentions_unsupported_forward_symbol(prior) or _mentions_retrospective_source(prior):
         return None
     symbols = _mentioned_symbols(prior)
     if len(symbols) != 1:
         return None
     # Never grant a different stock than the original user explicitly named.
     prior_user_text = previous_user.get("content")
-    if not isinstance(prior_user_text, str) or _mentions_unsupported_forward_symbol(prior_user_text):
+    if (
+        not isinstance(prior_user_text, str)
+        or _mentions_unsupported_forward_symbol(prior_user_text)
+        or _mentions_retrospective_source(prior_user_text)
+    ):
         return None
     user_symbols = _mentioned_symbols(prior_user_text)
     if len(user_symbols) > 1 or (user_symbols and user_symbols != symbols):
