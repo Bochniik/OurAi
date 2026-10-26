@@ -429,3 +429,30 @@ Regression:
 `python -m unittest tests.test_forward_colloquial_error_source -v`.
 Tests use a synthetic report and mocked journal reader. **No local Qwen
 benchmark was performed.**
+
+## Explicit forward directional-accuracy questions (26 October 2026)
+
+The v3 forward journal reports predictions of **absolute 15-minute price
+movement magnitude**, not UP/DOWN direction. Requests such as
+`Aká bola smerová presnosť forward predikcií NVDA?`,
+`Ako často si trafil smer predikcií vo forward denníku?`, and
+`Koľkokrát si správne predpovedal rast/pokles NVDA v shadow režime?`
+must **not** be answered with magnitude MAE as if it were a directional
+hit rate. The deterministic forward path now reads the existing
+integrity-checked journal and gives a fixed Slovak explanation that
+directional accuracy is unavailable from this evidence. It does not
+invent a hit-rate percentage, run a trading strategy, or claim that a
+magnitude prediction predicts direction.
+
+This bounded route requires both a **directional hit-rate cue** and an
+**explicit forward/shadow/journal source**. Questions without a source,
+historical/lockbox comparisons, and educational definitions do not
+automatically select the forward reader. Ordinary magnitude MAE requests
+remain unchanged. An invalid journal still fails closed rather than
+returning unverified numerical evidence. This is not a general-purpose
+natural-language understanding guarantee or a new analytic tool.
+
+Regression:
+`python -m unittest tests.test_forward_directional_accuracy_boundary -v`.
+Tests use synthetic data and a mocked reader; **no local Qwen benchmark
+was performed**.
