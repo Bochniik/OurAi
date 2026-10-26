@@ -566,3 +566,24 @@ Existing verified readers take priority and are unchanged. This does not
 claim better natural-language fluency or a local Qwen benchmark.
 
 Offline regression: `py -m unittest tests.test_explicit_bps_conversion -v`.
+
+
+## Explicit Slovak forward metric vs latest-record intent
+
+For the **optional** verified tool selector, the user's explicit request for a
+single latest recorded prediction (e.g. `Aká je posledná predikcia v shadow režime?`)
+now takes precedence over a mistaken model-proposed `summary` or `performance`
+action. Explicit `MAE`, `presnosť`, `úspešnosť`, and `chybovosť`
+requests likewise select the existing aggregate `performance` reader rather
+than a single latest record. The existing reader remains authoritative about
+what its metrics actually mean (magnitude MAE is not directional accuracy).
+
+When **both** latest record and MAE/accuracy are explicitly requested in one
+question, the single-action selector rejects the proposal instead of silently
+answering only half. Broad `výsledky shadow` questions still use the
+constrained model-proposed action. All original source, educational, unsupported
+symbol, multi-ticker, and trade guards remain in place. This adds no tools,
+paths, trading capability, data access, or model training.
+
+Offline regression: `py -m unittest tests.test_verified_forward_explicit_action -v`.
+Tests use synthetic tool proposals; **no local Qwen benchmark** was run.
