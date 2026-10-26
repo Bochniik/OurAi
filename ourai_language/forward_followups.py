@@ -89,6 +89,24 @@ def _tickerless_turn_matches_evidence(user_text: str, evidence: str) -> bool:
     return False
 
 
+
+def _named_turn_has_forward_intent(user_text: str) -> bool:
+    """Do not inherit a ticker from a named but unrelated previous request.
+
+    A verified-looking evidence tag cannot turn a stock price, news, trade,
+    greeting or educational question into forward evidence. Preserve the
+    already-supported short ticker-switch turns (which omit metric wording).
+    """
+    if forward_question_kind(user_text) is not None:
+        return True
+    return re.fullmatch(
+        r"(?:a\\s+)?(?:[čc]o\\s+(?:pre\\s+)?|pre\\s+)"
+        r"[A-Za-z]{2,30}\\s*[?.!]?",
+        user_text.strip(),
+        re.IGNORECASE,
+    ) is not None
+
+
 def forward_ticker_followup_question(
     message: str, history: Iterable[Mapping[str, str]] | None,
 ) -> str | None:
@@ -134,6 +152,8 @@ def forward_ticker_followup_question(
     if prior_symbols and not user_symbols and not _tickerless_turn_matches_evidence(
         prior_user_text, prior,
     ):
+        return None
+    if user_symbols and not _named_turn_has_forward_intent(prior_user_text):
         return None
     raw = str(message or "").strip()
     if len(raw) > 65:
@@ -189,6 +209,8 @@ def _verified_forward_ticker(
     if not user_symbols and not _tickerless_turn_matches_evidence(
         prior_user_text, prior,
     ):
+        return None
+    if user_symbols and not _named_turn_has_forward_intent(prior_user_text):
         return None
     return symbols[0]
 
