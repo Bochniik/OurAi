@@ -18,7 +18,7 @@ from .financial_knowledge import lookup_financial_knowledge
 from .forward_answers import maybe_forward_answer
 from .forward_followups import (
     forward_latest_followup_question, forward_performance_followup_question,
-    forward_ticker_followup_question,
+    forward_ticker_followup_question, forward_results_explanation_followup_question,
 )
 from .historical_answers import maybe_historical_answer
 from .semantic_router import (
@@ -239,6 +239,38 @@ class LocalOllamaChatRuntime:
                     mode=ANALYSIS_QA, answer_source="verified_forward_journal",
                     evidence_question=forward_question,
                 )
+
+        # Explain only an immediately preceding, verified single-ticker
+        # forward performance result. Re-read the journal before explaining
+        # the MAE unit; never infer causes, direction or profitability.
+        if self.forward_journal is not None:
+            explanation_question = forward_results_explanation_followup_question(
+                user_message, history_rows,
+            )
+            if explanation_question is not None:
+                try:
+                    verified = maybe_forward_answer(
+                        explanation_question, self.forward_journal,
+                    )
+                except (ValueError, OSError, KeyError, TypeError) as exc:
+                    raise RuntimeError(
+                        "Forward denník je neplatný alebo dočasne nedostupný; "
+                        "odmietam odhadovať nevykázané výsledky."
+                    ) from exc
+                if verified is not None:
+                    return ChatResult(
+                        text=verified + (
+                            " MAE (priemerná absolútna chyba) vyjadruje "
+                            "priemernú odchýlku od skutočnej veľkosti "
+                            "15-minútového pohybu v bps; nižšia hodnota "
+                            "znamená menšiu chybu. Vyhodnotiť ju možno len "
+                            "z uzavretých predikcií. Nie je to presnosť "
+                            "smeru rastu/poklesu ani dôkaz ziskovosti."
+                        ),
+                        used_grounding_fallback=False, mode=ANALYSIS_QA,
+                        answer_source="verified_forward_journal",
+                        evidence_question=explanation_question,
+                    )
 
         # A short ticker switch may inherit only the metric of the immediately
         # preceding verified forward answer. Re-read the journal for the new
