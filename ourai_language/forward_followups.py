@@ -247,15 +247,25 @@ def forward_accuracy_clarification_reply_question(
         return None
     folded = unicodedata.normalize("NFKD", raw.casefold())
     plain = "".join(char for char in folded if not unicodedata.combining(char))
-    plain = plain.strip(" .?!")
+    # Normalize harmless commas and spacing, but accept only explicit,
+    # bounded reply forms after a verified clarification (never free text).
+    plain = re.sub(r"\s+", " ", plain.replace(",", " ")).strip(" .?!")
     magnitude_replies = {
         "myslim mae", "zaujima ma mae", "mae",
         "myslim chybu velkosti pohybu", "chybu velkosti pohybu",
+        "zaujima ma skor to o kolko si sa pomylil",
+        "chcem vediet o kolko si sa pomylil",
+        "skor ma zaujima aka velka bola chyba",
+        "zaujima ma ako daleko boli odhady od reality",
     }
     direction_replies = {
         "myslim smer", "zaujima ma smer", "smer",
         "myslim smerovu uspesnost", "smerovu uspesnost",
         "smer rastu alebo poklesu",
+        "chcem vediet ci si spravne odhadol rast alebo pokles",
+        "zaujima ma ci si spravne odhadol rast alebo pokles",
+        "skor ma zaujima ci si trafil smer",
+        "chcem vediet ci si trafil smer",
     }
     if plain not in magnitude_replies and plain not in direction_replies:
         return None
