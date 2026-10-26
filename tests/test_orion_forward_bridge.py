@@ -482,6 +482,52 @@ class OrionForwardBridgeTests(unittest.TestCase):
                 server.server_close()
                 runner.join(timeout=5)
 
+    def test_nested_non_mapping_report_returns_503_then_recovers(self):
+        """Bad analytics shapes are data failures, not dropped connections.
+
+        The reader is mocked; no real journal, model or forward evidence is
+        accessed. A subsequent valid report must still be served normally.
+        """
+        malformed = []
+        for field in ("symbols", "latest_by_symbol"):
+            report = self.fake_report()
+            report[field] = []
+            malformed.append(report)
+        for field in ("symbols", "latest_by_symbol"):
+            report = self.fake_report()
+            report[field]["NVDA"] = []
+            malformed.append(report)
+
+        with patch(
+            "scripts.serve_orion_forward_bridge.read_forward_report",
+            side_effect=[*malformed, self.fake_report()],
+        ) as read_report:
+            server = ThreadingHTTPServer((HOST, 0), make_handler("synthetic-not-opened.jsonl"))
+            runner = threading.Thread(target=server.serve_forever, daemon=True)
+            runner.start()
+            opener = build_opener(ProxyHandler({}))
+            url = f"http://127.0.0.1:{server.server_port}{ROUTE}"
+            try:
+                with patch.object(server, "handle_error") as unhandled_error:
+                    for _ in malformed:
+                        with self.assertRaises(HTTPError) as caught:
+                            opener.open(url, timeout=5)
+                        self.assertEqual(caught.exception.code, 503)
+                        self.assertEqual(
+                            json.load(caught.exception),
+                            {"status": "forward_evidence_unavailable"},
+                        )
+                        self.assertEqual(caught.exception.headers["Cache-Control"], "no-store")
+                    with opener.open(url, timeout=5) as response:
+                        self.assertEqual(response.status, 200)
+                        self.assertEqual(json.load(response)["resolution_count"], 1)
+                    unhandled_error.assert_not_called()
+                self.assertEqual(read_report.call_count, len(malformed) + 1)
+            finally:
+                server.shutdown()
+                server.server_close()
+                runner.join(timeout=5)
+
     def test_non_mapping_analytics_report_returns_503_then_recovers(self):
         # A reader returning a non-dict sentinel must not abort the socket:
         # Orion should see unavailable upstream evidence, not a network error.
