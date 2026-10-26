@@ -41,6 +41,22 @@ def forward_ticker_followup_question(
     prior_kind = forward_question_kind(prior)
     if prior_kind not in ("performance", "latest", "ticker"):
         return None
+    # The source tag alone is insufficient: a malformed or mismatched
+    # evidence_question must not authorize a switch to a different ticker.
+    # An overall verified report (no ticker in either turn) remains eligible.
+    if _mentions_unsupported_forward_symbol(prior):
+        return None
+    prior_symbols = _mentioned_symbols(prior)
+    prior_user_text = previous_user.get("content")
+    if (
+        len(prior_symbols) > 1
+        or not isinstance(prior_user_text, str)
+        or _mentions_unsupported_forward_symbol(prior_user_text)
+    ):
+        return None
+    user_symbols = _mentioned_symbols(prior_user_text)
+    if len(user_symbols) > 1 or (user_symbols and user_symbols != prior_symbols):
+        return None
     raw = str(message or "").strip()
     if len(raw) > 65:
         return None
