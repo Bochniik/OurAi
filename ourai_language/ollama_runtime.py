@@ -17,7 +17,8 @@ from .general_answers import deterministic_social_answer
 from .financial_knowledge import lookup_financial_knowledge
 from .forward_answers import maybe_forward_answer
 from .forward_followups import (
-    forward_latest_followup_question, forward_ticker_followup_question,
+    forward_latest_followup_question, forward_performance_followup_question,
+    forward_ticker_followup_question,
 )
 from .historical_answers import maybe_historical_answer
 from .semantic_router import (
@@ -219,7 +220,12 @@ class LocalOllamaChatRuntime:
             contextual_latest = forward_latest_followup_question(
                 user_message, history_rows,
             )
-            forward_question = contextual_latest or user_message
+            # A short accuracy question must inherit only a verified ticker,
+            # then re-read aggregate forward magnitude metrics (never prose).
+            contextual_performance = forward_performance_followup_question(
+                user_message, history_rows,
+            )
+            forward_question = contextual_latest or contextual_performance or user_message
             try:
                 answer = maybe_forward_answer(forward_question, self.forward_journal)
             except (ValueError, OSError, KeyError, TypeError) as exc:
