@@ -59,6 +59,64 @@ def forward_ticker_followup_question(
     return f"Aká je posledná predikcia {ticker} vo forward denníku?"
 
 
+def _verified_forward_ticker(
+    history: Iterable[Mapping[str, str]] | None,
+) -> str | None:
+    """Trust only the immediately preceding, source-tagged forward answer."""
+    rows = list(history or ())
+    if len(rows) < 2:
+        return None
+    previous_user, previous_assistant = rows[-2:]
+    if (
+        previous_user.get("role") != "user"
+        or previous_assistant.get("role") != "assistant"
+        or previous_assistant.get("source") != "verified_forward_journal"
+    ):
+        return None
+    prior = previous_assistant.get("evidence_question")
+    if not isinstance(prior, str) or forward_question_kind(prior) is None:
+        return None
+    if _mentions_unsupported_forward_symbol(prior):
+        return None
+    symbols = _mentioned_symbols(prior)
+    if len(symbols) != 1:
+        return None
+    # Never grant a different stock than the original user explicitly named.
+    prior_user_text = previous_user.get("content")
+    if not isinstance(prior_user_text, str) or _mentions_unsupported_forward_symbol(prior_user_text):
+        return None
+    user_symbols = _mentioned_symbols(prior_user_text)
+    if len(user_symbols) > 1 or (user_symbols and user_symbols != symbols):
+        return None
+    return symbols[0]
+
+
+def forward_performance_followup_question(
+    message: str, history: Iterable[Mapping[str, str]] | None,
+) -> str | None:
+    """Resolve a narrowly phrased accuracy follow-up to verified forward MAE.
+
+    This requests aggregate per-ticker forward magnitude errors, never
+    accuracy of a single pending prediction or directional hit rate.
+    """
+    raw = str(message or "").strip()
+    if len(raw) > 80:
+        return None
+    folded = unicodedata.normalize("NFKD", raw.casefold())
+    plain = "".join(char for char in folded if not unicodedata.combining(char))
+    if re.fullmatch(
+        r"(?:a\s+)?(?:(?:aka\s+(?:je|bola)\s+)(?:jej\s+|ich\s+)?presnost"
+        r"(?:\s+predikcii)?|(?:co\s+)(?:jej\s+|ich\s+)?presnost"
+        r"(?:\s+predikcii)?|presnost\s+predikcii)\s*[?.!]?",
+        plain,
+    ) is None:
+        return None
+    ticker = _verified_forward_ticker(history)
+    if ticker is None:
+        return None
+    return f"Aká je presnosť predikcií {ticker} vo forward denníku?"
+
+
 def forward_latest_followup_question(
     message: str, history: Iterable[Mapping[str, str]] | None,
 ) -> str | None:
@@ -79,30 +137,7 @@ def forward_latest_followup_question(
     ) is None:
         return None
 
-    rows = list(history or ())
-    if len(rows) < 2:
+    ticker = _verified_forward_ticker(history)
+    if ticker is None:
         return None
-    previous_user, previous_assistant = rows[-2:]
-    if (
-        previous_user.get("role") != "user"
-        or previous_assistant.get("role") != "assistant"
-        or previous_assistant.get("source") != "verified_forward_journal"
-    ):
-        return None
-    prior = previous_assistant.get("evidence_question")
-    if not isinstance(prior, str) or forward_question_kind(prior) is None:
-        return None
-    if _mentions_unsupported_forward_symbol(prior):
-        return None
-    symbols = _mentioned_symbols(prior)
-    if len(symbols) != 1:
-        return None
-    # A malformed or mismatched prior user request must not silently grant
-    # the follow-up a different stock than the one explicitly requested.
-    prior_user_text = previous_user.get("content")
-    if not isinstance(prior_user_text, str) or _mentions_unsupported_forward_symbol(prior_user_text):
-        return None
-    user_symbols = _mentioned_symbols(prior_user_text)
-    if len(user_symbols) > 1 or (user_symbols and user_symbols != symbols):
-        return None
-    return f"Aká je posledná predikcia {symbols[0]} vo forward denníku?"
+    return f"Aká je posledná predikcia {ticker} vo forward denníku?"
