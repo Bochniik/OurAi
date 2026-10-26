@@ -354,6 +354,78 @@ class OrionForwardBridgeTests(unittest.TestCase):
                 server.server_close()
                 runner.join(timeout=5)
 
+    def test_disconnected_reader_during_verification_does_not_poison_gate(self):
+        # Orion may hit its HTTP timeout while the producer is still
+        # verifying the append-only journal. The next refresh must not
+        # inherit a locked gate or receive a cached/stale snapshot.
+        import socket
+
+        started, release, completed = Event(), Event(), Event()
+
+        def blocked_report(_path):
+            started.set()
+            if not release.wait(timeout=5):
+                raise TimeoutError("synthetic verification timeout")
+            return self.fake_report()
+
+        with patch(
+            "scripts.serve_orion_forward_bridge.read_forward_report",
+            side_effect=blocked_report,
+        ) as read_report:
+            handler = make_handler("mock-journal.jsonl")
+            original_json = handler._json
+
+            def track_response(self, code, payload):
+                try:
+                    return original_json(self, code, payload)
+                finally:
+                    if code == 200:
+                        completed.set()
+
+            server = ThreadingHTTPServer((HOST, 0), handler)
+            runner = threading.Thread(target=server.serve_forever, daemon=True)
+            runner.start()
+            url = f"http://127.0.0.1:{server.server_port}{ROUTE}"
+            opener = build_opener(ProxyHandler({}))
+            reader = None
+            try:
+                with patch.object(handler, "_json", track_response), \
+                        patch.object(server, "handle_error") as unhandled_error:
+                    reader = socket.create_connection((HOST, server.server_port), timeout=3)
+                    reader.sendall(
+                        f"GET {ROUTE} HTTP/1.1\r\n"
+                        f"Host: 127.0.0.1:{server.server_port}\r\n"
+                        "Connection: close\r\n\r\n"
+                    .encode("ascii"))
+                    self.assertTrue(started.wait(timeout=3))
+                    # Close the first client's socket BEFORE verification
+                    # finishes, not merely during response serialization.
+                    reader.close()
+                    reader = None
+                    with self.assertRaises(HTTPError) as busy:
+                        opener.open(url, timeout=5)
+                    self.assertEqual(busy.exception.code, 503)
+                    self.assertEqual(
+                        json.load(busy.exception),
+                        {"status": "forward_evidence_unavailable"},
+                    )
+                    read_report.assert_called_once()
+
+                    release.set()
+                    self.assertTrue(completed.wait(timeout=5))
+                    with opener.open(url, timeout=5) as recovered:
+                        self.assertEqual(recovered.status, 200)
+                        self.assertEqual(json.load(recovered)["resolution_count"], 1)
+                    self.assertEqual(read_report.call_count, 2)
+                    unhandled_error.assert_not_called()
+            finally:
+                release.set()
+                if reader is not None:
+                    reader.close()
+                server.shutdown()
+                server.server_close()
+                runner.join(timeout=5)
+
     def test_http_unavailable_never_leaks_exception(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "missing.jsonl"
