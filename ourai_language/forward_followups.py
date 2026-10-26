@@ -90,15 +90,19 @@ def _tickerless_turn_matches_evidence(user_text: str, evidence: str) -> bool:
 
 
 
-def _named_turn_has_forward_intent(user_text: str) -> bool:
-    """Do not inherit a ticker from a named but unrelated previous request.
+def _named_turn_has_forward_intent(user_text: str, evidence: str) -> bool:
+    """Require the named user's metric to agree with verified evidence.
 
-    A verified-looking evidence tag cannot turn a stock price, news, trade,
-    greeting or educational question into forward evidence. Preserve the
-    already-supported short ticker-switch turns (which omit metric wording).
+    A source tag alone cannot turn a price/news request into forward evidence,
+    or turn a latest-record request into aggregate performance (and vice
+    versa). Bounded ticker-switch turns omit the metric and remain eligible.
     """
-    if forward_question_kind(user_text) is not None:
-        return True
+    user_kind = forward_question_kind(user_text)
+    if user_kind is not None:
+        evidence_kind = forward_question_kind(evidence)
+        if user_kind == "performance":
+            return evidence_kind == "performance"
+        return evidence_kind in ("ticker", "latest")
     return re.fullmatch(
         r"(?:a\s+)?(?:[čc]o\s+(?:pre\s+)?|pre\s+)"
         r"[A-Za-z]{2,30}\s*[?.!]?",
@@ -153,7 +157,7 @@ def forward_ticker_followup_question(
         prior_user_text, prior,
     ):
         return None
-    if user_symbols and not _named_turn_has_forward_intent(prior_user_text):
+    if user_symbols and not _named_turn_has_forward_intent(prior_user_text, prior):
         return None
     raw = str(message or "").strip()
     if len(raw) > 65:
@@ -210,7 +214,7 @@ def _verified_forward_ticker(
         prior_user_text, prior,
     ):
         return None
-    if user_symbols and not _named_turn_has_forward_intent(prior_user_text):
+    if user_symbols and not _named_turn_has_forward_intent(prior_user_text, prior):
         return None
     return symbols[0]
 
