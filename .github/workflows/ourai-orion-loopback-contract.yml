@@ -26,6 +26,8 @@ jobs:
       - name: Checkout exact OurAI PR head
         uses: actions/checkout@v4
         with:
+          # pull_request defaults to GitHub's synthetic merge ref, not head.
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
           persist-credentials: false
 
       - name: Checkout current public Orion main (read only)
