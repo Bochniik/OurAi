@@ -95,6 +95,23 @@ class OrionForwardBridgeTests(unittest.TestCase):
             with self.assertRaises(FileNotFoundError):
                 forward_evidence_snapshot("missing.jsonl")
 
+    def test_journal_verification_flags_require_literal_true(self):
+        """Truthy report metadata must not become verified forward evidence."""
+        for key, error_type in (
+            ("journal_exists", FileNotFoundError),
+            ("journal_valid", ValueError),
+        ):
+            for invalid in (1, "true", "false", [], None):
+                with self.subTest(field=key, invalid=invalid):
+                    report = self.fake_report()
+                    report[key] = invalid
+                    with patch(
+                        "scripts.serve_orion_forward_bridge.read_forward_report",
+                        return_value=report,
+                    ):
+                        with self.assertRaises(error_type):
+                            forward_evidence_snapshot("synthetic-journal.jsonl")
+
     def test_http_contract_and_invalid_host(self):
         with patch(
             "scripts.serve_orion_forward_bridge.read_forward_report",
