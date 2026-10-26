@@ -530,3 +530,24 @@ operation or Orion integration behavior is introduced.
 Regression:
 `python -m unittest tests.test_forward_indirect_accuracy_clarification_replies -v`.
 Tests use mocked synthetic evidence; **no local Qwen benchmark was run**.
+
+
+## Local Slovak response quality: prompt-only guard
+
+The general Ollama chat prompt reminds Qwen to use idiomatic Slovak, avoid claiming
+human experiences, and distinguish basis points from percentages and hit rates.
+For example, **17 bps = 0.17 percentage points**, **not 0.017%**;
+MAE in bps must not be relabelled as a directional hit rate or profit.
+This is a prompting guideline, **not deterministic numerical verification**.
+Regression tests assert prompt content and ordinary message construction,
+not the quality of a locally generated answer. Run:
+
+```powershell
+py -m unittest tests.test_slovak_numeric_prompt_contract -v
+```
+
+To evaluate whether Qwen actually improves, repeat the same Slovak questions
+using the already installed local Ollama model, compare against the recorded
+baseline, and report failures. No additional model download or Qwen benchmark
+is implied by this change. Verified historical and forward readers remain
+read-only and unchanged.
