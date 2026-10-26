@@ -37,9 +37,11 @@ _LATEST_FIELDS = (
 def forward_evidence_snapshot(journal_path: str | Path) -> dict[str, Any]:
     """Only expose a tightly scoped view of VERIFIED read-only V3 data."""
     report = read_forward_report(journal_path)
-    if not report["journal_exists"]:
+    # Require literal booleans: truthy strings/integers must never be
+    # promoted into claims of a present, verified forward journal.
+    if report.get("journal_exists") is not True:
         raise FileNotFoundError("forward journal unavailable")
-    if not report["journal_valid"]:
+    if report.get("journal_valid") is not True:
         raise ValueError("forward journal validation failed")
     return {
         "schema_version": 1,
