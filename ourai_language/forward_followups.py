@@ -231,6 +231,72 @@ def _verified_forward_ticker(
     return symbols[0]
 
 
+def forward_accuracy_clarification_reply_question(
+    message: str, history: Iterable[Mapping[str, str]] | None,
+) -> str | None:
+    """Resolve only a direct reply to a verified forward accuracy clarification.
+
+    A short "Myslím MAE" or "Zaujíma ma smer" cannot select forward evidence
+    on its own. Both the preceding user question and recorded evidence must
+    be a matching, single-scope forward ambiguity; the assistant must have
+    actually asked the clarification, not returned an absent-journal notice.
+    The caller re-reads the verified journal for the chosen metric.
+    """
+    raw = str(message or "").strip()
+    if len(raw) > 70:
+        return None
+    folded = unicodedata.normalize("NFKD", raw.casefold())
+    plain = "".join(char for char in folded if not unicodedata.combining(char))
+    plain = plain.strip(" .?!")
+    magnitude_replies = {
+        "myslim mae", "zaujima ma mae", "mae",
+        "myslim chybu velkosti pohybu", "chybu velkosti pohybu",
+    }
+    direction_replies = {
+        "myslim smer", "zaujima ma smer", "smer",
+        "myslim smerovu uspesnost", "smerovu uspesnost",
+        "smer rastu alebo poklesu",
+    }
+    if plain not in magnitude_replies and plain not in direction_replies:
+        return None
+
+    rows = list(history or ())
+    if len(rows) < 2:
+        return None
+    previous_user, previous_assistant = rows[-2:]
+    if (
+        previous_user.get("role") != "user"
+        or previous_assistant.get("role") != "assistant"
+        or previous_assistant.get("source") != "verified_forward_journal"
+    ):
+        return None
+    user_text = previous_user.get("content")
+    evidence = previous_assistant.get("evidence_question")
+    answer_text = previous_assistant.get("content")
+    if not all(isinstance(value, str) for value in (user_text, evidence, answer_text)):
+        return None
+    if "Otázka, ako často boli predikcie správne, je nejednoznačná." not in answer_text:
+        return None
+    if (
+        forward_question_kind(user_text) != "accuracy_clarification"
+        or forward_question_kind(evidence) != "accuracy_clarification"
+        or any(
+            _mentions_retrospective_source(text)
+            or _mentions_unsupported_forward_symbol(text)
+            for text in (user_text, evidence)
+        )
+    ):
+        return None
+    user_symbols = _mentioned_symbols(user_text)
+    evidence_symbols = _mentioned_symbols(evidence)
+    if len(user_symbols) > 1 or user_symbols != evidence_symbols:
+        return None
+    ticker = f" {user_symbols[0]}" if user_symbols else ""
+    if plain in direction_replies:
+        return f"Aká je smerová presnosť forward predikcií{ticker}?"
+    return f"Aká je MAE predikcií{ticker} vo forward denníku?"
+
+
 def forward_performance_followup_question(
     message: str, history: Iterable[Mapping[str, str]] | None,
 ) -> str | None:
