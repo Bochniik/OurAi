@@ -22,6 +22,7 @@ from .forward_followups import (
     forward_latest_explanation_followup_question,
     forward_accuracy_clarification_reply_question,
     forward_latest_error_ambiguity_clarification,
+    forward_latest_error_mae_reply_question,
 )
 from .historical_answers import maybe_historical_answer
 from .semantic_router import (
@@ -216,6 +217,28 @@ class LocalOllamaChatRuntime:
                     mode=ANALYSIS_QA, answer_source="historical_v3_reports",
                     evidence_question=contextual or user_message,
                 )
+
+        # A short MAE reply is valid only after the exact clarification
+        # produced for an immediately preceding verified latest record.
+        # Re-read aggregate forward performance, never single-record error.
+        if self.forward_journal is not None:
+            mae_reply = forward_latest_error_mae_reply_question(
+                user_message, history_rows,
+            )
+            if mae_reply is not None:
+                try:
+                    verified = maybe_forward_answer(mae_reply, self.forward_journal)
+                except (ValueError, OSError, KeyError, TypeError) as exc:
+                    raise RuntimeError(
+                        "Forward denník je neplatný alebo dočasne nedostupný; "
+                        "odmietam odhadovať nevykázané výsledky."
+                    ) from exc
+                if verified is not None:
+                    return ChatResult(
+                        text=verified, used_grounding_fallback=False,
+                        mode=ANALYSIS_QA, answer_source="verified_forward_journal",
+                        evidence_question=mae_reply,
+                    )
 
         # An ambiguous error pronoun after a verified latest record is not
         # permission to replace single-record error with aggregate MAE.
