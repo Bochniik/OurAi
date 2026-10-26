@@ -197,6 +197,33 @@ def _mentions_unsupported_forward_symbol(question: str) -> bool:
         for candidate in candidates
     )
 
+def _explicit_forward_action(question: str) -> str | None:
+    """Bind narrow, explicit metric requests to the user's own wording.
+
+    A mixed latest-record and MAE/accuracy question cannot be represented by
+    the single-action tool schema. Never let Qwen silently drop one half.
+    Broad 'results' questions intentionally retain the model's proposed action.
+    """
+    text = _plain(question)
+    latest = bool(re.search(
+        r"\b(?:posledna|poslednu|poslednej|posledny|posledneho|"
+        r"najnovsia|najnovsiu|najnovsi)\s+"
+        r"(?:forward\s+|shadow\s+)?"
+        r"(?:predikcia|predikciu|predikcie|zaznam|zaznamu)\b",
+        text,
+    ))
+    performance = bool(re.search(
+        r"\b(?:mae|presnost\w*|uspesnost\w*|chybovost\w*)\b", text,
+    ))
+    if latest and performance:
+        return "ambiguous"
+    if latest:
+        return "latest"
+    if performance:
+        return "performance"
+    return None
+
+
 def select_verified_tool(
     user_question: str,
     model_response: str,
@@ -245,6 +272,13 @@ def select_verified_tool(
         if len(symbols) > 1 or _mentions_unsupported_forward_symbol(user_question):
             return None
         ticker = symbols[0] if symbols else None
+        # Explicit user intent outranks the model's proposed action. A mixed
+        # latest+performance request needs clarification, not a partial report.
+        requested_action = _explicit_forward_action(user_question)
+        if requested_action == "ambiguous":
+            return None
+        if requested_action is not None:
+            action = requested_action
         if action == "performance":
             question = "Aká je presnosť predikcií "
             question += f"{ticker} " if ticker else ""
