@@ -97,6 +97,18 @@ def _named_turn_has_forward_intent(user_text: str, evidence: str) -> bool:
     or turn a latest-record request into aggregate performance (and vice
     versa). Bounded ticker-switch turns omit the metric and remain eligible.
     """
+    # A single verified reader question cannot prove both a latest record
+    # and aggregate performance. Refuse inheritance if the original named
+    # request mixed those metrics, even when the evidence tag looks valid.
+    folded = unicodedata.normalize("NFKD", user_text.casefold())
+    plain = "".join(char for char in folded if not unicodedata.combining(char))
+    latest_cue = re.search(r"\b(?:posledn\w*|najnov\w*|latest)\b", plain)
+    performance_cue = re.search(
+        r"\b(?:presn\w*|chyb\w*|mae|vysled\w*)\b", plain,
+    )
+    if latest_cue and performance_cue:
+        return False
+
     user_kind = forward_question_kind(user_text)
     if user_kind is not None:
         evidence_kind = forward_question_kind(evidence)
