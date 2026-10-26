@@ -48,12 +48,12 @@ def _tickerless_turn_matches_evidence(user_text: str, evidence: str) -> bool:
         char for char in folded_evidence if not unicodedata.combining(char)
     )
     latest = kind in ("ticker", "latest") and re.search(
-        r"\\b(?:posledn\\w*|najnov\\w*)\\b", evidence_plain,
+        r"\b(?:posledn\w*|najnov\w*)\b", evidence_plain,
     ) is not None
     if latest and (
         re.fullmatch(
-            r"(?:a\\s+)?(?:aka\\s+(?:je|bola)\\s+|co\\s+)?"
-            r"(?:jej\\s+)?posledna\\s+predikcia",
+            r"(?:a\s+)?(?:aka\s+(?:je|bola)\s+|co\s+)?"
+            r"(?:jej\s+)?posledna\s+predikcia",
             plain,
         )
         or plain in (
@@ -70,10 +70,10 @@ def _tickerless_turn_matches_evidence(user_text: str, evidence: str) -> bool:
         return True
     if kind == "performance" and (
         re.fullmatch(
-            r"(?:a\\s+)?(?:(?:aka\\s+(?:je|bola)\\s+)"
-            r"(?:jej\\s+|ich\\s+)?presnost(?:\\s+predikcii)?"
-            r"|(?:co\\s+)(?:jej\\s+|ich\\s+)?presnost"
-            r"(?:\\s+predikcii)?|presnost\\s+predikcii)",
+            r"(?:a\s+)?(?:(?:aka\s+(?:je|bola)\s+)"
+            r"(?:jej\s+|ich\s+)?presnost(?:\s+predikcii)?"
+            r"|(?:co\s+)(?:jej\s+|ich\s+)?presnost"
+            r"(?:\s+predikcii)?|presnost\s+predikcii)",
             plain,
         )
         or plain in (
