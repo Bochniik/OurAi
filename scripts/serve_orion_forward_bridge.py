@@ -108,8 +108,14 @@ def make_handler(journal_path: str | Path):
         def do_GET(self) -> None:
             # Does not allow remote exposure or browser CORS. HTTP Host
             # must also identify local loopback, to reject DNS-rebinding hosts.
-            host_header = self.headers.get("Host", "").split(":")[0].lower()
-            if host_header not in {"127.0.0.1", "localhost"}:
+            # Require exactly one Host matching this listener's actual port.
+            # A loopback hostname with a forged port (or duplicate Host
+            # headers) must not trigger expensive journal verification.
+            host_headers = self.headers.get_all("Host", [])
+            expected_port = self.server.server_port
+            if len(host_headers) != 1 or host_headers[0].strip().lower() not in {
+                f"127.0.0.1:{expected_port}", f"localhost:{expected_port}",
+            }:
                 self._json(403, {"status": "forbidden_host"})
                 return
             # CORS only prevents a browser from reading a response; it does
