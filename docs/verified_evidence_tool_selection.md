@@ -355,3 +355,24 @@ unrecognized formulations stay outside automatic context inheritance.
 Regression: `python -m unittest tests.test_verified_forward_named_turn_intent -v`.
 The tests use synthetic history, not a local Qwen benchmark. No journal,
 lockbox, predictive model, execution or Orion integration code changes.
+
+
+## Named-turn metric provenance
+
+The verified forward follow-up path now checks the **kind of metric requested
+by the immediately preceding named-ticker user turn** against the recorded
+`evidence_question`. A user asking for NVDA's latest prediction cannot
+authorize a source-tagged answer whose stored evidence instead requests
+aggregate NVDA MAE, and the reverse mismatch is also rejected. This applies
+to both ticker-switch and same-ticker follow-ups, even when the ticker and
+`verified_forward_journal` source tag agree.
+
+Explicit, matching latest/performance requests remain eligible. The existing
+bounded `A čo NVDA?` / `A pre NVDA?` switches remain eligible because they
+request no metric themselves and must still have adjacent verified evidence.
+Every accepted follow-up re-reads the same read-only verified forward journal;
+it never inherits figures from assistant text. The change does not infer
+metrics from free-form model output or alter historical readers.
+
+Offline regression (synthetic provenance only, no Qwen benchmark):
+`python -m unittest tests.test_verified_forward_named_metric_provenance -v`.
