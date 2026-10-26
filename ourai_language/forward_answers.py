@@ -95,6 +95,21 @@ def _directional_accuracy_request(text: str) -> bool:
     return bool(direction and hit_rate)
 
 
+
+def _ambiguous_accuracy_request(text: str) -> bool:
+    """Recognize colloquial correctness questions without guessing a metric.
+
+    A hit rate could refer to UP/DOWN direction or to a threshold on
+    magnitude error. Neither can be inferred from the word "spravne".
+    """
+    return any(re.search(pattern, text) for pattern in (
+        r"\bako\s+casto\b.{0,120}\b(?:trafil\w*|spravn\w*|uspesn\w*)\b",
+        r"\bkolkokrat\b.{0,120}\b(?:trafil\w*|spravn\w*|uspesn\w*)\b",
+        r"\b(?:aka|ake)\s+(?:(?:je|bola|boli|su)\s+)?uspesnost\b",
+        r"\bako\s+uspesn\w*\b.{0,120}\b(?:predikc\w*|odhad\w*|forecast\w*)\b",
+    ))
+
+
 def forward_question_kind(message: str) -> str | None:
     """Require explicit forward/record/forecast intent; not everyday questions."""
     text = _normalize(str(message or "").strip())
@@ -117,6 +132,22 @@ def forward_question_kind(message: str) -> str | None:
             "dennik", "journal", "zaznam",
         )):
             return "direction_unavailable"
+        return None
+    # "How often were you right?" is not a request for magnitude MAE.
+    # Do not select forward evidence without a named source, and do not
+    # reinterpret retrospective success rates as forward observations.
+    if _ambiguous_accuracy_request(text) and not any(word in text for word in (
+        "mae", "bps", "odchyl", "chyb", "magnitude", "velkost", "absolutn",
+    )):
+        if any(word in text for word in (
+            "historick", "lockbox", "validac", "backtest", "retrospekt",
+        )):
+            return None
+        if any(word in text for word in (
+            "forward", "shadow", "paper trading", "paper-trading",
+            "dennik", "journal", "zaznam",
+        )):
+            return "accuracy_clarification"
         return None
     if _colloquial_error_magnitude_request(text):
         if any(word in text for word in (
@@ -198,6 +229,15 @@ def maybe_forward_answer(
             "pohybu, nie smer rastu alebo poklesu. MAE meria chybu veľkosti "
             "pohybu, nie podiel správnych smerových predpovedí. "
             "Neuvádzam preto žiadne percento smerovej úspešnosti."
+        )
+    if kind == "accuracy_clarification":
+        return (
+            "Otázka, ako často boli predikcie správne, je nejednoznačná. "
+            "Myslíš úspešnosť odhadu smeru rastu/poklesu, alebo chybu "
+            "odhadu absolútnej veľkosti 15-minútového pohybu (MAE)? "
+            "Model v3 predikuje iba veľkosť pohybu; MAE nie je percento "
+            "správnych smerových predpovedí. Bez upresnenia neuvádzam "
+            "percento úspešnosti."
         )
     ticker = _ticker_in(message)
     if ticker:
