@@ -36,7 +36,14 @@ class ExplicitForwardActionTests(unittest.TestCase):
                     selected = choose(question, wrong_action)
                     self.assertIsNotNone(selected)
                     self.assertEqual(selected[0], "forward_v2")
-                    self.assertEqual(forward_question_kind(selected[1]), "latest")
+                    self.assertTrue(selected[1].startswith("Aká je posledná predikcia "))
+                    # The existing reader labels ticker-specific latest
+                    # requests as "ticker" before checking "latest".
+                    self.assertEqual(
+                        forward_question_kind(selected[1]),
+                        "ticker" if ("NVDA" in question or "Tesly" in question)
+                        else "latest",
+                    )
                     if "NVDA" in question:
                         self.assertIn("NVDA", selected[1])
                     if "Tesly" in question:
@@ -68,14 +75,16 @@ class ExplicitForwardActionTests(unittest.TestCase):
 
     def test_broad_results_keep_existing_model_choice(self):
         question = "Aké máš výsledky shadow pre NVDA?"
-        for action, kind in (
-            ("latest", "latest"), ("performance", "performance"),
-            ("summary", "summary"),
+        for action, prefix in (
+            ("latest", "Aká je posledná predikcia "),
+            ("performance", "Aká je presnosť predikcií "),
+            ("summary", "Zhrň predikcie "),
         ):
             with self.subTest(action=action):
                 selected = choose(question, action)
                 self.assertIsNotNone(selected)
-                self.assertEqual(forward_question_kind(selected[1]), kind)
+                self.assertTrue(selected[1].startswith(prefix))
+                self.assertIn("NVDA", selected[1])
 
     def test_evidence_and_symbol_boundaries_remain(self):
         for question in (
