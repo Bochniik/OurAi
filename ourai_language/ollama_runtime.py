@@ -19,6 +19,7 @@ from .forward_answers import maybe_forward_answer
 from .forward_followups import (
     forward_latest_followup_question, forward_performance_followup_question,
     forward_ticker_followup_question, forward_results_explanation_followup_question,
+    forward_latest_explanation_followup_question,
 )
 from .historical_answers import maybe_historical_answer
 from .semantic_router import (
@@ -212,6 +213,38 @@ class LocalOllamaChatRuntime:
                     mode=ANALYSIS_QA, answer_source="historical_v3_reports",
                     evidence_question=contextual or user_message,
                 )
+
+        # An explanation mentioning "predikcia" could otherwise be mistaken
+        # for a new overall journal query. Resolve only a source-tagged latest
+        # record before ordinary deterministic forward routing.
+        if self.forward_journal is not None:
+            latest_explanation = forward_latest_explanation_followup_question(
+                user_message, history_rows,
+            )
+            if latest_explanation is not None:
+                try:
+                    verified = maybe_forward_answer(
+                        latest_explanation, self.forward_journal,
+                    )
+                except (ValueError, OSError, KeyError, TypeError) as exc:
+                    raise RuntimeError(
+                        "Forward denník je neplatný alebo dočasne nedostupný; "
+                        "odmietam odhadovať nevykázané výsledky."
+                    ) from exc
+                if verified is not None:
+                    return ChatResult(
+                        text=verified + (
+                            " Očakávaná absolútna 15-minútová zmena vyjadruje "
+                            "odhadovanú veľkosť pohybu ceny bez určenia smeru. "
+                            "Bázický bod (bps) je 0,01 percentuálneho bodu. "
+                            "Stav vyhodnotenia hovorí, či už bol záznam "
+                            "uzavretý, nie či predikcia bola presná. "
+                            "Nejde o signál na nákup alebo predaj."
+                        ),
+                        used_grounding_fallback=False, mode=ANALYSIS_QA,
+                        answer_source="verified_forward_journal",
+                        evidence_question=latest_explanation,
+                    )
 
         if self.forward_journal is not None:
             # Resolve only a bounded latest-record follow-up before the direct
