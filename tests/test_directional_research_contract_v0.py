@@ -1,7 +1,6 @@
 """Synthetic-only tests for the isolated research directional shape contract."""
 from __future__ import annotations
 
-import copy
 import unittest
 
 from research.directional_research_contract_v0 import (
