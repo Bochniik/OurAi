@@ -615,3 +615,28 @@ is changed.
 Offline synthetic regression:
 `python -m unittest tests.test_forward_latest_error_ambiguity -v`.
 No local Qwen benchmark was run.
+
+
+## MAE reply after latest-record error clarification
+
+If a user asks `A aká bola jej chyba?` immediately after a **verified,
+single-ticker latest forward record**, the runtime asks whether they mean
+the error of that particular record or **aggregate forward MAE**. A subsequent
+short, explicit answer such as `Myslím MAE.` or `Myslím priemernú chybu.`
+now selects **only aggregate MAE** for the same ticker and re-reads the
+existing integrity-checked forward journal. It does not compute the error of
+a particular record, inherit numbers from assistant prose, infer a direction,
+or claim profitability.
+
+The follow-up requires the immediately preceding clarification to have
+the exact deterministic text and `conversation_clarification` source, and
+the preceding verified latest-record user/assistant pair must pass existing
+ticker, source and metric provenance guards. An isolated `MAE`, altered
+clarification, interrupted turn, different ticker, historical/lockbox
+question, mixed metric or trading instruction cannot authorize this route.
+No additional reader, journal write, model change or Orion integration
+is introduced.
+
+Offline synthetic regression:
+`python -m unittest tests.test_forward_latest_error_mae_reply -v`.
+No local Qwen benchmark was performed.
