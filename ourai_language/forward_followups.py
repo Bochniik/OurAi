@@ -100,8 +100,8 @@ def _named_turn_has_forward_intent(user_text: str) -> bool:
     if forward_question_kind(user_text) is not None:
         return True
     return re.fullmatch(
-        r"(?:a\\s+)?(?:[čc]o\\s+(?:pre\\s+)?|pre\\s+)"
-        r"[A-Za-z]{2,30}\\s*[?.!]?",
+        r"(?:a\s+)?(?:[čc]o\s+(?:pre\s+)?|pre\s+)"
+        r"[A-Za-z]{2,30}\s*[?.!]?",
         user_text.strip(),
         re.IGNORECASE,
     ) is not None
