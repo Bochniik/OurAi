@@ -206,14 +206,14 @@ def _explicit_forward_action(question: str) -> str | None:
     """
     text = _plain(question)
     latest = bool(re.search(
-        r"\\b(?:posledna|poslednu|poslednej|posledny|posledneho|"
-        r"najnovsia|najnovsiu|najnovsi)\\s+"
-        r"(?:forward\\s+|shadow\\s+)?"
-        r"(?:predikcia|predikciu|predikcie|zaznam|zaznamu)\\b",
+        r"\b(?:posledna|poslednu|poslednej|posledny|posledneho|"
+        r"najnovsia|najnovsiu|najnovsi)\s+"
+        r"(?:forward\s+|shadow\s+)?"
+        r"(?:predikcia|predikciu|predikcie|zaznam|zaznamu)\b",
         text,
     ))
     performance = bool(re.search(
-        r"\\b(?:mae|presnost\\w*|uspesnost\\w*|chybovost\\w*)\\b", text,
+        r"\b(?:mae|presnost\w*|uspesnost\w*|chybovost\w*)\b", text,
     ))
     if latest and performance:
         return "ambiguous"
