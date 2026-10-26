@@ -29,6 +29,10 @@ class VerifiedForwardLatestFollowupTests(unittest.TestCase):
             "A čo posledná predikcia?",
             "A posledná predikcia?",
             "A aka bola posledna predikcia?",
+            "A aká bola jej posledná predikcia?",
+            "A čo jej posledná predikcia?",
+            "A jej posledná predikcia?",
+            "A aka bola jej posledna predikcia?",
         ):
             with self.subTest(question=question):
                 self.assertEqual(
@@ -68,6 +72,9 @@ class VerifiedForwardLatestFollowupTests(unittest.TestCase):
         for question in (
             "A aká bola posledná predikcia TSLA?",
             "A aká bola posledná predikcia v lockboxe?",
+            "A čo jej posledná predikcia v lockboxe?",
+            "A aká bola jej posledná historická predikcia?",
+            "A aká bola jej posledná predikcia pre NVDA a TSLA?",
             "A aká bola posledná historická predikcia?",
             "A aká bola posledná predikcia pre NVDA a TSLA?",
             "A aká bola posledná predikcia a mám kúpiť?",
@@ -109,7 +116,7 @@ class VerifiedForwardLatestFollowupTests(unittest.TestCase):
                  "source": first.answer_source,
                  "evidence_question": first.evidence_question},
             ]
-            second = runtime.respond("A aká bola posledná predikcia?", history=history)
+            second = runtime.respond("A aká bola jej posledná predikcia?", history=history)
 
         self.assertEqual(calls, [initial, canonical])
         self.assertEqual(second.answer_source, "verified_forward_journal")

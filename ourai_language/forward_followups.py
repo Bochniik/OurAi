@@ -148,7 +148,7 @@ def forward_latest_followup_question(
     folded = unicodedata.normalize("NFKD", raw.casefold())
     plain = "".join(char for char in folded if not unicodedata.combining(char))
     if re.fullmatch(
-        r"(?:a\s+)?(?:aka\s+(?:je|bola)\s+|co\s+)?posledna\s+predikcia\s*[?.!]?",
+        r"(?:a\s+)?(?:aka\s+(?:je|bola)\s+|co\s+)?(?:jej\s+)?posledna\s+predikcia\s*[?.!]?",
         plain,
     ) is None:
         return None
