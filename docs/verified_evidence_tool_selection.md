@@ -189,3 +189,29 @@ historical-to-forward conversion is introduced.
 Offline regression:
 `python -m unittest tests.test_verified_forward_latest_followups -v`.
 The tests mock the journal reader; **no local Qwen benchmark** was run.
+
+## Verified forward performance follow-ups
+
+After an immediately preceding **source-tagged, single-ticker forward** answer,
+a short Slovak question such as `A aká bola jej presnosť?`,
+`A aká bola presnosť predikcií?` or `A čo ich presnosť?`
+may retain the ticker and request the **per-ticker aggregate forward
+magnitude-error metrics**. The canonical question is passed to the existing
+integrity-checked forward reader; no numeric values or claims are inherited
+from earlier assistant prose. In particular, this is **not** directional
+accuracy, profitability or an evaluation of one pending prediction.
+
+This narrow feature shares the latest-record follow-up's provenance guard:
+the immediately preceding assistant answer must be tagged
+`verified_forward_journal`, carry a valid single-ticker
+`evidence_question`, and not contradict the preceding user request.
+Unverified/model-generated answers, historical v3 reports, ambiguous or
+unsupported tickers, non-adjacent turns, historical/lockbox comparisons,
+explicit stock switches and trading requests do not authorize inheritance.
+The feature does not add any reader, symbol, source, or permission; it does
+not modify models, journal, protocol or execution. Existing deterministic
+routes remain authoritative.
+
+Offline regression:
+`python -m unittest tests.test_verified_forward_performance_followups -v`.
+Tests use a synthetic mocked reader; **no local Qwen benchmark** was run.
