@@ -333,3 +333,25 @@ chat histories, and does not authorize new tools or trading actions.
 Regression tests: `python -m unittest discover -s tests -p
 "test_verified_forward_tickerless_provenance.py" -v`. These are synthetic
 unit tests, **not** a local Qwen benchmark.
+
+
+### Named-turn forward provenance (26 October 2026)
+
+A previous user turn that **names** NVDA (or another supported ticker) is
+not by itself permission to inherit that ticker from a stored
+`source=verified_forward_journal` response. In particular, stock price,
+news, trading, greetings and conceptual questions such as
+`Koľko stojí NVDA?` or `Čo znamená forward predikcia NVDA?` cannot
+be converted into a verified forward conversation by a contradictory
+stored `evidence_question`.
+
+The immediate named user turn must itself have recognizable forward
+prediction/record intent, or be one of the already supported short
+single-ticker switches (`A čo NVDA?`, `A pre NVDA?`). Existing source,
+ticker-count, historical-source and evidence-question checks still apply.
+This is a conservative guard, not an open-ended semantic classifier;
+unrecognized formulations stay outside automatic context inheritance.
+
+Regression: `python -m unittest tests.test_verified_forward_named_turn_intent -v`.
+The tests use synthetic history, not a local Qwen benchmark. No journal,
+lockbox, predictive model, execution or Orion integration code changes.
