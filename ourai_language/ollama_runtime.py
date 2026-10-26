@@ -20,6 +20,7 @@ from .forward_followups import (
     forward_latest_followup_question, forward_performance_followup_question,
     forward_ticker_followup_question, forward_results_explanation_followup_question,
     forward_latest_explanation_followup_question,
+    forward_accuracy_clarification_reply_question,
 )
 from .historical_answers import maybe_historical_answer
 from .semantic_router import (
@@ -258,7 +259,15 @@ class LocalOllamaChatRuntime:
             contextual_performance = forward_performance_followup_question(
                 user_message, history_rows,
             )
-            forward_question = contextual_latest or contextual_performance or user_message
+            # A reply to an actual verified ambiguity must select only its
+            # stated metric and re-read the journal; never reuse prior numbers.
+            contextual_accuracy = forward_accuracy_clarification_reply_question(
+                user_message, history_rows,
+            )
+            forward_question = (
+                contextual_accuracy or contextual_latest or contextual_performance
+                or user_message
+            )
             try:
                 answer = maybe_forward_answer(forward_question, self.forward_journal)
             except (ValueError, OSError, KeyError, TypeError) as exc:
