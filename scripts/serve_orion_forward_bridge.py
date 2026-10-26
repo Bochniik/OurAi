@@ -37,6 +37,11 @@ _LATEST_FIELDS = (
 def forward_evidence_snapshot(journal_path: str | Path) -> dict[str, Any]:
     """Only expose a tightly scoped view of VERIFIED read-only V3 data."""
     report = read_forward_report(journal_path)
+    # A failed analytics reader may return a non-mapping sentinel. Treat it
+    # as unavailable evidence, not an uncaught AttributeError that drops the
+    # loopback connection and misclassifies an upstream data failure.
+    if not isinstance(report, dict):
+        raise ValueError("invalid forward analytics report")
     # Require literal booleans: truthy strings/integers must never be
     # promoted into claims of a present, verified forward journal.
     if report.get("journal_exists") is not True:
