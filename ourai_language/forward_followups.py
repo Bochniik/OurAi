@@ -479,3 +479,51 @@ def forward_latest_error_ambiguity_clarification(
         f"MAE z vyhodnotených forward predikcií {ticker}? "
         "Chyba jedného záznamu a súhrnná MAE nie sú to isté."
     )
+
+
+def forward_latest_error_mae_reply_question(
+    message: str, history: Iterable[Mapping[str, str]] | None,
+) -> str | None:
+    """Resolve only aggregate MAE after our exact latest-error clarification.
+
+    The immediately preceding clarification must match the deterministic
+    response to a verified, single-ticker latest forward record. This prevents
+    a bare "MAE" or an untrusted assistant message from selecting a journal.
+    No numeric value is reused; the caller must re-read the verified journal.
+    """
+    raw = str(message or "").strip()
+    if not raw or len(raw) > 70:
+        return None
+    folded = unicodedata.normalize("NFKD", raw.casefold())
+    plain = "".join(char for char in folded if not unicodedata.combining(char))
+    plain = re.sub(r"\s+", " ", plain.replace(",", " ")).strip(" .?!")
+    if plain not in {
+        "mae", "myslim mae", "zaujima ma mae",
+        "priemernu mae", "myslim priemernu chybu",
+        "zaujima ma priemerna chyba", "myslim tu priemernu chybu",
+    }:
+        return None
+
+    rows = list(history or ())
+    if len(rows) < 4:
+        return None
+    prior = rows[:-2]
+    ambiguous_user, clarification_assistant = rows[-2:]
+    if (
+        ambiguous_user.get("role") != "user"
+        or clarification_assistant.get("role") != "assistant"
+        or clarification_assistant.get("source") != "conversation_clarification"
+    ):
+        return None
+    ambiguous_text = ambiguous_user.get("content")
+    if not isinstance(ambiguous_text, str):
+        return None
+    expected = forward_latest_error_ambiguity_clarification(
+        ambiguous_text, prior,
+    )
+    if expected is None or clarification_assistant.get("content") != expected:
+        return None
+    ticker = _verified_forward_ticker(prior)
+    if ticker is None:
+        return None
+    return f"Aká je MAE predikcií {ticker} vo forward denníku?"
