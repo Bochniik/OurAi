@@ -215,3 +215,27 @@ routes remain authoritative.
 Offline regression:
 `python -m unittest tests.test_verified_forward_performance_followups -v`.
 Tests use a synthetic mocked reader; **no local Qwen benchmark** was run.
+
+## Verified forward result-explanation follow-ups
+
+After an immediately preceding **source-tagged single-ticker forward
+performance** answer, the bounded Slovak follow-ups `Čo tieto výsledky
+znamenajú?`, `Čo znamenajú tieto výsledky?` and `Vysvetli mi tieto
+výsledky.` re-read that ticker's existing verified journal performance
+and append a fixed explanation of magnitude MAE in bps. The response
+never copies earlier numerical values or invokes a model to invent a
+cause, directional accuracy, or profitability.
+
+The same immediate provenance guard as the latest/performance follow-ups
+applies: the assistant source must be `verified_forward_journal`, the
+`evidence_question` must identify exactly one supported ticker, and the
+original user turn must not contradict it. A prior latest-record answer,
+overall performance, historical/lockbox report, unsupported or multiple
+tickers, an untagged model answer, and unrelated or causal questions
+(`Prečo je chyba taká veľká?`) do **not** authorize this explanation.
+No new evidence reader, ticker, prediction, journal write or trade
+operation is introduced.
+
+Offline regression:
+`python -m unittest tests.test_verified_forward_result_explanations -v`.
+Tests use a synthetic reader; no local Qwen benchmark was run.

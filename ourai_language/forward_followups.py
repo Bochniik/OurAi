@@ -141,3 +141,35 @@ def forward_latest_followup_question(
     if ticker is None:
         return None
     return f"Aká je posledná predikcia {ticker} vo forward denníku?"
+
+def forward_results_explanation_followup_question(
+    message: str, history: Iterable[Mapping[str, str]] | None,
+) -> str | None:
+    """Re-read single-ticker forward performance for a bounded explanation.
+
+    The explanation is deterministic, never causal or a directional-accuracy
+    claim. No numbers are inherited from the prior assistant response.
+    """
+    raw = str(message or "").strip()
+    if len(raw) > 90:
+        return None
+    folded = unicodedata.normalize("NFKD", raw.casefold())
+    plain = "".join(char for char in folded if not unicodedata.combining(char))
+    plain = plain.strip(" .?!")
+    if plain not in (
+        "co tieto vysledky znamenaju",
+        "a co tieto vysledky znamenaju",
+        "co znamenaju tieto vysledky",
+        "a co znamenaju tieto vysledky",
+        "vysvetli mi tieto vysledky",
+        "a vysvetli mi tieto vysledky",
+    ):
+        return None
+    rows = list(history or ())
+    ticker = _verified_forward_ticker(rows)
+    if ticker is None:
+        return None
+    # A latest-record estimate is not an observed error metric.
+    if forward_question_kind(rows[-1]["evidence_question"]) != "performance":
+        return None
+    return f"Aká je presnosť predikcií {ticker} vo forward denníku?"
