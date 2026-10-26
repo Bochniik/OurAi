@@ -431,3 +431,51 @@ def forward_latest_explanation_followup_question(
     if re.search(r"\b(?:posledn\w*|najnov\w*)\b", plain_prior) is None:
         return None
     return f"Aká je posledná predikcia {ticker} vo forward denníku?"
+
+
+def forward_latest_error_ambiguity_clarification(
+    message: str, history: Iterable[Mapping[str, str]] | None,
+) -> str | None:
+    """Clarify ambiguous error pronouns after a verified latest forward record.
+
+    A single record's realized error is not the aggregate forward MAE.
+    Only the immediately preceding, provenance-checked latest-record turn
+    can establish the ticker. This helper reads no data and supplies no metric.
+    """
+    raw = str(message or "").strip()
+    if not raw or len(raw) > 80:
+        return None
+    folded = unicodedata.normalize("NFKD", raw.casefold())
+    plain = "".join(char for char in folded if not unicodedata.combining(char))
+    plain = re.sub(r"\s+", " ", plain).strip(" .?!")
+    if plain not in (
+        "a aka bola jej chyba",
+        "aka bola jej chyba",
+        "a aka je jej chyba",
+        "aka je jej chyba",
+        "a co jej chyba",
+        "co jej chyba",
+        "a aka bola jej odchylka",
+        "aka bola jej odchylka",
+    ):
+        return None
+
+    rows = list(history or ())
+    ticker = _verified_forward_ticker(rows)
+    if ticker is None:
+        return None
+    prior = rows[-1]["evidence_question"]
+    if forward_question_kind(prior) not in ("ticker", "latest"):
+        return None
+    folded_prior = unicodedata.normalize("NFKD", prior.casefold())
+    plain_prior = "".join(
+        char for char in folded_prior if not unicodedata.combining(char)
+    )
+    if re.search(r"\b(?:posledn\w*|najnov\w*|latest)\b", plain_prior) is None:
+        return None
+    return (
+        f"Myslíš chybu konkrétnej poslednej forward predikcie {ticker} "
+        "(ak už bola vyhodnotená), alebo priemernú absolútnu chybu "
+        f"MAE z vyhodnotených forward predikcií {ticker}? "
+        "Chyba jedného záznamu a súhrnná MAE nie sú to isté."
+    )
