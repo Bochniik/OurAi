@@ -120,7 +120,7 @@ class ForwardTickerSwitchProvenanceTests(unittest.TestCase):
                      "source": response.answer_source,
                      "evidence_question": response.evidence_question},
                 ))
-        self.assertEqual(calls, [nvda, nvda, tsla, accuracy])
+        self.assertEqual(calls, [nvda, nvda, "A čo TSLA?", tsla, accuracy])
         self.assertEqual(history[-1]["evidence_question"], accuracy)
         self.assertIn("Syntetický reader: " + accuracy, history[-1]["content"])
 
