@@ -1,0 +1,53 @@
+name: OurAI-Orion read-only loopback contract
+
+on:
+  pull_request:
+    paths:
+      - 'integration_tests/**'
+      - 'scripts/serve_orion_forward_bridge.py'
+      - 'trading/forward_analytics.py'
+      - '.github/workflows/ourai-orion-loopback-contract.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'integration_tests/**'
+      - 'scripts/serve_orion_forward_bridge.py'
+      - 'trading/forward_analytics.py'
+      - '.github/workflows/ourai-orion-loopback-contract.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  real-loopback-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - name: Checkout exact OurAI PR head
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Checkout current public Orion main (read only)
+        uses: actions/checkout@v4
+        with:
+          repository: Bochniik/Orion-Trader
+          ref: main
+          path: orion-trader
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install only test and consumer dependencies
+        run: python -m pip install --disable-pip-version-check -r requirements.txt 'httpx>=0.27,<1'
+
+      - name: Record tested commit identities
+        run: |
+          echo "OurAI exact head: $(git rev-parse HEAD)"
+          echo "Orion main tested: $(git -C orion-trader rev-parse HEAD)"
+
+      - name: Run real producer-consumer loopback contract tests
+        run: python -m unittest discover -s integration_tests -p 'test_ourai_orion_loopback_contract.py' -v
