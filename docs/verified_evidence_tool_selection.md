@@ -139,3 +139,28 @@ or forward-journal operations are unchanged.
 Offline regression:
 `python -m unittest tests.test_verified_forward_disjunction -v`.
 These tests use synthetic model proposals, **not** a local Qwen run.
+
+## Verified forward ticker-switch follow-ups
+
+A short Slovak follow-up such as `A čo TSLA?` or `A čo pre Teslu?`
+may preserve the **metric** of the immediately preceding verified forward
+answer and switch only to the explicitly named, frozen-universe ticker.
+For example, after a verified NVDA forward performance answer, `A čo
+TSLA?` re-reads TSLA **performance** from the same verified journal;
+after a verified latest-prediction answer, it re-reads the latest TSLA
+record. The new answer is not copied from prior assistant text.
+
+This requires an immediately preceding `verified_forward_journal`
+assistant turn with a recorded `evidence_question`. Both direct
+deterministic forward answers and opt-in selected forward answers now
+record that provenance in conversation history. No historical result,
+unverified model prose, older non-adjacent turn or unrecognized stock
+can authorize a follow-up. Longer, ambiguous, multi-stock, educational
+or trading requests do not inherit the prior ticker or metric.
+The existing verified read-only journal reader remains authoritative;
+no new data source, ticker, journal mutation or model permission is added.
+
+Offline regression:
+`python -m unittest tests.test_verified_forward_ticker_followups -v`.
+The tests use a synthetic mocked journal reader and synthetic classifier
+proposal; no local Qwen benchmark was run.
