@@ -268,3 +268,25 @@ journal write or permission to trade.
 Offline regression:
 `python -m unittest tests.test_verified_forward_latest_explanations -v`.
 Tests use a synthetic reader; **no local Qwen benchmark was run**.
+
+
+## Ticker-switch provenance consistency
+
+A short follow-up such as `A čo TSLA?` still uses only the
+immediately preceding source-tagged verified forward answer. Before
+switching, the router now checks that the stored `evidence_question`
+does not name multiple or unsupported tickers, and that the original
+user question does not name a conflicting, multiple, or unsupported
+ticker. A source tag alone does not make contradictory evidence safe.
+
+An overall verified forward performance report with **no ticker in
+either the user question or the canonical evidence question** remains
+eligible for an explicit ticker switch. Source-bound chains such as
+latest NVDA → explanation → `A čo TSLA?` → accuracy continue to
+re-read the verified journal on each turn; no figures are inherited.
+This is a narrow provenance guard, not a general memory system or a
+new permission to select tools.
+
+Offline regression:
+`python -m unittest tests.test_verified_forward_ticker_provenance -v`.
+The tests use a synthetic reader; no local Qwen benchmark was run.
