@@ -168,8 +168,9 @@ proposal; no local Qwen benchmark was run.
 ## Verified forward latest-record follow-ups
 
 After an immediately preceding **verified single-ticker forward** answer,
-a short Slovak question such as `A aká bola posledná predikcia?` or
-`A čo posledná predikcia?` retains that one ticker and requests its
+a short Slovak question such as `A aká bola posledná predikcia?`,
+`A čo posledná predikcia?`, or `A aká bola jej posledná predikcia?`
+retains that one ticker and requests its
 **latest recorded forward magnitude prediction**. This bounded pattern is
 resolved **before** the ordinary deterministic forward reader, which would
 otherwise interpret a ticker-free latest question as the overall journal's
