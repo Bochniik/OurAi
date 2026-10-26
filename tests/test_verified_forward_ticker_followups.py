@@ -94,7 +94,7 @@ class VerifiedForwardTickerFollowupTests(unittest.TestCase):
             self.assertEqual(journal, "synthetic-journal")
             if "NVDA" in question:
                 return "Syntetická overená odpoveď NVDA."
-            if "TSLA" in question:
+            if "TSLA" in question and "vo forward denníku" in question:
                 return "Syntetická overená odpoveď TSLA."
             return None
         with patch("ourai_language.ollama_runtime.maybe_forward_answer",
