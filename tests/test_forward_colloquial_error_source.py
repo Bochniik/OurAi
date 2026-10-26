@@ -31,6 +31,8 @@ def _synthetic_report():
         "linear_mae_bps": 13.0,
         "null_mae_bps": 14.0,
         "symbols": {"NVDA": row},
+        # The existing reader accesses this map before choosing the metric.
+        "latest_by_symbol": {"NVDA": {}},
     }
 
 
