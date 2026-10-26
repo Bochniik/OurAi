@@ -75,6 +75,26 @@ def _colloquial_error_magnitude_request(text: str) -> bool:
     ))
 
 
+def _directional_accuracy_request(text: str) -> bool:
+    """Detect explicit direction hit-rate requests, not magnitude MAE.
+
+    A request for directional correctness cannot be answered by a v3 model
+    that predicts only absolute movement magnitude. Avoid interpreting the
+    word "presnost" as authorization to display magnitude MAE instead.
+    """
+    direction = re.search(
+        r"\b(?:smerov\w*|smer\w*|rast\s*/\s*pokles|"
+        r"rast\s+alebo\s+pokles|up\s*/\s*down)\b",
+        text,
+    )
+    hit_rate = re.search(
+        r"\b(?:presn\w*|uspesn\w*|spravn\w*|trafil\w*|"
+        r"kolkokrat|ako\s+casto)\b",
+        text,
+    )
+    return bool(direction and hit_rate)
+
+
 def forward_question_kind(message: str) -> str | None:
     """Require explicit forward/record/forecast intent; not everyday questions."""
     text = _normalize(str(message or "").strip())
@@ -84,6 +104,19 @@ def forward_question_kind(message: str) -> str | None:
     if re.match(r"^(?:preco|z akeho dovodu|co sposobilo)\b", text) and re.search(
         r"\b(?:myl\w*|odchyl\w*|chyb\w*)\b", text,
     ):
+        return None
+    # Never substitute magnitude MAE for a requested direction hit rate.
+    # Without an explicit forward source, do not assume forward evidence.
+    if _directional_accuracy_request(text):
+        if any(word in text for word in (
+            "historick", "lockbox", "validac", "backtest", "retrospekt",
+        )):
+            return None
+        if any(word in text for word in (
+            "forward", "shadow", "paper trading", "paper-trading",
+            "dennik", "journal", "zaznam",
+        )):
+            return "direction_unavailable"
         return None
     if _colloquial_error_magnitude_request(text):
         if any(word in text for word in (
@@ -157,6 +190,14 @@ def maybe_forward_answer(
         return (
             "Forward denník v2 existuje a jeho hashový reťazec je platný, "
             "ale zatiaľ obsahuje 0 predikcií. Presnosť preto nie je možné hodnotiť."
+        )
+    if kind == "direction_unavailable":
+        return (
+            "Smerovú úspešnosť forward predikcií neviem z tohto denníka "
+            "vyhodnotiť: model v3 odhaduje absolútnu veľkosť 15-minútového "
+            "pohybu, nie smer rastu alebo poklesu. MAE meria chybu veľkosti "
+            "pohybu, nie podiel správnych smerových predpovedí. "
+            "Neuvádzam preto žiadne percento smerovej úspešnosti."
         )
     ticker = _ticker_in(message)
     if ticker:
