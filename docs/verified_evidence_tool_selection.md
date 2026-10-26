@@ -456,3 +456,25 @@ Regression:
 `python -m unittest tests.test_forward_directional_accuracy_boundary -v`.
 Tests use synthetic data and a mocked reader; **no local Qwen benchmark
 was performed**.
+
+
+## Ambiguous forward hit-rate wording
+
+Natural Slovak questions such as `Ako často si sa trafil vo forward denníku?`,
+`Koľkokrát boli tvoje predikcie správne v shadow režime?` and
+`Aká je úspešnosť forward predikcií NVDA?` do **not** specify what
+"correct" means. They now receive a bounded Slovak clarification asking
+whether the user means **directional hit rate** or **absolute-magnitude
+prediction error (MAE)**. No hit-rate percentage or threshold is inferred,
+and no MAE value is misrepresented as a success rate.
+
+This deterministic path requires an explicit forward/shadow/journal cue,
+reads only the existing integrity-checked forward report, and fails closed
+for corrupt data. Historical/lockbox wording, unanchored correctness
+questions and educational definitions do not select the forward reader.
+Explicit directional questions retain the separate "direction unavailable"
+boundary; explicit MAE requests retain the magnitude-performance route.
+No new tools, symbols, predictive models or trading behavior are introduced.
+
+Synthetic-only regression (no local Qwen benchmark):
+`python -m unittest tests.test_forward_ambiguous_accuracy_clarification -v`.
