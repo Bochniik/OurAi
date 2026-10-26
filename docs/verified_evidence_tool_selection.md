@@ -376,3 +376,28 @@ metrics from free-form model output or alter historical readers.
 
 Offline regression (synthetic provenance only, no Qwen benchmark):
 `python -m unittest tests.test_verified_forward_named_metric_provenance -v`.
+
+
+## Ambiguous mixed-metric provenance in named forward turns
+
+A previous user request naming one supported stock can still be ambiguous
+about **which verified metric** it requested. For example, `Aká je posledná
+predikcia NVDA a aká je jej presnosť?` asks about both the latest record and
+performance, but one recorded `evidence_question` may represent only one
+reader result. A source tag and matching ticker cannot justify carrying
+that partial evidence into a later ticker switch, accuracy follow-up or
+explanation.
+
+The immediate-turn provenance guard therefore declines automatic ticker
+inheritance when a named user turn combines a latest-record cue
+(`posledná`, `najnovšia`, `latest`) with a performance cue
+(`presnosť`, `chyba`, `MAE`, `výsledky`). This intentionally
+fails closed for some legitimate compound questions; it does not claim to
+answer both requests, and it does not change the direct forward reader,
+historical reports, or the model's general conversation.
+
+Single-metric verified forward conversations remain eligible. Accepted
+follow-ups still re-read the existing integrity-checked journal and never
+reuse numeric assistant prose. Regression:
+`python -m unittest tests.test_verified_forward_dual_metric_provenance -v`.
+Tests use synthetic history; **no local Qwen benchmark was performed**.
