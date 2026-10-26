@@ -68,7 +68,7 @@ def validate_directional_research_v0(payload: object) -> dict:
     for key, expected in constants.items():
         if type(payload[key]) is not type(expected) or payload[key] != expected:
             raise ValueError("research safety/semantics field mismatch: " + key)
-    if payload["symbol"] not in FROZEN_RESEARCH_SYMBOLS:
+    if type(payload["symbol"]) is not str or payload["symbol"] not in FROZEN_RESEARCH_SYMBOLS:
         raise ValueError("unsupported research symbol")
     experiment_id = payload["experiment_id"]
     if not isinstance(experiment_id, str) or not re.fullmatch(
