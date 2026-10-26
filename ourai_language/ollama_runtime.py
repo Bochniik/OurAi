@@ -16,7 +16,9 @@ from .contracts import AnalysisSnapshot
 from .general_answers import deterministic_social_answer
 from .financial_knowledge import lookup_financial_knowledge
 from .forward_answers import maybe_forward_answer
-from .forward_followups import forward_ticker_followup_question
+from .forward_followups import (
+    forward_latest_followup_question, forward_ticker_followup_question,
+)
 from .historical_answers import maybe_historical_answer
 from .semantic_router import (
     SYSTEM_PROMPT as SEMANTIC_ROUTER_PROMPT,
@@ -211,8 +213,15 @@ class LocalOllamaChatRuntime:
                 )
 
         if self.forward_journal is not None:
+            # Resolve only a bounded latest-record follow-up before the direct
+            # reader: without its verified ticker, that reader would interpret
+            # "A aká bola posledná predikcia?" as an overall latest record.
+            contextual_latest = forward_latest_followup_question(
+                user_message, history_rows,
+            )
+            forward_question = contextual_latest or user_message
             try:
-                answer = maybe_forward_answer(user_message, self.forward_journal)
+                answer = maybe_forward_answer(forward_question, self.forward_journal)
             except (ValueError, OSError, KeyError, TypeError) as exc:
                 raise RuntimeError(
                     "Forward denník je neplatný alebo dočasne nedostupný; "
@@ -222,7 +231,7 @@ class LocalOllamaChatRuntime:
                 return ChatResult(
                     text=answer, used_grounding_fallback=False,
                     mode=ANALYSIS_QA, answer_source="verified_forward_journal",
-                    evidence_question=user_message,
+                    evidence_question=forward_question,
                 )
 
         # A short ticker switch may inherit only the metric of the immediately
