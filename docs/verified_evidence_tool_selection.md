@@ -587,3 +587,31 @@ paths, trading capability, data access, or model training.
 
 Offline regression: `py -m unittest tests.test_verified_forward_explicit_action -v`.
 Tests use synthetic tool proposals; **no local Qwen benchmark** was run.
+
+
+## Ambiguous error pronouns after the latest forward prediction
+
+After an **immediately preceding verified single-ticker latest-record** answer,
+short Slovak follow-ups such as `A aká bola jej chyba?` and
+`A čo jej chyba?` now receive a **clarifying question**: does the user
+mean the error of that individual latest prediction (only if evaluated),
+or the aggregate magnitude MAE of resolved forward predictions?
+
+This distinction is essential: a pending prediction has no realized error,
+and aggregate MAE must not be presented as the error of one record.
+The clarification contains no inferred metric, no number and no journal
+read. It does not call Qwen. The next user question must state the desired
+metric explicitly; the clarification does **not** create an authorization
+to access additional evidence or infer a follow-up automatically.
+
+Only the immediately preceding source-tagged `verified_forward_journal`
+turn with matching `evidence_question`, one recognized ticker and a
+latest-record intent qualifies. Historical/lockbox context, contradictory
+tickers, unsupported symbols, interrupted history, source switches,
+multi-intent/trading questions and model-generated text do not qualify.
+No model, data, journal, tool permissions, trading code or Orion integration
+is changed.
+
+Offline synthetic regression:
+`python -m unittest tests.test_forward_latest_error_ambiguity -v`.
+No local Qwen benchmark was run.
