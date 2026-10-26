@@ -103,10 +103,10 @@ def _ambiguous_accuracy_request(text: str) -> bool:
     magnitude error. Neither can be inferred from the word "spravne".
     """
     return any(re.search(pattern, text) for pattern in (
-        r"\\bako\\s+casto\\b.{0,120}\\b(?:trafil\\w*|spravn\\w*|uspesn\\w*)\\b",
-        r"\\bkolkokrat\\b.{0,120}\\b(?:trafil\\w*|spravn\\w*|uspesn\\w*)\\b",
-        r"\\b(?:aka|ake)\\s+(?:(?:je|bola|boli|su)\\s+)?uspesnost\\b",
-        r"\\bako\\s+uspesn\\w*\\b.{0,120}\\b(?:predikc\\w*|odhad\\w*|forecast\\w*)\\b",
+        r"\bako\s+casto\b.{0,120}\b(?:trafil\w*|spravn\w*|uspesn\w*)\b",
+        r"\bkolkokrat\b.{0,120}\b(?:trafil\w*|spravn\w*|uspesn\w*)\b",
+        r"\b(?:aka|ake)\s+(?:(?:je|bola|boli|su)\s+)?uspesnost\b",
+        r"\bako\s+uspesn\w*\b.{0,120}\b(?:predikc\w*|odhad\w*|forecast\w*)\b",
     ))
 
 
