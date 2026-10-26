@@ -505,3 +505,28 @@ These are deliberately narrow reply patterns, not general pronoun resolution.
 
 Offline regression (synthetic evidence, no local Qwen benchmark):
 `python -m unittest tests.test_forward_accuracy_clarification_replies -v`.
+
+
+## Indirect Slovak replies to forward accuracy clarifications (26 October 2026)
+
+A **direct** reply to the existing, verified ambiguity question can now use
+a few natural Slovak paraphrases instead of naming `MAE` or `smer`.
+For example, `Zaujíma ma skôr to, o koľko si sa pomýlil` selects
+**aggregate absolute-magnitude MAE**, while
+`Chcem vedieť, či si správne odhadol rast alebo pokles` selects the
+existing **direction-unavailable** explanation. Commas, accents and
+insignificant whitespace do not change the selection.
+
+This is a **bounded allowlist**, not a general semantic parser. It is active
+only after the immediately preceding verified forward answer actually asked
+the accuracy clarification, with matching original/evidence source and
+ticker scope. Negations, mixed metric requests, ticker switches, historical
+references, stale context and unsupported phrasings do not inherit a tool.
+The runtime constructs a canonical question and re-reads the **existing**
+integrity-checked forward reader; it never copies prior numeric values.
+No new reader, ticker, model, lockbox access, journal write, trading
+operation or Orion integration behavior is introduced.
+
+Regression:
+`python -m unittest tests.test_forward_indirect_accuracy_clarification_replies -v`.
+Tests use mocked synthetic evidence; **no local Qwen benchmark was run**.
