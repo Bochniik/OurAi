@@ -551,3 +551,18 @@ using the already installed local Ollama model, compare against the recorded
 baseline, and report failures. No additional model download or Qwen benchmark
 is implied by this change. Verified historical and forward readers remain
 read-only and unchanged.
+
+
+## Deterministic standalone basis-point conversions
+
+The local Ollama chat can answer narrowly worded Slovak requests such as
+`Koľko percent je 17 bps?` or `Preveď 12,5 bps na percentá` without
+asking Qwen to perform arithmetic. **17 bps = 0.17 percentage points**.
+The output is a pure **unit conversion**, not an observed prediction,
+performance statistic, directional hit rate, or profit. Complex questions,
+financial evidence requests, negative/signed returns, and multi-intent prompts
+are deliberately not handled by this narrow helper; ordinary routing applies.
+Existing verified readers take priority and are unchanged. This does not
+claim better natural-language fluency or a local Qwen benchmark.
+
+Offline regression: `py -m unittest tests.test_explicit_bps_conversion -v`.
