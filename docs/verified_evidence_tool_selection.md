@@ -310,3 +310,26 @@ journal, trading signal, execution, or Orion integration code is changed.
 Offline regression:
 `python -m unittest tests.test_verified_forward_cross_source_provenance -v`.
 All history is synthetic; **no local Qwen benchmark was run**.
+
+
+### Bounded tickerless provenance (26 October 2026)
+
+A source tag and a canonical per-symbol `evidence_question` are not
+sufficient to justify inheriting that symbol if the immediately preceding
+user turn did not name it. For example, an overall `Ako sa ti darí v shadow
+režime?` question or unrelated `Ahoj` cannot legitimately acquire NVDA
+merely because the assistant history claims a verified NVDA answer.
+
+When the previous user turn does not name a symbol, per-symbol forward
+inheritance now requires one of the already supported, narrowly phrased
+Slovak follow-ups (latest prediction, aggregate accuracy, or a bounded
+explanation) **consistent with the recorded evidence kind**. Explicit
+supported-ticker switches and overall forward reports remain available.
+Every accepted follow-up re-reads the integrity-checked journal; no
+numeric content is inherited from chat history. This guard does not
+establish a complete cryptographic chain of provenance across truncated
+chat histories, and does not authorize new tools or trading actions.
+
+Regression tests: `python -m unittest discover -s tests -p
+"test_verified_forward_tickerless_provenance.py" -v`. These are synthetic
+unit tests, **not** a local Qwen benchmark.

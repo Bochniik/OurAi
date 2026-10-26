@@ -29,6 +29,66 @@ def _mentions_retrospective_source(question: str) -> bool:
         plain,
     ) is not None
 
+
+def _tickerless_turn_matches_evidence(user_text: str, evidence: str) -> bool:
+    """Allow ticker inheritance only from known bounded, tickerless follow-ups.
+
+    A source-tagged answer to an unrelated or overall user question cannot
+    manufacture a per-symbol conversational context. This does not authorize
+    a new reader: callers still validate the source and re-read the journal.
+    """
+    if len(user_text) > 100:
+        return False
+    folded = unicodedata.normalize("NFKD", user_text.casefold())
+    plain = "".join(char for char in folded if not unicodedata.combining(char))
+    plain = plain.strip(" .?!")
+    kind = forward_question_kind(evidence)
+    folded_evidence = unicodedata.normalize("NFKD", evidence.casefold())
+    evidence_plain = "".join(
+        char for char in folded_evidence if not unicodedata.combining(char)
+    )
+    latest = kind in ("ticker", "latest") and re.search(
+        r"\b(?:posledn\w*|najnov\w*)\b", evidence_plain,
+    ) is not None
+    if latest and (
+        re.fullmatch(
+            r"(?:a\s+)?(?:aka\s+(?:je|bola)\s+|co\s+)?"
+            r"(?:jej\s+)?posledna\s+predikcia",
+            plain,
+        )
+        or plain in (
+            "co tato predikcia znamena",
+            "co tato predikcia vlastne znamena",
+            "a co tato predikcia znamena",
+            "a co tato predikcia vlastne znamena",
+            "vysvetli mi tuto predikciu",
+            "a vysvetli mi tuto predikciu",
+            "co znamena ta posledna predikcia",
+            "a co znamena ta posledna predikcia",
+        )
+    ):
+        return True
+    if kind == "performance" and (
+        re.fullmatch(
+            r"(?:a\s+)?(?:(?:aka\s+(?:je|bola)\s+)"
+            r"(?:jej\s+|ich\s+)?presnost(?:\s+predikcii)?"
+            r"|(?:co\s+)(?:jej\s+|ich\s+)?presnost"
+            r"(?:\s+predikcii)?|presnost\s+predikcii)",
+            plain,
+        )
+        or plain in (
+            "co tieto vysledky znamenaju",
+            "a co tieto vysledky znamenaju",
+            "co znamenaju tieto vysledky",
+            "a co znamenaju tieto vysledky",
+            "vysvetli mi tieto vysledky",
+            "a vysvetli mi tieto vysledky",
+        )
+    ):
+        return True
+    return False
+
+
 def forward_ticker_followup_question(
     message: str, history: Iterable[Mapping[str, str]] | None,
 ) -> str | None:
@@ -70,6 +130,10 @@ def forward_ticker_followup_question(
         return None
     user_symbols = _mentioned_symbols(prior_user_text)
     if len(user_symbols) > 1 or (user_symbols and user_symbols != prior_symbols):
+        return None
+    if prior_symbols and not user_symbols and not _tickerless_turn_matches_evidence(
+        prior_user_text, prior,
+    ):
         return None
     raw = str(message or "").strip()
     if len(raw) > 65:
@@ -121,6 +185,10 @@ def _verified_forward_ticker(
         return None
     user_symbols = _mentioned_symbols(prior_user_text)
     if len(user_symbols) > 1 or (user_symbols and user_symbols != symbols):
+        return None
+    if not user_symbols and not _tickerless_turn_matches_evidence(
+        prior_user_text, prior,
+    ):
         return None
     return symbols[0]
 
