@@ -48,6 +48,17 @@ def forward_evidence_snapshot(journal_path: str | Path) -> dict[str, Any]:
         raise FileNotFoundError("forward journal unavailable")
     if report.get("journal_valid") is not True:
         raise ValueError("forward journal validation failed")
+    # A malformed analytics mapping must return a safe HTTP 503, not an
+    # AttributeError that drops the socket and looks like a network outage.
+    # Reject invalid nested rows before whitelisting fields.
+    symbols = report.get("symbols")
+    latest = report.get("latest_by_symbol")
+    if not isinstance(symbols, dict) or not isinstance(latest, dict):
+        raise ValueError("invalid forward analytics symbol mappings")
+    if any(not isinstance(row, dict) for row in symbols.values()) or any(
+        not isinstance(row, dict) for row in latest.values()
+    ):
+        raise ValueError("invalid forward analytics symbol rows")
     return {
         "schema_version": 1,
         "source": "ourai_verified_forward_journal",
