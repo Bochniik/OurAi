@@ -173,3 +173,45 @@ def forward_results_explanation_followup_question(
     if forward_question_kind(rows[-1]["evidence_question"]) != "performance":
         return None
     return f"Aká je presnosť predikcií {ticker} vo forward denníku?"
+
+
+
+def forward_latest_explanation_followup_question(
+    message: str, history: Iterable[Mapping[str, str]] | None,
+) -> str | None:
+    """Re-read a verified single-ticker latest record for a bounded explanation.
+
+    A performance report, historical result, model-generated reply or generic
+    ticker discussion cannot establish that a latest prediction was shown.
+    """
+    raw = str(message or "").strip()
+    if len(raw) > 100:
+        return None
+    folded = unicodedata.normalize("NFKD", raw.casefold())
+    plain = "".join(char for char in folded if not unicodedata.combining(char))
+    plain = plain.strip(" .?!")
+    if plain not in (
+        "co tato predikcia znamena",
+        "co tato predikcia vlastne znamena",
+        "a co tato predikcia znamena",
+        "a co tato predikcia vlastne znamena",
+        "vysvetli mi tuto predikciu",
+        "a vysvetli mi tuto predikciu",
+        "co znamena ta posledna predikcia",
+        "a co znamena ta posledna predikcia",
+    ):
+        return None
+    rows = list(history or ())
+    ticker = _verified_forward_ticker(rows)
+    if ticker is None:
+        return None
+    prior = rows[-1]["evidence_question"]
+    if forward_question_kind(prior) not in ("ticker", "latest"):
+        return None
+    folded_prior = unicodedata.normalize("NFKD", prior.casefold())
+    plain_prior = "".join(
+        char for char in folded_prior if not unicodedata.combining(char)
+    )
+    if re.search(r"\b(?:posledn\w*|najnov\w*)\b", plain_prior) is None:
+        return None
+    return f"Aká je posledná predikcia {ticker} vo forward denníku?"

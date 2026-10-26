@@ -239,3 +239,32 @@ operation is introduced.
 Offline regression:
 `python -m unittest tests.test_verified_forward_result_explanations -v`.
 Tests use a synthetic reader; no local Qwen benchmark was run.
+
+
+## Verified latest-prediction explanation follow-ups
+
+After an **immediately preceding, source-tagged, single-ticker latest
+forward record**, the narrowly phrased Slovak question `Čo táto predikcia
+vlastne znamená?` (also `Čo táto predikcia znamená?` or `Vysvetli mi
+túto predikciu.`) re-reads the **same latest ticker record** from the
+existing integrity-checked forward journal. A fixed Slovak explanation
+then clarifies that magnitude is an **absolute 15-minute price change**,
+1 bps is 0.01 percentage point, and the resolution status is not a
+measurement of directional accuracy or a trading signal. No numbers are
+copied from assistant prose.
+
+This explanation is handled before generic deterministic forward routing:
+the word `predikcia` alone could otherwise trigger an overall journal
+answer. Eligibility requires the immediate assistant turn to carry
+`source=verified_forward_journal`, a single supported ticker in its
+`evidence_question`, an explicit latest-record cue in that question,
+and a non-contradictory original user turn. Aggregate performance,
+historical/lockbox results, generic ticker reports, unknown or multiple
+symbols, untagged model text, causal questions and trade requests do
+not authorize the follow-up. The feature is a bounded lexical explanation,
+not a model-generated causal interpretation, new prediction, tool,
+journal write or permission to trade.
+
+Offline regression:
+`python -m unittest tests.test_verified_forward_latest_explanations -v`.
+Tests use a synthetic reader; **no local Qwen benchmark was run**.
