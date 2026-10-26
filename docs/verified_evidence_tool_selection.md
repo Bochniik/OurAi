@@ -164,3 +164,28 @@ Offline regression:
 `python -m unittest tests.test_verified_forward_ticker_followups -v`.
 The tests use a synthetic mocked journal reader and synthetic classifier
 proposal; no local Qwen benchmark was run.
+
+## Verified forward latest-record follow-ups
+
+After an immediately preceding **verified single-ticker forward** answer,
+a short Slovak question such as `A aká bola posledná predikcia?` or
+`A čo posledná predikcia?` retains that one ticker and requests its
+**latest recorded forward magnitude prediction**. This bounded pattern is
+resolved **before** the ordinary deterministic forward reader, which would
+otherwise interpret a ticker-free latest question as the overall journal's
+latest record. The newly constructed canonical question re-reads the existing
+integrity-checked journal; no previous numeric answer is reused.
+
+This is **not** general conversational entity resolution. The immediately
+preceding assistant turn must carry `source=verified_forward_journal` and
+a valid `evidence_question` identifying exactly one frozen-universe ticker
+(or curated alias). A mismatched, multi-stock or unsupported original user
+request is rejected. Untagged model prose, historical reports, older turns,
+questions naming a different ticker, lockbox comparisons and trading requests
+do not inherit context. If the conditions are absent, the existing routing
+behavior remains unchanged. No new tool, data source, prediction, or
+historical-to-forward conversion is introduced.
+
+Offline regression:
+`python -m unittest tests.test_verified_forward_latest_followups -v`.
+The tests mock the journal reader; **no local Qwen benchmark** was run.
