@@ -142,6 +142,45 @@ class OrionForwardBridgeTests(unittest.TestCase):
                 server.server_close()
                 runner.join(timeout=5)
 
+    def test_host_header_requires_actual_loopback_port_and_no_duplicates(self):
+        # Host checks must run BEFORE touching a potentially large hash-chain
+        # journal. A spoofed port or ambiguous Host cannot trigger verification.
+        import http.client
+
+        with patch(
+            "scripts.serve_orion_forward_bridge.read_forward_report",
+            side_effect=AssertionError("invalid Host reached journal"),
+        ) as read_report:
+            server = ThreadingHTTPServer((HOST, 0), make_handler("mock-journal.jsonl"))
+            runner = threading.Thread(target=server.serve_forever, daemon=True)
+            runner.start()
+            url = f"http://127.0.0.1:{server.server_port}{ROUTE}"
+            opener = build_opener(ProxyHandler({}))
+            try:
+                for host in ("127.0.0.1:0", "localhost:not-a-port", "127.0.0.1"):
+                    with self.subTest(host=host):
+                        with self.assertRaises(HTTPError) as caught:
+                            opener.open(Request(url, headers={"Host": host}), timeout=5)
+                        self.assertEqual(caught.exception.code, 403)
+                        self.assertEqual(json.load(caught.exception), {"status": "forbidden_host"})
+
+                connection = http.client.HTTPConnection(HOST, server.server_port, timeout=5)
+                try:
+                    connection.putrequest("GET", ROUTE, skip_host=True)
+                    connection.putheader("Host", f"127.0.0.1:{server.server_port}")
+                    connection.putheader("Host", f"localhost:{server.server_port}")
+                    connection.endheaders()
+                    response = connection.getresponse()
+                    self.assertEqual(response.status, 403)
+                    self.assertEqual(json.loads(response.read()), {"status": "forbidden_host"})
+                finally:
+                    connection.close()
+                read_report.assert_not_called()
+            finally:
+                server.shutdown()
+                server.server_close()
+                runner.join(timeout=5)
+
     def test_cross_origin_browser_requests_do_not_read_forward_journal(self):
         # No CORS headers is insufficient: browser GETs still trigger work.
         # Even a direct navigation (Sec-Fetch-Site: none) must not verify the
