@@ -21,6 +21,7 @@ from .forward_followups import (
     forward_ticker_followup_question, forward_results_explanation_followup_question,
     forward_latest_explanation_followup_question,
     forward_accuracy_clarification_reply_question,
+    forward_latest_error_ambiguity_clarification,
 )
 from .historical_answers import maybe_historical_answer
 from .semantic_router import (
@@ -214,6 +215,19 @@ class LocalOllamaChatRuntime:
                     text=answer, used_grounding_fallback=False,
                     mode=ANALYSIS_QA, answer_source="historical_v3_reports",
                     evidence_question=contextual or user_message,
+                )
+
+        # An ambiguous error pronoun after a verified latest record is not
+        # permission to replace single-record error with aggregate MAE.
+        # Ask for the metric before any journal read or model generation.
+        if self.forward_journal is not None:
+            clarification = forward_latest_error_ambiguity_clarification(
+                user_message, history_rows,
+            )
+            if clarification is not None:
+                return ChatResult(
+                    text=clarification, used_grounding_fallback=False,
+                    mode=ANALYSIS_QA, answer_source="conversation_clarification",
                 )
 
         # An explanation mentioning "predikcia" could otherwise be mistaken
