@@ -478,3 +478,30 @@ No new tools, symbols, predictive models or trading behavior are introduced.
 
 Synthetic-only regression (no local Qwen benchmark):
 `python -m unittest tests.test_forward_ambiguous_accuracy_clarification -v`.
+
+## Replies to a verified forward accuracy clarification
+
+When a forward/shadow question asks how often predictions were "correct"
+without defining correctness, the deterministic reader asks whether the user
+means **directional hit rate** or **absolute-magnitude MAE**. A directly
+following `Myslím MAE` or `Zaujíma ma smer` can now resolve that
+clarification without guessing a metric or calling Qwen.
+
+The reply is eligible **only** after the immediately preceding source-tagged
+`verified_forward_journal` turn actually contained the deterministic
+ambiguity clarification. Both the original user question and recorded
+`evidence_question` must be matching forward ambiguity requests, with
+identical supported ticker scope (or both overall). An absent/empty journal,
+historical/lockbox answer, unsupported or multiple symbols, mismatched source,
+intervening turn, or mixed/negated reply does not authorize inheritance.
+
+The resolution constructs a new bounded question for the **existing
+integrity-checked forward reader**. MAE returns observed absolute-magnitude
+error; choosing direction returns the existing explicit
+`direction_unavailable` explanation because v3 predicts magnitude, not
+UP/DOWN. It does not invent directional hit rates, copy prior numeric values,
+or touch the journal, model weights, trading/execution, or Orion integration.
+These are deliberately narrow reply patterns, not general pronoun resolution.
+
+Offline regression (synthetic evidence, no local Qwen benchmark):
+`python -m unittest tests.test_forward_accuracy_clarification_replies -v`.
