@@ -291,3 +291,22 @@ new permission to select tools.
 Offline regression:
 `python -m unittest tests.test_verified_forward_ticker_provenance -v`.
 The tests use a synthetic reader; no local Qwen benchmark was run.
+
+## Cross-source provenance guard for forward follow-ups
+
+A stored `source=verified_forward_journal` tag cannot by itself authorize
+inheriting a ticker from a preceding user request that explicitly names a
+**historical, validation, retrospective, backtest, or lockbox** source.
+The same guard applies if the stored `evidence_question` itself names
+one of these incompatible sources. Such contradictory history fails closed
+for ticker-switch, latest-record, aggregate-performance, and latest-record
+explanation follow-ups. A verified forward-only sequence remains eligible;
+every eligible turn still re-reads the integrity-checked journal.
+
+This is a narrow provenance validation, not a new historical/forward tool,
+model permission, or source conversion. No model, lockbox, append-only
+journal, trading signal, execution, or Orion integration code is changed.
+
+Offline regression:
+`python -m unittest tests.test_verified_forward_cross_source_provenance -v`.
+All history is synthetic; **no local Qwen benchmark was run**.
