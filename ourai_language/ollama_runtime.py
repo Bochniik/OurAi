@@ -35,6 +35,7 @@ from .conversation_followups import (
 from .verified_tool_router import (
     SYSTEM_PROMPT as VERIFIED_TOOL_ROUTER_PROMPT, select_verified_tool,
 )
+from .numeric_units import explicit_bps_conversion_answer
 from .grounding import find_unsupported_percentages, grounded_fallback
 from .prompting import (
     ANALYSIS_QA, GENERAL_CHAT, build_messages, select_conversation_mode,
@@ -353,6 +354,15 @@ class LocalOllamaChatRuntime:
             social = deterministic_social_answer(user_message)
             if social is not None:
                 return ChatResult(text=social, used_grounding_fallback=False, mode=mode)
+
+        # Exact, standalone bps conversions require no generated arithmetic.
+        # All verified evidence routes above remain authoritative.
+        if analysis is None and mode == GENERAL_CHAT:
+            converted = explicit_bps_conversion_answer(user_message)
+            if converted is not None:
+                return ChatResult(
+                    text=converted, used_grounding_fallback=False, mode=mode,
+                )
 
         # Opt-in model-assisted selection from a closed list of two verified
         # readers. Qwen never supplies file paths, symbols, numerical outputs
