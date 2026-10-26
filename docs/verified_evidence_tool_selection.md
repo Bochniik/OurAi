@@ -401,3 +401,31 @@ follow-ups still re-read the existing integrity-checked journal and never
 reuse numeric assistant prose. Regression:
 `python -m unittest tests.test_verified_forward_dual_metric_provenance -v`.
 Tests use synthetic history; **no local Qwen benchmark was performed**.
+
+
+## Source-bound colloquial Slovak error questions (26 October 2026)
+
+The deterministic forward reader now recognizes a **small set of explicit
+error-magnitude phrasings**: `Ako veľmi sa tvoje forward odhady mýlia?`,
+`Ako ďaleko boli predikcie vo forward denníku od skutočnosti?`,
+`O koľko sa tvoje forward predikcie líšili od reality?`, and
+`Aká bola odchýlka forward predikcií NVDA?`. They select the **existing
+aggregate magnitude MAE** reader, not the latest individual prediction,
+directional accuracy or trading profitability.
+
+A source cue (`forward`, `shadow`, `paper trading`, `denník`,
+`journal`, or `záznam`) is mandatory for these newly recognized
+expressions. Without one, or when the question explicitly asks about
+historical/validation/backtest/lockbox results, **no forward reader is
+selected**. Causal questions such as `Prečo sa tvoje forward predikcie
+mýlia?` also remain outside this reader: MAE alone cannot establish
+causation. Unrecognized phrasings are not claimed to be understood.
+
+Only `ourai_language/forward_answers.py`, synthetic regressions and this
+documentation change. No new reader, ticker, model weights, journal writes,
+lockbox access, signals, execution or OurAI–Orion integration changes.
+
+Regression:
+`python -m unittest tests.test_forward_colloquial_error_source -v`.
+Tests use a synthetic report and mocked journal reader. **No local Qwen
+benchmark was performed.**

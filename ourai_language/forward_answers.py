@@ -59,11 +59,43 @@ def is_forward_educational_request(message: str) -> bool:
     )
 
 
+
+def _colloquial_error_magnitude_request(text: str) -> bool:
+    """Recognize bounded Slovak questions about observed error size.
+
+    These expressions alone do not authorize a forward source: the caller
+    requires an explicit journal/shadow cue, rather than assuming that
+    unspecified or retrospective errors came from forward observations.
+    """
+    return any(re.search(pattern, text) for pattern in (
+        r"\b(?:ako velmi|nakolko)\b.{0,120}\b(?:myl\w*|odchyl\w*)\b",
+        r"\bako daleko\b.{0,120}\b(?:skutocnost\w*|realit\w*)\b",
+        r"\bo kolko\b.{0,120}\b(?:lisil\w*|odchyl\w*)\b",
+        r"\b(?:aka|ake|aku)\b.{0,120}\bodchylk\w*\b",
+    ))
+
+
 def forward_question_kind(message: str) -> str | None:
     """Require explicit forward/record/forecast intent; not everyday questions."""
     text = _normalize(str(message or "").strip())
     if not text or is_forward_educational_request(message):
         return None
+    # An observed error magnitude cannot explain why a model erred.
+    if re.match(r"^(?:preco|z akeho dovodu|co sposobilo)\b", text) and re.search(
+        r"\b(?:myl\w*|odchyl\w*|chyb\w*)\b", text,
+    ):
+        return None
+    if _colloquial_error_magnitude_request(text):
+        if any(word in text for word in (
+            "historick", "lockbox", "validac", "backtest", "retrospekt",
+        )):
+            return None
+        if not any(word in text for word in (
+            "forward", "shadow", "paper trading", "paper-trading",
+            "dennik", "journal", "zaznam",
+        )):
+            return None
+        return "performance"
     ticker = _ticker_in(text)
     explicit = any(word in text for word in (
         "forward", "dennik", "journal", "zaznam", "predikc", "predpoved",
